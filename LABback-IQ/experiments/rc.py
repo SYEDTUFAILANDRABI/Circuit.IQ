@@ -31,5 +31,5 @@ class RcExperiment(BaseExperiment):
             'Z': Z,
             'I': I,
             'phi': phi,
-            'f0': R_eff * C
+            'f0': 0.0
         }

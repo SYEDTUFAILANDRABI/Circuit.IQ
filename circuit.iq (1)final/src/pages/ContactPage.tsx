@@ -42,6 +42,7 @@ export default function ContactPage() {
   // Validation / Submission states
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStep, setSubmitStep] = useState(0);
   const [submitLogs, setSubmitLogs] = useState<string[]>([]);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [ticketId, setTicketId] = useState('');
@@ -84,41 +85,46 @@ export default function ContactPage() {
 
     setIsSubmitting(true);
     setSubmitLogs([]);
+    setSubmitStep(1);
 
-    const steps = [
+    // Animated log steps shown to user while request is in-flight
+    const logSteps = [
       "Securing connection pipeline to diagnostic channel... [OK]",
       "Compiling problem metadata and browser specs... [OK]",
       "Encoding ticket payload parameters... [OK]",
-      "Syncing with Circuit.IQ global queue... [SUCCESS]"
     ];
 
-    for (let i = 0; i < steps.length; i++) {
-      await new Promise((resolve) => setTimeout(resolve, i === 0 ? 150 : 300));
-      setSubmitLogs((prev) => [...prev, steps[i]]);
+    for (let i = 0; i < logSteps.length; i++) {
+      await new Promise((resolve) => setTimeout(resolve, i === 0 ? 300 : 500));
+      setSubmitLogs((prev) => [...prev, logSteps[i]]);
+      setSubmitStep(i + 2);
     }
 
     try {
-      const response = await fetch('/api/contact', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ name, email, requestType, subject, message })
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, subject, message, requestType }),
       });
-      if (response.ok) {
-        const data = await response.json();
-        setTicketId(data.ticketId);
-      } else {
-        throw new Error("Backend response error");
-      }
-    } catch (err) {
-      console.warn("Failed to contact backend API, falling back to mock ticket.", err);
-      const randomTicket = `CIQ-${Math.floor(100000 + Math.random() * 900000)}`;
-      setTicketId(randomTicket);
-    }
 
-    setIsSubmitting(false);
-    setIsSubmitted(true);
+      const result = await response.json();
+
+      if (response.ok && result.status === "success") {
+        setSubmitLogs((prev) => [...prev, "Syncing with Circuit.IQ global queue... [SUCCESS]"]);
+        setSubmitStep(5);
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        // Use server-generated ticket id, formatted like CIQ-XXXXXXXX
+        const serverTicket = `CIQ-${result.ticket_id.slice(0, 8).toUpperCase()}`;
+        setTicketId(serverTicket);
+        setIsSubmitted(true);
+      } else {
+        setSubmitLogs((prev) => [...prev, `Transmission error: ${result.message || "Unknown error"} [FAIL]`]);
+      }
+    } catch {
+      setSubmitLogs((prev) => [...prev, "Network error — check your connection and try again. [FAIL]"]);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleCopyText = (text: string) => {
@@ -329,7 +335,7 @@ export default function ContactPage() {
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="bg-slate-950 text-blue-400 rounded-xl p-3.5 font-mono text-[10px] border border-blue-500/20 shadow-inner overflow-hidden flex flex-col gap-1"
+                        className="bg-black text-blue-400 rounded-xl p-3.5 font-mono text-[10px] border border-blue-500/20 shadow-inner overflow-hidden flex flex-col gap-1"
                       >
                         <div className="flex items-center gap-2 border-b border-blue-500/10 pb-1 text-blue-500 font-bold uppercase tracking-wider">
                           <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />

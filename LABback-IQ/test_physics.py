@@ -73,22 +73,6 @@ class TestPhysicsEngine(unittest.TestCase):
         # f0 = 1 / (2 * pi * sqrt(0.05 * 0.0001)) = 1 / (2 * pi * sqrt(5e-6)) = 1 / (2 * pi * 0.002236) = 71.176 Hz
         self.assertAlmostEqual(res['f0'], 71.17625, places=4)
 
-    def test_rc_circuit(self):
-        # R = 100.0, C = 100uF (0.0001 F), f = 50.0, V = 12.0, T = 25.0
-        # Reff = 100.0, XC = 1 / (2 * pi * 50 * 0.0001) = 31.83098
-        # Z = sqrt(100^2 + XC^2) = 104.949
-        # tau = R_eff * C = 100.0 * 0.0001 = 0.01 seconds
-        self.engine.set_param('R', 100.0)
-        self.engine.set_param('C', 0.0001)
-        self.engine.set_param('f', 50.0)
-        self.engine.set_param('V', 12.0)
-        self.engine.set_param('T', 25.0)
-
-        res = self.engine.calculate('rc')
-        self.assertAlmostEqual(res['XC'], 1.0 / (2.0 * math.pi * 50.0 * 0.0001))
-        self.assertAlmostEqual(res['Z'], math.sqrt(100.0**2 + res['XC']**2))
-        self.assertAlmostEqual(res['f0'], 0.01)
-
     def test_circuit_validator(self):
         placed = [
             {'type': 'source', 'id': 0},

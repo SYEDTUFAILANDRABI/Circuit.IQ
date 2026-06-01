@@ -11,6 +11,7 @@ import ContactPage from './pages/ContactPage';
 import LabStudio from './pages/LabStudio';
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from './lib/utils';
+import PhysicsBotPanel from './components/PhysicsBotPanel';
 
 export default function App() {
   const { isLabOpen, theme, activeTab } = useAppStore();
@@ -32,7 +33,7 @@ export default function App() {
       {!isLabOpen && <Navbar />}
       
       <AnimatePresence mode="wait">
-        {!isLabOpen && (
+        {!isLabOpen ? (
           <motion.div
             key={activeTab}
             initial={{ opacity: 0, y: 15 }}
@@ -40,20 +41,13 @@ export default function App() {
             exit={{ opacity: 0, y: -15 }}
             transition={{ duration: 0.4, ease: "easeInOut" }}
           >
-            {activeTab === 'home' && <LandingPage view="home" />}
-            {activeTab === 'experiments' && <LandingPage view="experiments" />}
-            {activeTab === 'physicsbot' && <LandingPage view="physicsbot" />}
-            {activeTab === 'contact' && <ContactPage />}
+            {activeTab === 'home' ? <LandingPage /> : <ContactPage />}
           </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {isLabOpen && (
+        ) : (
           <motion.div
             key="lab"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5, ease: "easeOut" }}
           >
@@ -61,6 +55,9 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Floating PhysicsBot panel — rendered above everything */}
+      <PhysicsBotPanel />
     </div>
   );
 }
