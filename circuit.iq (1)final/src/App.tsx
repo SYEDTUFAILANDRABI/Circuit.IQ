@@ -9,6 +9,7 @@ import Navbar from './components/Navbar';
 import LandingPage from './pages/LandingPage';
 import ContactPage from './pages/ContactPage';
 import LabStudio from './pages/LabStudio';
+import InteractiveCircuitLines from './components/InteractiveCircuitLines';
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from './lib/utils';
 import PhysicsBotPanel from './components/PhysicsBotPanel';
@@ -30,6 +31,7 @@ export default function App() {
       <div className="glow-top-left" />
       <div className="glow-bottom-right" />
       
+      {!isLabOpen && activeTab !== 'home' && <InteractiveCircuitLines />}
       {!isLabOpen && <Navbar />}
       
       <AnimatePresence mode="wait">
@@ -41,7 +43,11 @@ export default function App() {
             exit={{ opacity: 0, y: -15 }}
             transition={{ duration: 0.4, ease: "easeInOut" }}
           >
-            {activeTab === 'home' ? <LandingPage /> : <ContactPage />}
+            {activeTab === 'contact' ? (
+              <ContactPage />
+            ) : (
+              <LandingPage view={activeTab === 'home' ? 'home' : activeTab} />
+            )}
           </motion.div>
         ) : (
           <motion.div

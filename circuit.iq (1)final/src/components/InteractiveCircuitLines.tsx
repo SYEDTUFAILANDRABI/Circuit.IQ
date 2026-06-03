@@ -126,7 +126,7 @@ export default function InteractiveCircuitLines() {
     };
 
     window.addEventListener('mousemove', handleMouseMove);
-    containerRef.current?.addEventListener('mouseleave', handleMouseLeave);
+    document.addEventListener('mouseleave', handleMouseLeave);
 
     // Main animation loops
     const animate = () => {
@@ -255,11 +255,12 @@ export default function InteractiveCircuitLines() {
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
       window.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseleave', handleMouseLeave);
     };
   }, [theme]);
 
   return (
-    <div ref={containerRef} className="absolute inset-0 z-0 pointer-events-auto">
+    <div ref={containerRef} className="absolute inset-0 z-0 pointer-events-none">
       <canvas ref={canvasRef} className="w-full h-full block" />
     </div>
   );

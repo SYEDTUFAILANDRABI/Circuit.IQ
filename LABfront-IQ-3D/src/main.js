@@ -588,6 +588,23 @@ const experiments = {
     ],
     theory: "<h3>Bohr Atom</h3><p>Electrons reside in quantized shells. Orbital drops emit discrete photons.</p>",
     formulas: [{ name: "Transition energy", expr: "ΔE = 13.6 (1/n_f² - 1/n_i²) eV" }]
+  },
+  arduino_led: {
+    name: "Arduino LED Control",
+    aim: "Control an LED using a switch and an Arduino power loop.",
+    apparatus: "Arduino Uno board, Push Button, Red LED, Current-limiting Resistor (150Ω), Breadboard, connecting wires.",
+    req: ['source', 'button', 'led', 'resistor'],
+    steps: [
+      { id: 1, text: "Connect DC power supply to Arduino Uno." },
+      { id: 2, text: "Mount Push Button switch across center ravine (Col 12)." },
+      { id: 3, text: "Mount LED and resistor in series on the board." },
+      { id: 4, text: "Complete wiring: Arduino 5V -> switch -> LED -> resistor -> GND." },
+      { id: 5, text: "Click Initialize to power board, then hold switch to light LED." }
+    ],
+    theory: "<h3>Microcontroller Power Loop</h3><p>Using the Arduino 5V power output, a current-limiting resistor protects the LED while a series switch closes the circuit loop to Ground.</p>",
+    formulas: [
+      { name: "Current Limit", expr: "I = (V_pin - V_led) / R" }
+    ]
   }
 };
 
@@ -4286,43 +4303,96 @@ function initInteraction() {
   });
 }
 
-function handleUserChatQuery() {
+async function handleUserChatQuery() {
   const query = elements.aiInput.value.trim();
   if (!query) return;
   elements.aiInput.value = '';
   
   appendAIMessage("User", query, true);
   
-  let response = "I am your Circuit IQ AI Mentor. Please specify what help you need (e.g. ask 'how to connect', 'formula', or 'readings').";
-  const text = query.toLowerCase();
-  
-  if (text.includes("connect") || text.includes("how to") || text.includes("wire") || text.includes("step")) {
-    response = `Here is the current connection step for **${experiments[state.activeExperiment].name}**:<br><br>${getAIMentorMessage()}`;
-  } else if (text.includes("formula") || text.includes("equation") || text.includes("law")) {
-    const formulasHtml = experiments[state.activeExperiment].formulas.map(f => `• **${f.name}**: \`${f.expr}\``).join("<br>");
-    response = `Here are the formulas for the current experiment:<br><br>${formulasHtml}`;
-  } else if (text.includes("reading") || text.includes("meter") || text.includes("volt") || text.includes("amp")) {
-    response = `Current digital telemetry measurements:<br>• **Voltage (V)**: \`${state.meters.volts.toFixed(2)} V\`<br>• **Current (I)**: \`${state.meters.amps.toFixed(4)} A\`<br>• **Impedance (Z)**: \`${state.meters.ohms.toFixed(2)} Ω\`<br>• **Power (P)**: \`${state.meters.power.toFixed(2)} W\``;
-  } else if (text.includes("resonance") || text.includes("frequency") || text.includes("lcr")) {
-    if (state.activeExperiment === 'lcr') {
-      response = `In the Series LCR circuit, resonance occurs where Z is minimum and equal to R. Resonant frequency **f₀ = ${(state.analysis.f0).toFixed(1)} Hz**.<br>Reactance values:<br>• **XL (Inductance)**: \`${state.analysis.XL.toFixed(1)} Ω\`<br>• **XC (Capacitance)**: \`${state.analysis.XC.toFixed(1)} Ω\`<br>• **Phase Shift φ**: \`${state.analysis.phi.toFixed(1)}°\``;
-    } else {
-      response = "LCR Resonance formulas are active in EXP-03 Series LCR Laboratory.";
+  // Append temporary loading bubble
+  const loadingDiv = document.createElement('div');
+  loadingDiv.className = 'ai-msg';
+  loadingDiv.innerHTML = `
+    <div class="ai-avatar">⚡</div>
+    <div>
+      <div style="font-size:9px;font-weight:600;color:var(--accent);letter-spacing:.5px;margin-bottom:3px">Circuit IQ · AI Mentor</div>
+      <div class="ai-bubble" style="display:flex;gap:4px;align-items:center">
+        <span style="opacity: 0.6">Consulting AI...</span>
+      </div>
+    </div>
+  `;
+  elements.aiMessagesContainer.appendChild(loadingDiv);
+  elements.aiMessagesContainer.scrollTop = elements.aiMessagesContainer.scrollHeight;
+
+  try {
+    const response = await fetch('/api/physicsbot/ask', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        question: query,
+        experiment: state.activeExperiment,
+        circuit_state: {
+          placed_components: state.placedComponents.map(c => ({ type: c.type, id: c.id })),
+          wires: resolveVirtualWires(),
+          params: state.params,
+          readings: {
+            volts: state.meters.volts,
+            amps: state.meters.amps,
+            ohms: state.meters.ohms,
+            power: state.meters.power
+          }
+        }
+      })
+    });
+    
+    if (loadingDiv.parentNode) {
+      loadingDiv.parentNode.removeChild(loadingDiv);
     }
-  } else if (text.includes("time constant") || text.includes("tau") || text.includes("charging")) {
-    if (state.activeExperiment === 'rc') {
-      const tau = state.params.R * state.params.C * 1e-6;
-      response = `For the RC Time Constant, **τ = R × C** is equal to **${(tau * 1000).toFixed(1)} ms** (with R = ${state.params.R} Ω, C = ${state.params.C} µF). The capacitor reaches ~63.2% charge at t = τ, and full charge (~99%) at t = 5τ.`;
+    
+    if (response.ok) {
+      const data = await response.json();
+      appendAIMessage("Circuit IQ · AI Mentor", data.answer);
     } else {
-      response = "Time constant charging calculations are active in EXP-04 RC Time Constant Laboratory.";
+      throw new Error(`HTTP ${response.status}`);
     }
-  } else if (text.includes("hello") || text.includes("hi") || text.includes("hey")) {
-    response = "Hello! I am your interactive AI Mentor. Ask me about circuit connections, formulas, or current measurements!";
+  } catch (error) {
+    console.error("AI Mentor API request failed, using local rules:", error);
+    if (loadingDiv.parentNode) {
+      loadingDiv.parentNode.removeChild(loadingDiv);
+    }
+    
+    let fallbackResponse = "I am your Circuit IQ AI Mentor. Please specify what help you need (e.g. ask 'how to connect', 'formula', or 'readings').";
+    const text = query.toLowerCase();
+    
+    if (text.includes("connect") || text.includes("how to") || text.includes("wire") || text.includes("step")) {
+      fallbackResponse = `Here is the current connection step for **${experiments[state.activeExperiment].name}**:<br><br>${getAIMentorMessage()}`;
+    } else if (text.includes("formula") || text.includes("equation") || text.includes("law")) {
+      const formulasHtml = experiments[state.activeExperiment].formulas.map(f => `• **${f.name}**: \`${f.expr}\``).join("<br>");
+      fallbackResponse = `Here are the formulas for the current experiment:<br><br>${formulasHtml}`;
+    } else if (text.includes("reading") || text.includes("meter") || text.includes("volt") || text.includes("amp")) {
+      fallbackResponse = `Current digital telemetry measurements:<br>• **Voltage (V)**: \`${state.meters.volts.toFixed(2)} V\`<br>• **Current (I)**: \`${state.meters.amps.toFixed(4)} A\`<br>• **Impedance (Z)**: \`${state.meters.ohms.toFixed(2)} Ω\`<br>• **Power (P)**: \`${state.meters.power.toFixed(2)} W\``;
+    } else if (text.includes("resonance") || text.includes("frequency") || text.includes("lcr")) {
+      if (state.activeExperiment === 'lcr') {
+        fallbackResponse = `In the Series LCR circuit, resonance occurs where Z is minimum and equal to R. Resonant frequency **f₀ = ${(state.analysis.f0).toFixed(1)} Hz**.<br>Reactance values:<br>• **XL (Inductance)**: \`${state.analysis.XL.toFixed(1)} Ω\`<br>• **XC (Capacitance)**: \`${state.analysis.XC.toFixed(1)} Ω\`<br>• **Phase Shift φ**: \`${state.analysis.phi.toFixed(1)}°\``;
+      } else {
+        fallbackResponse = "LCR Resonance formulas are active in EXP-03 Series LCR Laboratory.";
+      }
+    } else if (text.includes("time constant") || text.includes("tau") || text.includes("charging")) {
+      if (state.activeExperiment === 'rc') {
+        const tau = state.params.R * state.params.C * 1e-6;
+        fallbackResponse = `For the RC Time Constant, **τ = R × C** is equal to **${(tau * 1000).toFixed(1)} ms** (with R = ${state.params.R} Ω, C = ${state.params.C} µF). The capacitor reaches ~63.2% charge at t = τ, and full charge (~99%) at t = 5τ.`;
+      } else {
+        fallbackResponse = "Time constant charging calculations are active in EXP-04 RC Time Constant Laboratory.";
+      }
+    } else if (text.includes("hello") || text.includes("hi") || text.includes("hey")) {
+      fallbackResponse = "Hello! I am your interactive AI Mentor. Ask me about circuit connections, formulas, or current measurements!";
+    }
+    
+    appendAIMessage("Circuit IQ · AI Mentor", fallbackResponse);
   }
-  
-  setTimeout(() => {
-    appendAIMessage("Circuit IQ · AI Mentor", response);
-  }, 250);
 }
 
 function autoBuildExperiment() {
@@ -4602,13 +4672,13 @@ function updateTargetHighlights() {
       }
     } else if (!ammeter) {
       if (!state.selectedTool || state.selectedTool === 'ammeter') {
-        targetHighlightRing1 = addRing(14 * 14 + 5);
-        targetHighlightRing2 = addRing(19 * 14 + 5);
+        targetHighlightRing1 = addRing(14 * 14 + 7);
+        targetHighlightRing2 = addRing(19 * 14 + 7);
       }
     } else if (!voltmeter) {
       if (!state.selectedTool || state.selectedTool === 'voltmeter') {
-        targetHighlightRing1 = addRing(9 * 14 + 3);
-        targetHighlightRing2 = addRing(14 * 14 + 3);
+        targetHighlightRing1 = addRing(9 * 14 + 2);
+        targetHighlightRing2 = addRing(14 * 14 + 2);
       }
     } else {
       if (!state.selectedTool || state.selectedTool === 'wire') {
@@ -5058,6 +5128,32 @@ function getAIMentorMessage() {
 function updateAIMentor() {
   const msg = getAIMentorMessage();
   elements.aiMessage.innerHTML = msg;
+  
+  // Parse active step from the message
+  let activeStepNum = 1;
+  const stepMatch = msg.match(/Step\s+(\d+)/i);
+  if (stepMatch) {
+    activeStepNum = parseInt(stepMatch[1], 10);
+  } else if (msg.includes("Complete!")) {
+    activeStepNum = 999;
+  }
+  
+  // Update step visual status items
+  const stepItems = elements.stepsContainer.querySelectorAll('.step-item');
+  stepItems.forEach((el, idx) => {
+    const stepId = idx + 1;
+    const numEl = el.querySelector('.step-num');
+    if (stepId < activeStepNum) {
+      el.className = 'step-item done';
+      if (numEl) numEl.className = 'step-num done';
+    } else if (stepId === activeStepNum) {
+      el.className = 'step-item cur';
+      if (numEl) numEl.className = 'step-num cur';
+    } else {
+      el.className = 'step-item';
+      if (numEl) numEl.className = 'step-num';
+    }
+  });
 }
 
 // --- THREE.JS 3D PHYSICS LAB VISUALS ---

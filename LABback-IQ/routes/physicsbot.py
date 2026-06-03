@@ -147,7 +147,7 @@ def ask():
 
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash",
+            model_name="gemini-2.5-flash",
             system_instruction=SYSTEM_PROMPT,
         )
 
@@ -231,7 +231,7 @@ def physics_bot():
 
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(
-            model_name="gemini-2.0-flash",
+            model_name="gemini-2.5-flash",
             system_instruction=LANDING_SYSTEM_PROMPT,
         )
 
@@ -239,7 +239,6 @@ def physics_bot():
             question,
             generation_config=genai.types.GenerationConfig(
                 temperature=0.4,
-                max_output_tokens=300,
                 response_mime_type="application/json",
             ),
         )

@@ -5,7 +5,6 @@ import {
   ArrowRight, ChevronDown, Copy, Clock, User, MessageSquare, Terminal, Check, Info, ShieldAlert
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import InteractiveCircuitLines from '../components/InteractiveCircuitLines';
 
 interface FAQItem {
   question: string;
@@ -155,9 +154,6 @@ export default function ContactPage() {
 
   return (
     <div className="w-full min-h-screen bg-transparent pt-32 pb-24 px-4 sm:px-6 md:px-8 relative overflow-hidden font-sans transition-colors duration-300">
-      
-      {/* Dynamic Handcrafted Interactive Circuit Background Lines */}
-      <InteractiveCircuitLines />
       
       {/* Decorative Science Grid Backgrounds */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(99,102,241,0.03)_1px,transparent_1px),linear-gradient(to_bottom,rgba(99,102,241,0.03)_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] pointer-events-none" />
