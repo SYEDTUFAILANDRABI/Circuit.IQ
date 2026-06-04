@@ -450,10 +450,10 @@ function PhysicsBackgroundItems() {
         rotation: [Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI] as [number, number, number],
         scale: 0.6 + Math.random() * 0.7,
         speed: {
-           rotX: (Math.random() - 0.5) * 0.4,
-           rotY: (Math.random() - 0.5) * 0.4,
-           rotZ: (Math.random() - 0.5) * 0.4,
-           orbit: (Math.random() - 0.5) * 0.08,
+           rotX: (Math.sign(Math.random() - 0.5) || 1) * (0.35 + Math.random() * 0.45),
+           rotY: (Math.sign(Math.random() - 0.5) || 1) * (0.35 + Math.random() * 0.45),
+           rotZ: (Math.sign(Math.random() - 0.5) || 1) * (0.35 + Math.random() * 0.45),
+           orbit: (Math.sign(Math.random() - 0.5) || 1) * (0.05 + Math.random() * 0.05),
            yOffset: Math.random() * Math.PI * 2,
            yFreq: 0.12 + Math.random() * 0.3
         }
@@ -470,9 +470,9 @@ function PhysicsBackgroundItems() {
            const item = items[i];
            if (!item) return;
            
-           child.rotation.x += item.speed.rotX * 0.04;
-           child.rotation.y += item.speed.rotY * 0.04;
-           child.rotation.z += item.speed.rotZ * 0.04;
+           child.rotation.x = item.rotation[0] + t * item.speed.rotX;
+           child.rotation.y = item.rotation[1] + t * item.speed.rotY;
+           child.rotation.z = item.rotation[2] + t * item.speed.rotZ;
            
            const currentRadius = Math.sqrt(item.position[0]*item.position[0] + item.position[2]*item.position[2]);
            const currentAngle = Math.atan2(item.position[2], item.position[0]) + t * item.speed.orbit;
@@ -555,8 +555,8 @@ function GridLogoScene({ progressRef }: { progressRef: React.MutableRefObject<{v
       const swirlRadius = 8 + Math.random() * 30; // Wider spread
       const swirlAngle = Math.random() * Math.PI * 2;
       const swirlY = 10 + (Math.random() - 0.5) * 40; // Taller spread
-      const swirlOrbitSpeed = (Math.random() - 0.5) * 0.4;
-      const swirlVertSpeed = (Math.random() - 0.5) * 0.2;
+      const swirlOrbitSpeed = (Math.sign(Math.random() - 0.5) || 1) * (0.2 + Math.random() * 0.3);
+      const swirlVertSpeed = (Math.sign(Math.random() - 0.5) || 1) * (0.1 + Math.random() * 0.15);
       const randomRotY = 0; // Keep resistors perfectly straight
       
       const endPos: [number, number, number] = [
