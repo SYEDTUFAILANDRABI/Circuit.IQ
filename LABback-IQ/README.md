@@ -11,8 +11,8 @@ Circuit-IQ/                       ← Python Backend Root
 │
 ├── main.py                       ← 🚀 ENTRY POINT — Run this to start the server
 │
-├── server.py                     ← 🌐 HTTP Server — Serves frontend & REST API routes
-│                                    Endpoints: POST /api/validate, POST /api/calculate
+├── app.py                        ← 🌐 FLASK BACKEND — Serves frontend & REST API routes
+│                                    Endpoints: POST /api/validate, POST /api/calculate, etc.
 │
 ├── physics_engine.py             ← ⚡ Physics Engine — Circuit simulation calculations
 │                                    Handles: Ohm's Law, LCR, RC experiments

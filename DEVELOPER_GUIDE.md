@@ -11,8 +11,8 @@ The repository is divided into three core sub-projects:
 ```
 final physics project/
 ├── LABback-IQ/                  # Python API & Simulation Backend
-│   ├── main.py                  # Backend startup entrypoint
-│   ├── server.py                # HTTP Server handling APIs (Port 5000)
+│   ├── main.py                  # Backend startup entrypoint (delegates to app.py)
+│   ├── app.py                   # Flask server initialization & configuration (Port 5000)
 │   └── physics_engine.py        # Rigid solver calculation engine
 │
 ├── LABfront-IQ-3D/              # 3D WebGL Virtual Lab Simulator
@@ -104,7 +104,7 @@ Open [main.js](file:///c:/Users/anaya/OneDrive/Desktop/final%20physics%20project
 2. Modify `setupExperiment(expKey)` (around line 2030) or `initProceduralVisuals(expKey)` (around line 2075) to instantiate Three.js meshes representing the cage or charged sphere models.
 
 ### Step 4: Add AI Assistant Reference
-Open [server.py](file:///c:/Users/anaya/OneDrive/Desktop/final%20physics%20project/LABback-IQ/server.py) and add matching keywords in `handle_physics_bot()` (around line 192) to recommend the simulation when users ask related questions:
+Open [physicsbot.py](file:///c:/Users/anaya/OneDrive/Desktop/tufail%20upgrade/Circuit.IQ/LABback-IQ/routes/physicsbot.py) and add matching keywords in `physics_bot()` (around line 192) to recommend the simulation when users ask related questions:
 ```python
 elif 'cage' in question or 'shielding' in question or 'electrostatic' in question:
     formulas = [{"name": "Gauss Shielding", "expr": "E_inside = 0"}]

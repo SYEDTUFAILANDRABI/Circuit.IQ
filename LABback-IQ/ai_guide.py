@@ -30,8 +30,8 @@
     viva      → List of {question, options[], answer_index} dicts
     conclusion → Summary conclusion text
 
- CALLED BY:
-    server.py (optional) — for advanced AI integration
+  CALLED BY:
+    app.py (optional) — for advanced AI integration
     frontend JS accesses its own inline copy of experiments data
 ================================================================================
 """

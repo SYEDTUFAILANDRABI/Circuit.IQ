@@ -22,7 +22,7 @@
     update_energy(P, dt)   → Accumulate energy
 
  CALLED BY:
-    server.py → handle_calculate() and handle_validate()
+    app.py → handle_calculate() and handle_validate() (via routes/physics.py)
 ================================================================================
 """
 
