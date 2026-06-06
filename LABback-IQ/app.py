@@ -46,10 +46,12 @@ def create_app():
     from routes.physics    import physics_bp
     from routes.physicsbot import physicsbot_bp
     from routes.contact    import contact_bp
+    from routes.database_routes import db_bp
 
     app.register_blueprint(physics_bp)
     app.register_blueprint(physicsbot_bp)
     app.register_blueprint(contact_bp)
+    app.register_blueprint(db_bp)
 
     # ── Serve built React + 3D lab static files ───────────────────────────────
     dist_dir = app.config["DIST_DIR"]

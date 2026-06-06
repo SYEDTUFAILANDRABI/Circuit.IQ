@@ -162,7 +162,8 @@ let state = {
   dataPoints: [],
   score: 0,
   completedSteps: new Set(),
-  energyStartTime: Date.now()
+  energyStartTime: Date.now(),
+  isDatabaseLoading: false
 };
 
 // --- ELECTRON ANIMATION STATE ---
@@ -258,7 +259,9 @@ const elements = {
   statusTextBar: document.getElementById('sb-status-text'),
   statusDot: document.getElementById('sb-status-dot'),
   telemetryComps: document.getElementById('st-comps'),
-  telemetryWires: document.getElementById('st-wires')
+  telemetryWires: document.getElementById('st-wires'),
+  saveDot: document.getElementById('sb-save-dot'),
+  saveText: document.getElementById('sb-save-text')
 };
 
 // --- EXPERIMENT DATA & SCHEMAS ---
@@ -874,8 +877,8 @@ function calculateCircuitLocal(params, activeExperiment, buttonPressed) {
     Z = vs;
   } else if (activeExperiment === 'ideal_gas' || activeExperiment === 'boyle' || activeExperiment === 'charles') {
     const vol = activeExperiment === 'charles' ? (params.V * 0.03) : params.V; 
-    const temp = activeExperiment === 'charles' ? params.V : params.R; 
-    const moles = params.L || 1.0;
+    const temp = activeExperiment === 'boyle' ? 300.0 : (activeExperiment === 'charles' ? params.V : params.R); 
+    const moles = activeExperiment === 'boyle' ? 1.0 : (params.L || 1.0);
     const Rg = 8.314; 
     const pressure = (moles * Rg * temp) / (vol || 1); 
     V = pressure;
@@ -1130,6 +1133,156 @@ function validateCircuitLocal() {
     return { status: 'success', message: 'RC charging loop verified and closed!' };
   }
 
+  if (expKey === 'kvl') {
+    if (!source || comps.filter(c => c.type === 'resistor').length < 2) {
+      return { status: 'error', message: 'Missing required components. Place Source and at least 2 Resistors.' };
+    }
+    const resList = comps.filter(c => c.type === 'resistor');
+    const r1 = resList[0], r2 = resList[1];
+    const posRail = find(0), negRail = find(1);
+    if (posRail === negRail) {
+      return { status: 'error', message: 'Short Circuit Detected! Positive rail (+) is connected directly to Ground (-) rail.' };
+    }
+    const nodeR1_1 = find(r1.snap1), nodeR1_2 = find(r1.snap2);
+    const nodeR2_1 = find(r2.snap1), nodeR2_2 = find(r2.snap2);
+    
+    const r1_connected_to_pos = (nodeR1_1 === posRail || nodeR1_2 === posRail);
+    const r2_connected_to_pos = (nodeR2_1 === posRail || nodeR2_2 === posRail);
+    const r1_connected_to_neg = (nodeR1_1 === negRail || nodeR1_2 === negRail);
+    const r2_connected_to_neg = (nodeR2_1 === negRail || nodeR2_2 === negRail);
+    
+    const r1_to_r2 = (nodeR1_1 === nodeR2_1 || nodeR1_1 === nodeR2_2 || nodeR1_2 === nodeR2_1 || nodeR1_2 === nodeR2_2);
+    
+    if ((r1_connected_to_pos && r2_connected_to_neg && r1_to_r2) || (r2_connected_to_pos && r1_connected_to_neg && r1_to_r2)) {
+      return { status: 'success', message: 'Kirchhoff\'s Voltage Law series loop verified and closed!' };
+    }
+    return { status: 'error', message: 'Invalid series loop. Ensure: Battery (+) -> Resistor 1 -> Resistor 2 -> Ground (-).' };
+  }
+  
+  if (expKey === 'kcl') {
+    if (!source || comps.filter(c => c.type === 'resistor').length < 2) {
+      return { status: 'error', message: 'Missing required components. Place Source and at least 2 Resistors.' };
+    }
+    const resList = comps.filter(c => c.type === 'resistor');
+    const r1 = resList[0], r2 = resList[1];
+    const posRail = find(0), negRail = find(1);
+    if (posRail === negRail) {
+      return { status: 'error', message: 'Short Circuit Detected! Positive rail (+) is connected directly to Ground (-) rail.' };
+    }
+    const nodeR1_1 = find(r1.snap1), nodeR1_2 = find(r1.snap2);
+    const nodeR2_1 = find(r2.snap1), nodeR2_2 = find(r2.snap2);
+    
+    const parallel_connected = (
+      (nodeR1_1 === nodeR2_1 && nodeR1_2 === nodeR2_2) ||
+      (nodeR1_1 === nodeR2_2 && nodeR1_2 === nodeR2_1)
+    );
+    if (!parallel_connected) {
+      return { status: 'error', message: 'Resistors must be wired in PARALLEL. Check your connections.' };
+    }
+    
+    const common1 = nodeR1_1;
+    const common2 = nodeR1_2;
+    const connected = (
+      (common1 === posRail && common2 === negRail) ||
+      (common2 === posRail && common1 === negRail)
+    );
+    if (connected) {
+      return { status: 'success', message: 'Kirchhoff\'s Current Law parallel loop verified and closed!' };
+    }
+    return { status: 'error', message: 'Ensure both parallel paths are connected to positive and negative rails.' };
+  }
+
+  if (expKey === 'rc_rl_rlc') {
+    if (!source || !resistor || !inductor || !capacitor) {
+      return { status: 'error', message: 'Missing required components. Place Source, Resistor, Inductor, and Capacitor.' };
+    }
+    const r1 = resistor.snap1, r2 = resistor.snap2;
+    const l1 = inductor.snap1, l2 = inductor.snap2;
+    const c1 = capacitor.snap1, c2 = capacitor.snap2;
+    
+    const s_to_r = (find(7 * 14 + 0) === find(r1) || find(7 * 14 + 0) === find(r2));
+    const r_start = find(7 * 14 + 0) === find(r1) ? r1 : r2;
+    const r_end = r_start === r1 ? r2 : r1;
+    
+    if (!s_to_r) return { status: 'error', message: 'Connect Source (+) rail to Resistor start.' };
+    
+    const r_to_l = (find(r_end) === find(l1) || find(r_end) === find(l2));
+    const l_start = find(r_end) === find(l1) ? l1 : l2;
+    const l_end = l_start === l1 ? l2 : l1;
+    
+    if (!r_to_l) return { status: 'error', message: 'Connect Resistor end to Inductor start.' };
+    
+    const l_to_c = (find(l_end) === find(c1) || find(l_end) === find(c2));
+    const c_start = find(l_end) === find(c1) ? c1 : c2;
+    const c_end = c_start === c1 ? c2 : c1;
+    
+    if (!l_to_c) return { status: 'error', message: 'Connect Inductor end to Capacitor start.' };
+    
+    const c_to_gnd = (find(c_end) === find(19 * 14 + 1));
+    if (!c_to_gnd) return { status: 'error', message: 'Connect Capacitor end back to Ground rail.' };
+    
+    return { status: 'success', message: 'AC Impedance RLC loop closed and verified!' };
+  }
+
+  if (expKey === 'series_parallel') {
+    if (!source || comps.filter(c => c.type === 'resistor').length < 2) {
+      return { status: 'error', message: 'Missing components. Place Source and 2 Resistors.' };
+    }
+    const posRail = find(0), negRail = find(1);
+    if (posRail === negRail) return { status: 'error', message: 'Short Circuit Detected!' };
+    
+    let pos_conn = false, neg_conn = false;
+    comps.forEach(c => {
+      if (find(c.snap1) === posRail || find(c.snap2) === posRail) pos_conn = true;
+      if (find(c.snap1) === negRail || find(c.snap2) === negRail) neg_conn = true;
+    });
+    if (pos_conn && neg_conn) {
+      return { status: 'success', message: 'Series & Parallel loads loop closed and verified!' };
+    }
+    return { status: 'error', message: 'Connect network back to positive and negative rails.' };
+  }
+
+  if (expKey === 'wheatstone') {
+    if (!source || comps.filter(c => c.type === 'resistor').length < 4) {
+      return { status: 'error', message: 'Missing components. Place Source and 4 Resistors.' };
+    }
+    const posRail = find(0), negRail = find(1);
+    if (posRail === negRail) return { status: 'error', message: 'Short Circuit Detected!' };
+    
+    let pos_conn = false, neg_conn = false;
+    comps.forEach(c => {
+      if (find(c.snap1) === posRail || find(c.snap2) === posRail) pos_conn = true;
+      if (find(c.snap1) === negRail || find(c.snap2) === negRail) neg_conn = true;
+    });
+    if (pos_conn && neg_conn) {
+      return { status: 'success', message: 'Wheatstone Bridge circuit verified!' };
+    }
+    return { status: 'error', message: 'Connect bridge inputs to positive and negative rails.' };
+  }
+
+  if (expKey === 'arduino_led') {
+    if (!source || !button || !led || !resistor) {
+      return { status: 'error', message: 'Missing components. Place Arduino, Button, LED, and Resistor.' };
+    }
+    const posNode = find(882);
+    const negNode = find(883);
+    if (posNode === negNode) return { status: 'error', message: 'Short Circuit Detected!' };
+    
+    let pos_conn = false, neg_conn = false;
+    comps.forEach(c => {
+      if (find(c.snap1) === posNode || find(c.snap2) === posNode) pos_conn = true;
+      if (find(c.snap1) === negNode || find(c.snap2) === negNode) neg_conn = true;
+    });
+    if (pos_conn && neg_conn) {
+      return { status: 'success', message: 'Arduino Uno digital power loop closed and verified!' };
+    }
+    return { status: 'error', message: 'Connect the loop to Arduino 5V and Ground nodes.' };
+  }
+
+  const isCircuit = ['ohms', 'kvl', 'kcl', 'rc_rl_rlc', 'series_parallel', 'wheatstone', 'lcr', 'rc', 'arduino_led'].includes(expKey);
+  if (!isCircuit) {
+    return { status: 'success', message: 'Experiment setup verified!' };
+  }
   
   return { status: 'error', message: 'Unknown experiment.' };
 }
@@ -1314,24 +1467,68 @@ function drawObservationTable() {
   if (!container) return;
   
   let headers = '<th>#</th><th>V (V)</th><th>I (A)</th><th>Z (Ω)</th>';
-  if (state.activeExperiment === 'ohms') {
-    headers = '<th>#</th><th>V (V)</th><th>I (A)</th><th>R (Ω)</th>';
-  } else if (state.activeExperiment === 'lcr') {
-    headers = '<th>#</th><th>f (Hz)</th><th>V (V)</th><th>I (A)</th><th>Z (Ω)</th>';
-  } else if (state.activeExperiment === 'rc') {
-    headers = '<th>#</th><th>C (µF)</th><th>V (V)</th><th>I (A)</th><th>Z (Ω)</th>';
+  let rows = '';
+  const expKey = state.activeExperiment;
+  
+  if (['ohms', 'kvl', 'kcl', 'series_parallel', 'wheatstone', 'arduino_led'].includes(expKey)) {
+    headers = `<th>#</th><th>Voltage V (V)</th><th>Current I (mA)</th><th>${expKey === 'ohms' ? 'Resistance' : 'Impedance'} (Ω)</th>`;
+    state.dataPoints.forEach(pt => {
+      rows += `<tr><td>${pt.id}</td><td>${pt.V.toFixed(2)}</td><td>${(pt.I * 1000).toFixed(1)}</td><td>${pt.R.toFixed(1)}</td></tr>`;
+    });
+  } else if (['lcr', 'rc_rl_rlc'].includes(expKey)) {
+    headers = '<th>#</th><th>Freq f (Hz)</th><th>Voltage V (V)</th><th>Current I (mA)</th><th>Impedance Z (Ω)</th>';
+    state.dataPoints.forEach(pt => {
+      rows += `<tr><td>${pt.id}</td><td>${pt.f}</td><td>${pt.V.toFixed(2)}</td><td>${(pt.I * 1000).toFixed(1)}</td><td>${pt.R.toFixed(1)}</td></tr>`;
+    });
+  } else if (expKey === 'rc') {
+    headers = '<th>#</th><th>Cap C (µF)</th><th>Voltage V (V)</th><th>Time τ (ms)</th>';
+    state.dataPoints.forEach(pt => {
+      const tau = pt.R * pt.C * 1e-3;
+      rows += `<tr><td>${pt.id}</td><td>${pt.C}</td><td>${pt.V.toFixed(2)}</td><td>${tau.toFixed(1)}</td></tr>`;
+    });
+  } else if (['ideal_gas', 'boyle'].includes(expKey)) {
+    headers = '<th>#</th><th>Volume V (L)</th><th>Temp T (K)</th><th>Pressure P (kPa)</th>';
+    state.dataPoints.forEach(pt => {
+      rows += `<tr><td>${pt.id}</td><td>${pt.I.toFixed(1)}</td><td>${pt.R.toFixed(0)}</td><td>${pt.V.toFixed(1)}</td></tr>`;
+    });
+  } else if (expKey === 'charles') {
+    headers = '<th>#</th><th>Temp T (K)</th><th>Pressure P (kPa)</th><th>Volume V (L)</th>';
+    state.dataPoints.forEach(pt => {
+      rows += `<tr><td>${pt.id}</td><td>${pt.R.toFixed(0)}</td><td>${pt.V.toFixed(1)}</td><td>${pt.I.toFixed(1)}</td></tr>`;
+    });
+  } else if (expKey === 'specific_heat') {
+    headers = '<th>#</th><th>Metal Tm (°C)</th><th>Water Tw (°C)</th><th>Mixture Tf (°C)</th><th>Heat Q (J)</th>';
+    state.dataPoints.forEach(pt => {
+      rows += `<tr><td>${pt.id}</td><td>${pt.V.toFixed(1)}</td><td>${pt.I.toFixed(1)}</td><td>${pt.R.toFixed(1)}</td><td>${pt.P.toFixed(0)}</td></tr>`;
+    });
+  } else if (expKey === 'photoelectric') {
+    headers = '<th>#</th><th>Freq ν (10¹⁴Hz)</th><th>Intensity (mW)</th><th>Work Fn (eV)</th><th>Stopping Vs (V)</th>';
+    state.dataPoints.forEach(pt => {
+      rows += `<tr><td>${pt.id}</td><td>${pt.V.toFixed(2)}</td><td>${pt.I.toFixed(0)}</td><td>${(pt.R * 1e-3).toFixed(2)}</td><td>${pt.P.toFixed(2)}</td></tr>`;
+    });
+  } else if (expKey === 'radioactive') {
+    headers = '<th>#</th><th>Time t (s)</th><th>Initial N₀</th><th>Remaining N</th><th>Activity A</th>';
+    state.dataPoints.forEach(pt => {
+      rows += `<tr><td>${pt.id}</td><td>${pt.time.toFixed(1)}</td><td>${pt.V.toFixed(0)}</td><td>${pt.I.toFixed(0)}</td><td>${pt.P.toFixed(1)}</td></tr>`;
+    });
+  } else if (expKey === 'de_broglie') {
+    headers = '<th>#</th><th>Mass m (10⁻³⁰kg)</th><th>Velocity v (km/s)</th><th>Wavelength λ (nm)</th>';
+    state.dataPoints.forEach(pt => {
+      rows += `<tr><td>${pt.id}</td><td>${pt.V.toFixed(1)}</td><td>${pt.I.toFixed(0)}</td><td>${pt.R.toFixed(3)}</td></tr>`;
+    });
+  } else if (expKey === 'bohr_model') {
+    headers = '<th>#</th><th>Orbit ni</th><th>Orbit nf</th><th>Energy Gap ΔE (eV)</th>';
+    state.dataPoints.forEach(pt => {
+      rows += `<tr><td>${pt.id}</td><td>${pt.V.toFixed(0)}</td><td>${pt.I.toFixed(0)}</td><td>${pt.R.toFixed(2)}</td></tr>`;
+    });
+  } else {
+    headers = '<th>#</th><th>Voltage V (V)</th><th>Current I (mA)</th><th>Impedance Z (Ω)</th>';
+    state.dataPoints.forEach(pt => {
+      rows += `<tr><td>${pt.id}</td><td>${pt.V.toFixed(2)}</td><td>${(pt.I * 1000).toFixed(1)}</td><td>${pt.R.toFixed(1)}</td></tr>`;
+    });
   }
   
-  let rows = '';
-  state.dataPoints.forEach(pt => {
-    if (state.activeExperiment === 'lcr') {
-      rows += `<tr><td>${pt.id}</td><td>${pt.f}</td><td>${pt.V.toFixed(2)}</td><td>${pt.I.toFixed(4)}</td><td>${pt.R.toFixed(1)}</td></tr>`;
-    } else if (state.activeExperiment === 'rc') {
-      rows += `<tr><td>${pt.id}</td><td>${pt.C}</td><td>${pt.V.toFixed(2)}</td><td>${pt.I.toFixed(4)}</td><td>${pt.R.toFixed(1)}</td></tr>`;
-    } else {
-      rows += `<tr><td>${pt.id}</td><td>${pt.V.toFixed(2)}</td><td>${pt.I.toFixed(4)}</td><td>${pt.R.toFixed(1)}</td></tr>`;
-    }
-  });
+  const colspan = headers.match(/<\/th>/g).length;
   
   container.innerHTML = `
     <table class="data-tbl">
@@ -1339,7 +1536,7 @@ function drawObservationTable() {
         <tr>${headers}</tr>
       </thead>
       <tbody>
-        ${rows || '<tr><td colspan="5" style="text-align:center;color:var(--text3);">No recorded points yet</td></tr>'}
+        ${rows || `<tr><td colspan="${colspan}" style="text-align:center;color:var(--text3);">No recorded points yet</td></tr>`}
       </tbody>
     </table>
   `;
@@ -1442,6 +1639,7 @@ function updateParameterValue(key, val) {
 
   updateDynamicTextures();
   triggerSingleCalculation();
+  debouncedSaveCircuit();
 }
 
 function updateLEDColor(color) {
@@ -1626,8 +1824,7 @@ const sliderConfigs = {
     L: { label: "Moles n", min: 0.1, max: 5.0, step: 0.1, val: 1.0, unit: "mol" }
   },
   boyle: {
-    V: { label: "Chamber Volume V", min: 1.0, max: 30.0, step: 0.1, val: 10.0, unit: "L" },
-    R: { label: "Temperature (Fix)", min: 100, max: 1000, step: 5, val: 300, unit: "K" }
+    V: { label: "Chamber Volume V", min: 1.0, max: 30.0, step: 0.1, val: 10.0, unit: "L" }
   },
   charles: {
     V: { label: "Temperature T", min: 100, max: 1000, step: 5, val: 300, unit: "K" },
@@ -2043,7 +2240,7 @@ function initProceduralVisuals(expKey) {
 }
 
 // --- SETUP EXPERIMENT STATE ---
-function setupExperiment(expKey) {
+function setupExperiment(expKey, loadFromDb = false) {
   if (expKey === 'led') expKey = 'arduino_led';
   state.activeExperiment = expKey;
   state.dataPoints = [];
@@ -2301,6 +2498,10 @@ function setupExperiment(expKey) {
   updateAIMentor();
   updateTargetHighlights();
   updateToolboxVisibility(expKey);
+
+  if (loadFromDb) {
+    loadCircuitFromBackend(expKey);
+  }
 }
 
 function updateComponentSidebar() {
@@ -2624,6 +2825,140 @@ function drawOscilloscope() {
 let graphMouseX = null;
 let graphMouseY = null;
 
+function getGraphConfig(expKey) {
+  const R_theoretical = state.params.R || 100;
+  
+  switch(expKey) {
+    case 'ohms':
+    case 'kvl':
+    case 'kcl':
+    case 'series_parallel':
+    case 'wheatstone':
+    case 'arduino_led':
+      return {
+        xLabel: "Voltage V (V)",
+        yLabel: "Current I (mA)",
+        xMax: 30,
+        yMax: 300,
+        getX: (pt) => pt.V,
+        getY: (pt) => pt.I * 1000,
+        showSlopeCard: expKey === 'ohms'
+      };
+      
+    case 'lcr':
+    case 'rc_rl_rlc':
+      return {
+        xLabel: "Frequency f (Hz)",
+        yLabel: "Current I (mA)",
+        xMax: 1000,
+        yMax: 250,
+        getX: (pt) => pt.f,
+        getY: (pt) => pt.I * 1000,
+        showSlopeCard: false
+      };
+      
+    case 'rc':
+      return {
+        xLabel: "Time Constant τ (ms)",
+        yLabel: "Voltage V (V)",
+        xMax: 1000,
+        yMax: 30,
+        getX: (pt) => pt.R * pt.C * 1e-3, // R*C in ms
+        getY: (pt) => pt.V,
+        showSlopeCard: false
+      };
+
+    case 'ideal_gas':
+    case 'boyle':
+      return {
+        xLabel: "Volume V (L)",
+        yLabel: "Pressure P (kPa)",
+        xMax: 30,
+        yMax: 300,
+        getX: (pt) => pt.I, // Volume is pt.I
+        getY: (pt) => pt.V, // Pressure is pt.V
+        showSlopeCard: false
+      };
+      
+    case 'charles':
+      return {
+        xLabel: "Temperature T (K)",
+        yLabel: "Volume V (L)",
+        xMax: 400,
+        yMax: 30,
+        getX: (pt) => pt.R, // Temperature is pt.R
+        getY: (pt) => pt.I, // Volume is pt.I
+        showSlopeCard: false
+      };
+      
+    case 'specific_heat':
+      return {
+        xLabel: "Metal Temp Tm (°C)",
+        yLabel: "Mixture Temp Tf (°C)",
+        xMax: 100,
+        yMax: 100,
+        getX: (pt) => pt.V, // Tm is pt.V
+        getY: (pt) => pt.R, // Tf is pt.R
+        showSlopeCard: false
+      };
+      
+    case 'photoelectric':
+      return {
+        xLabel: "Light Freq ν (10¹⁴ Hz)",
+        yLabel: "Stopping Volt Vs (V)",
+        xMax: 20,
+        yMax: 5,
+        getX: (pt) => pt.V, // Freq is pt.V
+        getY: (pt) => pt.P, // Stopping Vs is pt.P
+        showSlopeCard: false
+      };
+      
+    case 'radioactive':
+      return {
+        xLabel: "Time (s)",
+        yLabel: "Remaining Nuclei N",
+        xMax: 60,
+        yMax: 100,
+        getX: (pt) => pt.time || 0,
+        getY: (pt) => pt.I, // Remaining is pt.I
+        showSlopeCard: false
+      };
+      
+    case 'de_broglie':
+      return {
+        xLabel: "Velocity v (km/s)",
+        yLabel: "Wavelength λ (nm)",
+        xMax: 1000,
+        yMax: 5,
+        getX: (pt) => pt.I, // Velocity is pt.I
+        getY: (pt) => pt.R, // Wavelength is pt.R
+        showSlopeCard: false
+      };
+      
+    case 'bohr_model':
+      return {
+        xLabel: "Initial Orbit ni",
+        yLabel: "Energy Gap ΔE (eV)",
+        xMax: 5,
+        yMax: 15,
+        getX: (pt) => pt.V, // ni is pt.V
+        getY: (pt) => pt.R, // deltaE is pt.R
+        showSlopeCard: false
+      };
+
+    default:
+      return {
+        xLabel: "Voltage V (V)",
+        yLabel: "Current I (mA)",
+        xMax: 30,
+        yMax: 300,
+        getX: (pt) => pt.V,
+        getY: (pt) => pt.I * 1000,
+        showSlopeCard: false
+      };
+  }
+}
+
 function drawGraph() {
   if (!elements.graphCanvas) return;
   const ctx = elements.graphCanvas.getContext('2d');
@@ -2650,24 +2985,20 @@ function drawGraph() {
   ctx.lineWidth = 1;
   ctx.strokeRect(paddingLeft, paddingTop, graphWidth, graphHeight);
   
-  let maxV = 24;
-  let maxI = 0.5;
+  const config = getGraphConfig(state.activeExperiment);
+  const maxValX = config.xMax;
+  const maxValY = config.yMax;
   const R_theoretical = state.params.R || 100;
-  
-  if (state.activeExperiment === 'ohms') {
-    maxV = 30;
-    maxI = 30 / R_theoretical;
-  }
   
   // 3. Draw grid, ticks, and numeric labels
   ctx.fillStyle = '#64748b';
   ctx.font = '8px monospace';
   
-  // Vertical grids (Voltage axis ticks)
+  // Vertical grids (X axis ticks)
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   for (let i = 0; i <= 5; i++) {
-    const vVal = (i / 5) * maxV;
+    const xVal = (i / 5) * maxValX;
     const xPix = paddingLeft + (i / 5) * graphWidth;
     
     // Grid line
@@ -2685,14 +3016,14 @@ function drawGraph() {
     ctx.stroke();
     
     // Label
-    ctx.fillText(`${vVal.toFixed(0)}`, xPix, h - paddingBottom + 6);
+    ctx.fillText(`${xVal.toFixed(0)}`, xPix, h - paddingBottom + 6);
   }
   
-  // Horizontal grids (Current axis ticks)
+  // Horizontal grids (Y axis ticks)
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
   for (let i = 0; i <= 5; i++) {
-    const iVal = (i / 5) * maxI;
+    const yVal = (i / 5) * maxValY;
     const yPix = h - paddingBottom - (i / 5) * graphHeight;
     
     // Grid line
@@ -2709,9 +3040,8 @@ function drawGraph() {
     ctx.lineTo(paddingLeft, yPix);
     ctx.stroke();
     
-    // Label in mA
-    const iVal_mA = iVal * 1000;
-    ctx.fillText(`${iVal_mA.toFixed(0)}`, paddingLeft - 8, yPix);
+    // Label
+    ctx.fillText(`${yVal.toFixed(0)}`, paddingLeft - 8, yPix);
   }
   
   // 4. Draw rotated Axis Title Labels
@@ -2719,14 +3049,14 @@ function drawGraph() {
   ctx.font = '8px monospace';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'bottom';
-  // X-axis: Voltage
-  ctx.fillText("Voltage V (V)", paddingLeft + graphWidth / 2, h - 2);
+  // X-axis: Custom Label
+  ctx.fillText(config.xLabel, paddingLeft + graphWidth / 2, h - 2);
   
-  // Y-axis: Current
+  // Y-axis: Custom Label
   ctx.save();
   ctx.translate(12, paddingTop + graphHeight / 2);
   ctx.rotate(-Math.PI / 2);
-  ctx.fillText("Current I (mA)", 0, 0);
+  ctx.fillText(config.yLabel, 0, 0);
   ctx.restore();
   
   // 5. Plot best-fit line for Ohm's Law
@@ -2734,7 +3064,7 @@ function drawGraph() {
   let R_calc_disp = "—";
   let error_disp = "—";
   
-  if (state.activeExperiment === 'ohms' && state.dataPoints.length >= 2) {
+  if (config.showSlopeCard && state.dataPoints.length >= 2) {
     const N = state.dataPoints.length;
     let sumV = 0, sumI = 0, sumVI = 0, sumV2 = 0;
     state.dataPoints.forEach(pt => {
@@ -2766,13 +3096,13 @@ function drawGraph() {
       
       const vStart = 0;
       const iStart = m * vStart + c;
-      const xStart = paddingLeft + (vStart / maxV) * graphWidth;
-      const yStart = h - paddingBottom - (iStart / maxI) * graphHeight;
+      const xStart = paddingLeft + (vStart / maxValX) * graphWidth;
+      const yStart = h - paddingBottom - ((iStart * 1000) / maxValY) * graphHeight;
       
-      const vEnd = maxV;
+      const vEnd = maxValX;
       const iEnd = m * vEnd + c;
-      const xEnd = paddingLeft + (vEnd / maxV) * graphWidth;
-      const yEnd = h - paddingBottom - (iEnd / maxI) * graphHeight;
+      const xEnd = paddingLeft + (vEnd / maxValX) * graphWidth;
+      const yEnd = h - paddingBottom - ((iEnd * 1000) / maxValY) * graphHeight;
       
       ctx.moveTo(xStart, yStart);
       ctx.lineTo(xEnd, yEnd);
@@ -2788,14 +3118,10 @@ function drawGraph() {
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     state.dataPoints.forEach((pt, idx) => {
-      let xPix, yPix;
-      if (state.activeExperiment === 'ohms') {
-        xPix = paddingLeft + (pt.V / maxV) * graphWidth;
-        yPix = h - paddingBottom - (pt.I / maxI) * graphHeight;
-      } else {
-        xPix = paddingLeft + (pt.I / maxI) * graphWidth;
-        yPix = h - paddingBottom - (pt.V / maxV) * graphHeight;
-      }
+      const xVal = config.getX(pt);
+      const yVal = config.getY(pt);
+      const xPix = paddingLeft + (xVal / maxValX) * graphWidth;
+      const yPix = h - paddingBottom - (yVal / maxValY) * graphHeight;
       
       if (idx === 0) ctx.moveTo(xPix, yPix);
       else ctx.lineTo(xPix, yPix);
@@ -2806,14 +3132,10 @@ function drawGraph() {
     
     // Draw glowing circles
     state.dataPoints.forEach(pt => {
-      let xPix, yPix;
-      if (state.activeExperiment === 'ohms') {
-        xPix = paddingLeft + (pt.V / maxV) * graphWidth;
-        yPix = h - paddingBottom - (pt.I / maxI) * graphHeight;
-      } else {
-        xPix = paddingLeft + (pt.I / maxI) * graphWidth;
-        yPix = h - paddingBottom - (pt.V / maxV) * graphHeight;
-      }
+      const xVal = config.getX(pt);
+      const yVal = config.getY(pt);
+      const xPix = paddingLeft + (xVal / maxValX) * graphWidth;
+      const yPix = h - paddingBottom - (yVal / maxValY) * graphHeight;
       
       // Neon violet halo
       ctx.fillStyle = '#a855f7';
@@ -2856,9 +3178,8 @@ function drawGraph() {
     ctx.setLineDash([]); // reset
     
     // Calculate hover values
-    const vHover = ((graphMouseX - paddingLeft) / graphWidth) * maxV;
-    const iHover = ((h - paddingBottom - graphMouseY) / graphHeight) * maxI;
-    const iHover_mA = iHover * 1000;
+    const xHover = ((graphMouseX - paddingLeft) / graphWidth) * maxValX;
+    const yHover = ((h - paddingBottom - graphMouseY) / graphHeight) * maxValY;
     
     // Float coordinate label HUD
     ctx.shadowBlur = 6;
@@ -2867,7 +3188,7 @@ function drawGraph() {
     ctx.strokeStyle = '#3b82f6';
     ctx.lineWidth = 1;
     
-    const hudW = 75;
+    const hudW = 95;
     const hudH = 28;
     let hudX = graphMouseX + 10;
     let hudY = graphMouseY - 34;
@@ -2882,12 +3203,14 @@ function drawGraph() {
     ctx.font = '8px monospace';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText(`V: ${vHover.toFixed(2)} V`, hudX + 5, hudY + 5);
-    ctx.fillText(`I: ${iHover_mA.toFixed(1)} mA`, hudX + 5, hudY + 15);
+    const xClean = config.xLabel.split(' ')[0];
+    const yClean = config.yLabel.split(' ')[0];
+    ctx.fillText(`${xClean}: ${xHover.toFixed(1)}`, hudX + 5, hudY + 5);
+    ctx.fillText(`${yClean}: ${yHover.toFixed(1)}`, hudX + 5, hudY + 15);
   }
   
   // 8. Render Stats Card Overlay (placed dynamically in grid top-right)
-  if (state.activeExperiment === 'ohms' && state.dataPoints.length >= 2) {
+  if (config.showSlopeCard && state.dataPoints.length >= 2) {
     ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
     ctx.strokeStyle = 'rgba(0, 208, 132, 0.3)';
     ctx.lineWidth = 1;
@@ -2910,7 +3233,7 @@ function drawGraph() {
     
     elements.graphSlopeLbl.innerHTML = `Slope m: ${slopeDisp} | R(slope): ${R_calc_disp} | Error: ${error_disp}`;
   } else {
-    elements.graphSlopeLbl.innerText = state.activeExperiment === 'ohms' ? "Slope: Need 2+ points" : "Slope: —";
+    elements.graphSlopeLbl.innerText = config.showSlopeCard ? "Slope: Need 2+ points" : "Slope: —";
   }
 }
 
@@ -3764,12 +4087,55 @@ function initInteraction() {
       return;
     }
     
-    // Prevent recording duplicate readings (same voltage)
+    // Prevent recording duplicate readings
+    let duplicate = false;
     const currentV = state.meters.volts;
-    const duplicate = state.dataPoints.find(pt => Math.abs(pt.V - currentV) < 0.05);
-    if (duplicate) {
-      appendAIMessage("Circuit IQ · AI Mentor", `A reading for ${currentV.toFixed(2)} V has already been recorded. Please vary the Voltage to record a new data point.`);
-      return;
+    const currentF = state.params.f;
+    const currentI = state.meters.amps;
+    const currentR = state.meters.ohms;
+    
+    if (['ohms', 'kvl', 'kcl', 'series_parallel', 'wheatstone', 'arduino_led'].includes(state.activeExperiment)) {
+      duplicate = state.dataPoints.some(pt => Math.abs(pt.V - currentV) < 0.05);
+      if (duplicate) {
+        appendAIMessage("Circuit IQ · AI Mentor", `A reading for ${currentV.toFixed(2)} V has already been recorded. Please vary the Voltage to record a new data point.`);
+        return;
+      }
+    } else if (['lcr', 'rc_rl_rlc'].includes(state.activeExperiment)) {
+      duplicate = state.dataPoints.some(pt => Math.abs(pt.f - currentF) < 1.0);
+      if (duplicate) {
+        appendAIMessage("Circuit IQ · AI Mentor", `A reading for ${currentF.toFixed(0)} Hz has already been recorded. Please vary the Frequency to record a new data point.`);
+        return;
+      }
+    } else if (['ideal_gas', 'boyle'].includes(state.activeExperiment)) {
+      duplicate = state.dataPoints.some(pt => Math.abs(pt.I - currentI) < 0.2);
+      if (duplicate) {
+        appendAIMessage("Circuit IQ · AI Mentor", `A reading for Volume ${currentI.toFixed(1)} L has already been recorded. Please vary the Volume to record a new data point.`);
+        return;
+      }
+    } else if (state.activeExperiment === 'charles') {
+      duplicate = state.dataPoints.some(pt => Math.abs(pt.R - currentR) < 1.0);
+      if (duplicate) {
+        appendAIMessage("Circuit IQ · AI Mentor", `A reading for Temperature ${currentR.toFixed(0)} K has already been recorded. Please vary the Temperature to record a new data point.`);
+        return;
+      }
+    } else if (state.activeExperiment === 'photoelectric') {
+      duplicate = state.dataPoints.some(pt => Math.abs(pt.V - currentV) < 0.1);
+      if (duplicate) {
+        appendAIMessage("Circuit IQ · AI Mentor", `A reading for Light Frequency ${currentV.toFixed(2)} ×10¹⁴Hz has already been recorded. Please vary the frequency to record a new data point.`);
+        return;
+      }
+    } else if (state.activeExperiment === 'de_broglie') {
+      duplicate = state.dataPoints.some(pt => Math.abs(pt.I - currentI) < 5.0);
+      if (duplicate) {
+        appendAIMessage("Circuit IQ · AI Mentor", `A reading for Velocity ${currentI.toFixed(0)} km/s has already been recorded. Please vary the velocity to record a new data point.`);
+        return;
+      }
+    } else if (state.activeExperiment === 'bohr_model') {
+      duplicate = state.dataPoints.some(pt => Math.abs(pt.V - currentV) < 0.1);
+      if (duplicate) {
+        appendAIMessage("Circuit IQ · AI Mentor", `A reading for Orbit Shell n_i = ${currentV.toFixed(0)} has already been recorded. Please change the initial orbit shell to record a new data point.`);
+        return;
+      }
     }
     
     if (state.dataPoints.length >= 10) return;
@@ -3780,7 +4146,9 @@ function initInteraction() {
       I: state.meters.amps,
       R: state.meters.ohms,
       f: state.params.f,
-      C: state.params.C
+      C: state.params.C,
+      P: state.meters.power,
+      time: state.experimentStartTime ? (Date.now() - state.experimentStartTime) / 1000 : 0
     };
     state.dataPoints.push(pt);
     
@@ -3828,6 +4196,7 @@ function initInteraction() {
     }
     drawGraph();
     updateAIMentor();
+    saveExperimentLogToBackend();
   });
   
   // Chip clicks tool selection
@@ -3948,73 +4317,13 @@ function initInteraction() {
   }
   
   elements.btnClear.addEventListener('click', () => {
-    setupExperiment(state.activeExperiment);
+    setupExperiment(state.activeExperiment, false);
     updateWiringBanner();
+    saveCircuitToBackend();
   });
   
   elements.btnRun.addEventListener('click', async () => {
-    try {
-      let data = validateCircuitLocal();
-      
-      if (data.status === 'success') {
-        if (state.activeExperiment !== 'arduino_led') {
-          try {
-            const response = await fetch('/api/validate', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                placed_components: state.placedComponents.map(c => ({ type: c.type, id: c.id })),
-                wires: resolveVirtualWires(),
-                required_types: experiments[state.activeExperiment].req || []
-              })
-            });
-            if (response.ok) {
-              const backendData = await response.json();
-              if (backendData.status === 'success') {
-                data = { status: 'success', message: backendData.message };
-              } else {
-                data = { status: 'error', message: "Backend validation failure: " + backendData.message };
-              }
-            } else {
-              throw new Error(`HTTP ${response.status}`);
-            }
-          } catch (backendError) {
-            console.warn("Backend validation failed, falling back to local validation.", backendError);
-          }
-        }
-      }
-
-      if (data.status === 'success') {
-        state.isRunning = true;
-        state.energyStartTime = Date.now();
-        startPollingCalculations();
-        setElectronsActive(true);
-        
-        elements.btnRun.style.display = 'none';
-        elements.btnStop.style.display = 'block';
-        elements.statusDot.style.background = "var(--red)";
-        elements.statusTextBar.innerText = "RUNNING";
-        appendAIMessage("Circuit IQ · AI Mentor", "Loop validated successfully: " + data.message);
-        
-        if (state.activeExperiment === 'ohms') {
-          completeStep(5);
-        } else if (state.activeExperiment === 'lcr') {
-          completeStep(3);
-        } else if (state.activeExperiment === 'rc') {
-          completeStep(3);
-        } else if (state.activeExperiment === 'arduino_led') {
-          completeStep(4);
-          completeStep(5);
-        }
-      } else {
-        appendAIMessage("Circuit IQ · AI Mentor", "Validation Failure: " + data.message);
-      }
-    } catch (e) {
-      console.error(e);
-      appendAIMessage("Circuit IQ · AI Mentor", "Validation failure.");
-    }
+    await startSimulation();
     updateAIMentor();
   });
   
@@ -4092,6 +4401,7 @@ function initInteraction() {
   
   elements.btnDownloadReport.addEventListener('click', () => {
     generateLabReportPDF();
+    saveExperimentLogToBackend("Downloaded PDF Lab Report.", 100.0);
   });
 
   // Canvas bottom bar shortcuts
@@ -4335,7 +4645,7 @@ async function handleUserChatQuery() {
         question: query,
         experiment: state.activeExperiment,
         circuit_state: {
-          placed_components: state.placedComponents.map(c => ({ type: c.type, id: c.id })),
+          placed_components: state.placedComponents.map((c, index) => ({ type: c.type, id: index })),
           wires: resolveVirtualWires(),
           params: state.params,
           readings: {
@@ -4395,8 +4705,74 @@ async function handleUserChatQuery() {
   }
 }
 
+async function startSimulation() {
+  try {
+    let data = validateCircuitLocal();
+    
+    if (data.status === 'success') {
+      const isCircuit = ['ohms', 'kvl', 'kcl', 'rc_rl_rlc', 'series_parallel', 'wheatstone', 'lcr', 'rc', 'arduino_led'].includes(state.activeExperiment);
+      if (isCircuit && state.activeExperiment !== 'arduino_led') {
+        try {
+          const response = await fetch('/api/validate', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              placed_components: state.placedComponents.map((c, index) => ({ type: c.type, id: index })),
+              wires: resolveVirtualWires(),
+              required_types: experiments[state.activeExperiment].req || []
+            })
+          });
+          if (response.ok) {
+            const backendData = await response.json();
+            if (backendData.status === 'success') {
+              data = { status: 'success', message: backendData.message };
+            } else {
+              data = { status: 'error', message: "Backend validation failure: " + backendData.message };
+            }
+          } else {
+            throw new Error(`HTTP ${response.status}`);
+          }
+        } catch (backendError) {
+          console.warn("Backend validation failed, falling back to local validation.", backendError);
+        }
+      }
+    }
+
+    if (data.status === 'success') {
+      state.isRunning = true;
+      state.energyStartTime = Date.now();
+      state.experimentStartTime = Date.now(); // Track experiment running start time
+      startPollingCalculations();
+      setElectronsActive(true);
+      
+      if (elements.btnRun) elements.btnRun.style.display = 'none';
+      if (elements.btnStop) elements.btnStop.style.display = 'block';
+      if (elements.statusDot) elements.statusDot.style.background = "var(--red)";
+      if (elements.statusTextBar) elements.statusTextBar.innerText = "RUNNING";
+      appendAIMessage("Circuit IQ · AI Mentor", "Loop validated successfully: " + data.message);
+      
+      if (state.activeExperiment === 'ohms') {
+        completeStep(5);
+      } else if (state.activeExperiment === 'lcr') {
+        completeStep(3);
+      } else if (state.activeExperiment === 'rc') {
+        completeStep(3);
+      } else if (state.activeExperiment === 'arduino_led') {
+        completeStep(4);
+        completeStep(5);
+      }
+    } else {
+      appendAIMessage("Circuit IQ · AI Mentor", "Validation Failure: " + data.message);
+    }
+  } catch (e) {
+    console.error("Simulation start failed:", e);
+  }
+}
+
 function autoBuildExperiment() {
-  setupExperiment(state.activeExperiment);
+  setupExperiment(state.activeExperiment, false);
   const expKey = state.activeExperiment;
   if (expKey === 'ohms') {
     placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
@@ -4408,13 +4784,37 @@ function autoBuildExperiment() {
     create3DWire(19 * 14 + 7, 19 * 14 + 1);
     create3DWire(9 * 14 + 2, 9 * 14 + 4);
     create3DWire(14 * 14 + 2, 14 * 14 + 4);
+  } else if (expKey === 'kvl') {
+    placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
+    placeComponent3D('resistor', 7 * 14 + 4, 11 * 14 + 4);
+    placeComponent3D('resistor', 13 * 14 + 4, 17 * 14 + 4);
+    create3DWire(1 * 14 + 0, 7 * 14 + 4);
+    create3DWire(11 * 14 + 4, 13 * 14 + 4);
+    create3DWire(17 * 14 + 4, 1 * 14 + 1);
+  } else if (expKey === 'kcl') {
+    placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
+    placeComponent3D('resistor', 8 * 14 + 3, 12 * 14 + 3);
+    placeComponent3D('resistor', 8 * 14 + 5, 12 * 14 + 5);
+    create3DWire(1 * 14 + 0, 8 * 14 + 3);
+    create3DWire(8 * 14 + 3, 8 * 14 + 5);
+    create3DWire(12 * 14 + 3, 12 * 14 + 5);
+    create3DWire(12 * 14 + 5, 1 * 14 + 1);
   } else if (expKey === 'led') { // led color experiment
     placeComponent3D('source', 3 * 14 + 0, 3 * 14 + 1); // Source at Col 4 Positive & Negative
-    placeComponent3D('resistor', 6 * 14 + 4, 9 * 14 + 4); // Resistor at Col 7E to 10E (Wait, is it 7e to 10e? Let's check snaps: led step uses 7e to 7f? No, the original led step is: resistor 7e to 7f, red LED 10f to 10g. So Col 7 to Col 10. Let's make it snap at 6 * 14 + 4 and 9 * 14 + 4).
+    placeComponent3D('resistor', 6 * 14 + 4, 9 * 14 + 4); // Resistor at Col 7E to 10E
     placeComponent3D('led', 9 * 14 + 5, 9 * 14 + 6); // LED anode 10f, cathode 10g
     create3DWire(3 * 14 + 0, 6 * 14 + 4); // Wire positive rail to Resistor start
     create3DWire(9 * 14 + 4, 9 * 14 + 5); // Wire Resistor end to LED anode
     create3DWire(9 * 14 + 6, 3 * 14 + 1); // Wire LED cathode to ground negative rail
+  } else if (expKey === 'rc_rl_rlc') {
+    placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
+    placeComponent3D('resistor', 7 * 14 + 4, 11 * 14 + 4);
+    placeComponent3D('inductor', 11 * 14 + 5, 15 * 14 + 5);
+    placeComponent3D('capacitor', 15 * 14 + 6, 19 * 14 + 6);
+    create3DWire(7 * 14 + 0, 7 * 14 + 4);
+    create3DWire(11 * 14 + 4, 11 * 14 + 5);
+    create3DWire(15 * 14 + 5, 15 * 14 + 6);
+    create3DWire(19 * 14 + 6, 19 * 14 + 1);
   } else if (expKey === 'lcr') {
     placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
     placeComponent3D('resistor', 7 * 14 + 4, 11 * 14 + 4);
@@ -4431,6 +4831,22 @@ function autoBuildExperiment() {
     create3DWire(9 * 14 + 0, 9 * 14 + 4);
     create3DWire(14 * 14 + 4, 14 * 14 + 5);
     create3DWire(19 * 14 + 5, 19 * 14 + 1);
+  } else if (expKey === 'series_parallel') {
+    placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
+    placeComponent3D('resistor', 7 * 14 + 4, 11 * 14 + 4);
+    placeComponent3D('resistor', 11 * 14 + 4, 15 * 14 + 4);
+    create3DWire(7 * 14 + 0, 7 * 14 + 4);
+    create3DWire(15 * 14 + 4, 15 * 14 + 1);
+  } else if (expKey === 'wheatstone') {
+    placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
+    placeComponent3D('resistor', 6 * 14 + 3, 10 * 14 + 3);  // R1
+    placeComponent3D('resistor', 10 * 14 + 3, 14 * 14 + 3); // R2
+    placeComponent3D('resistor', 6 * 14 + 5, 10 * 14 + 5);  // R3
+    placeComponent3D('resistor', 10 * 14 + 5, 14 * 14 + 5); // R4
+    create3DWire(1 * 14 + 0, 6 * 14 + 3);
+    create3DWire(6 * 14 + 3, 6 * 14 + 5);
+    create3DWire(14 * 14 + 3, 14 * 14 + 5);
+    create3DWire(14 * 14 + 5, 1 * 14 + 1);
   } else if (expKey === 'arduino_led') {
     placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
     placeComponent3D('button', 11 * 14 + 6, 11 * 14 + 7);
@@ -4499,19 +4915,19 @@ function resolveVirtualWires() {
       
       // Connect terminal 0 of c1 to terminal 0 of c2
       if (uf.find(c1.snap1) === uf.find(c2.snap1)) {
-        virtualWires.push([[c1.id, 0], [c2.id, 0]]);
+        virtualWires.push([[i, 0], [j, 0]]);
       }
       // Connect terminal 0 of c1 to terminal 1 of c2
       if (uf.find(c1.snap1) === uf.find(c2.snap2)) {
-        virtualWires.push([[c1.id, 0], [c2.id, 1]]);
+        virtualWires.push([[i, 0], [j, 1]]);
       }
       // Connect terminal 1 of c1 to terminal 0 of c2
       if (uf.find(c1.snap2) === uf.find(c2.snap1)) {
-        virtualWires.push([[c1.id, 1], [c2.id, 0]]);
+        virtualWires.push([[i, 1], [j, 0]]);
       }
       // Connect terminal 1 of c1 to terminal 1 of c2
       if (uf.find(c1.snap2) === uf.find(c2.snap2)) {
-        virtualWires.push([[c1.id, 1], [c2.id, 1]]);
+        virtualWires.push([[i, 1], [j, 1]]);
       }
     }
   }
@@ -6934,6 +7350,8 @@ function initThreeJS() {
     anim();
     updateTargetHighlights();
     
+    // DB loading on load is disabled to ensure plain breadboard on load
+    
     // Scroll wheel zoom event listener on parent
     parent.addEventListener('wheel', (e) => {
       e.preventDefault();
@@ -8774,6 +9192,8 @@ function placeComponent3D(type, snap1, snap2) {
   if (validation.status === 'success') {
     triggerSingleCalculation();
   }
+  
+  debouncedSaveCircuit();
 }
 
 function createMetalLead(start, end) {
@@ -9346,6 +9766,8 @@ function create3DWire(snap1, snap2) {
   if (validation.status === 'success') {
     triggerSingleCalculation();
   }
+  
+  debouncedSaveCircuit();
 }
 
 function deleteComponent3D(idx) {
@@ -9381,6 +9803,7 @@ function deleteComponent3D(idx) {
   stopPollingCalculations();
   updateAIMentor();
   updateTargetHighlights();
+  debouncedSaveCircuit();
 }
 
 function deleteWire3D(idx) {
@@ -9400,6 +9823,7 @@ function deleteWire3D(idx) {
   stopPollingCalculations();
   updateAIMentor();
   updateTargetHighlights();
+  debouncedSaveCircuit();
 }
 
 function populateLibraryGrid(category) {
@@ -9504,6 +9928,170 @@ function populateLibraryGrid(category) {
   container.appendChild(grid);
 }
 
+// ─── SQL DATABASE ROUTINES ───────────────────────────────────────────────────
+let saveTimeout = null;
+
+function debouncedSaveCircuit() {
+  if (state.isDatabaseLoading) return;
+  
+  if (elements.saveDot && elements.saveText) {
+    elements.saveText.innerText = "DB: SYNCING...";
+    elements.saveDot.style.background = "#eab308"; // Orange indicator
+  }
+  
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(() => {
+    saveCircuitToBackend();
+  }, 1500);
+}
+
+async function saveCircuitToBackend() {
+  if (state.isDatabaseLoading) return;
+  try {
+    const payload = {
+      user_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890", // Mock student profile Aisha
+      experiment_type: state.activeExperiment,
+      name: `Experiment: ${state.activeExperiment}`,
+      description: `Saved breadboard layout for ${state.activeExperiment}`,
+      circuit_data: {
+        placedComponents: state.placedComponents.map(c => ({
+          type: c.type,
+          snap1: c.snap1,
+          snap2: c.snap2
+        })),
+        wires: state.wires.map(w => ({
+          fromHole: w.fromHole,
+          toHole: w.toHole
+        }))
+      },
+      params: state.params
+    };
+
+    const response = await fetch('/api/db/save-circuit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      if (elements.saveDot && elements.saveText) {
+        elements.saveText.innerText = "DB: SAVED";
+        elements.saveDot.style.background = "#10b981"; // Green indicator
+      }
+    } else {
+      throw new Error(`HTTP ${response.status}`);
+    }
+  } catch (e) {
+    console.error("[DB Error] Failed to auto-save circuit diagram:", e);
+    if (elements.saveDot && elements.saveText) {
+      elements.saveText.innerText = "DB: OFFLINE";
+      elements.saveDot.style.background = "#f43f5e"; // Red indicator
+    }
+  }
+}
+
+async function loadCircuitFromBackend(expKey) {
+  state.isDatabaseLoading = true;
+  if (elements.saveDot && elements.saveText) {
+    elements.saveText.innerText = "DB: LOADING...";
+    elements.saveDot.style.background = "#3b82f6"; // Blue indicator
+  }
+  
+  try {
+    const response = await fetch(`/api/db/load-circuit?experiment_type=${expKey}&user_id=a1b2c3d4-e5f6-7890-abcd-ef1234567890`);
+    if (!response.ok) {
+      if (elements.saveDot && elements.saveText) {
+        elements.saveText.innerText = "DB: EMPTY";
+        elements.saveDot.style.background = "#64748b";
+      }
+      return;
+    }
+    
+    const data = await response.json();
+    if (data.status === 'success' && data.circuit && data.circuit.circuit_data) {
+      const cdata = data.circuit.circuit_data;
+      
+      // 1. Rebuild component meshes
+      if (cdata.placedComponents && cdata.placedComponents.length > 0) {
+        cdata.placedComponents.forEach(c => {
+          placeComponent3D(c.type, c.snap1, c.snap2);
+        });
+      }
+      
+      // 2. Rebuild wires
+      if (cdata.wires && cdata.wires.length > 0) {
+        cdata.wires.forEach(w => {
+          create3DWire(w.fromHole, w.toHole);
+        });
+      }
+      
+      // 3. Restore parameter knobs
+      if (cdata.params) {
+        Object.keys(cdata.params).forEach(key => {
+          updateParameterValue(key, cdata.params[key]);
+        });
+      }
+      
+      if (elements.saveDot && elements.saveText) {
+        elements.saveText.innerText = "DB: LOADED";
+        elements.saveDot.style.background = "#10b981"; // Green indicator
+      }
+      appendAIMessage("Circuit IQ · AI Mentor", "Loaded your previously saved circuit layout from database.");
+    } else {
+      if (elements.saveDot && elements.saveText) {
+        elements.saveText.innerText = "DB: READY";
+        elements.saveDot.style.background = "var(--accent)";
+      }
+    }
+  } catch (e) {
+    console.error("[DB Error] Failed to load circuit diagram:", e);
+    if (elements.saveDot && elements.saveText) {
+      elements.saveText.innerText = "DB: OFFLINE";
+      elements.saveDot.style.background = "#f43f5e";
+    }
+  } finally {
+    state.isDatabaseLoading = false;
+  }
+}
+
+async function saveExperimentLogToBackend(notes = "", score = null) {
+  try {
+    const elapsed = Math.round((Date.now() - state.energyStartTime) / 1000);
+    const scoreVal = score !== null ? score : (state.dataPoints.length >= 5 ? 100.0 : state.dataPoints.length * 20.0);
+    
+    const payload = {
+      user_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      experiment_type: state.activeExperiment,
+      results: {
+        volts: state.meters.volts,
+        amps: state.meters.amps,
+        ohms: state.meters.ohms,
+        power: state.meters.power,
+        energy: state.meters.energy,
+        dataPointsCount: state.dataPoints.length
+      },
+      duration_seconds: elapsed || 60,
+      score: scoreVal,
+      notes: notes || elements.conclusionText.innerText || "Experiment performed.",
+      feedback: "Student successfully compiled data points and downloaded experiment logs."
+    };
+
+    await fetch('/api/db/save-log', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    console.log("[DB] Logged experiment run successfully.");
+  } catch (e) {
+    console.error("[DB Error] Failed to log experiment completion:", e);
+  }
+}
+
 // --- BULLETPROOF INIT ON LOAD ---
 function initAll() {
   tooltipEl = document.createElement('div');
@@ -9517,7 +10105,7 @@ function initAll() {
   const urlParams = new URLSearchParams(window.location.search);
   const initialExp = urlParams.get('exp') || 'ohms';
   
-  setupExperiment(initialExp);
+  setupExperiment(initialExp, false);
   drawOscilloscope();
   
   setTimeout(() => {

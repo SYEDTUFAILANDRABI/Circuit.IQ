@@ -73,6 +73,20 @@ class TestPhysicsEngine(unittest.TestCase):
         # f0 = 1 / (2 * pi * sqrt(0.05 * 0.0001)) = 1 / (2 * pi * sqrt(5e-6)) = 1 / (2 * pi * 0.002236) = 71.176 Hz
         self.assertAlmostEqual(res['f0'], 71.17625, places=4)
 
+    def test_boyles_law(self):
+        # Set parameters that would normally affect calculations
+        self.engine.set_param('V', 10.0) # Volume = 10 L
+        self.engine.set_param('R', 500.0) # Temperature param set to 500 K in UI
+        self.engine.set_param('L', 2.0 * 1e-3) # Moles param set to 2.0 in UI (moles are scaled by 1e-3 from UI to engine L)
+        
+        res = self.engine.calculate('boyle')
+        # Temperature (Z) should be constant 300.0 K
+        self.assertEqual(res['Z'], 300.0)
+        # Moles (P) should be constant 1.0 mol
+        self.assertEqual(res['P'], 1.0)
+        # V (pressure) should be (1.0 * 8.314 * 300.0) / 10.0 = 249.42 kPa
+        self.assertAlmostEqual(res['V'], 249.42)
+
     def test_circuit_validator(self):
         placed = [
             {'type': 'source', 'id': 0},

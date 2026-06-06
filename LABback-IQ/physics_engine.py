@@ -86,8 +86,15 @@ class PhysicsEngine:
         
         phi = results.get('phi', 0.0)
         I = results.get('I', 0.0)
-        phi_rad = math.radians(phi)
-        P = V * I * math.cos(phi_rad)
+        
+        V_out = results.get('V')
+        if V_out is None:
+            V_out = V
+            
+        P = results.get('P')
+        if P is None:
+            phi_rad = math.radians(phi)
+            P = V_out * I * math.cos(phi_rad)
         
         return {
             'XL': results.get('XL', 0.0),
@@ -96,7 +103,7 @@ class PhysicsEngine:
             'I': I,
             'phi': phi,
             'f0': results.get('f0', 0.0),
-            'V': V,
+            'V': V_out,
             'R_eff': R_eff,
             'R_nominal': R,
             'f': f,
