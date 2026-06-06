@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAppStore } from '../store/useAppStore';
-import { LayoutGrid, FlaskConical, Cpu, Bot, FileText, Info, Zap, Moon, Sun, Menu, X } from 'lucide-react';
+import { LayoutGrid, FlaskConical, Cpu, Bot, FileText, Info, Zap, Moon, Sun, Menu, X, Users } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export default function Navbar() {
@@ -29,6 +29,7 @@ const { setLabOpen, isLabOpen, theme, toggleTheme, activeTab, setActiveTab, phys
           <NavLink icon={<Cpu size={18} />} label="Virtual Lab" active={isLabOpen} onClick={() => setLabOpen(true)} />
           <NavLink icon={<Bot size={18} />} label="PhysicsBot" active={physicsBotOpen} onClick={() => { setPhysicsBotOpen(!physicsBotOpen); setLabOpen(false); }} />
           <NavLink icon={<FileText size={18} />} label="Contact" active={activeTab === 'contact' && !isLabOpen} onClick={() => { setActiveTab('contact'); setLabOpen(false); }} />
+          <NavLink icon={<Users size={18} />} label="Attendance" active={activeTab === 'attendance' && !isLabOpen} onClick={() => { setActiveTab('attendance'); setLabOpen(false); }} />
         </div>
 
         <div className="flex items-center gap-2 md:gap-4 pointer-events-auto">

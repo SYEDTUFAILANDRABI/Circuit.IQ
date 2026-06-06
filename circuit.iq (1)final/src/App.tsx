@@ -4,6 +4,7 @@
  */
 
 import { useEffect } from 'react';
+import AttendanceSystem from './components/AttendanceSystem';
 import { useAppStore } from './store/useAppStore';
 import Navbar from './components/Navbar';
 import LandingPage from './pages/LandingPage';
@@ -44,8 +45,10 @@ export default function App() {
             transition={{ duration: 0.4, ease: "easeInOut" }}
           >
             {activeTab === 'contact' ? (
-              <ContactPage />
-            ) : (
+  <ContactPage />
+) : activeTab === 'attendance' ? (
+  <AttendanceSystem />
+) : (
               <LandingPage view={activeTab === 'home' ? 'home' : activeTab} />
             )}
           </motion.div>

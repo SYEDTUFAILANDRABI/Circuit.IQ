@@ -11,8 +11,8 @@ interface LabState {
   toggleTheme: () => void;
   highFidelityMode: boolean;
   setHighFidelityMode: (enabled: boolean) => void;
-  activeTab: 'home' | 'experiments' | 'physicsbot' | 'contact';
-  setActiveTab: (tab: 'home' | 'experiments' | 'physicsbot' | 'contact') => void;
+  activeTab: 'home' | 'experiments' | 'physicsbot' | 'contact' | 'attendance';
+  setActiveTab: (tab: 'home' | 'experiments' | 'physicsbot' | 'contact' | 'attendance') => void;
 }
 
 export const useAppStore = create<LabState>((set) => ({
