@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime
 from flask import Blueprint, request, jsonify
 
-attendance_bp = Blueprint("attendance", __name__, url_prefix="/api")
+attendance_bp = Blueprint("attendance", __name__)
 
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "circuitiq@admin2025")
 SESSIONS: dict = {}
