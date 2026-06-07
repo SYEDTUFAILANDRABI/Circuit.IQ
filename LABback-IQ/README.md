@@ -1,196 +1,136 @@
-<![CDATA[# Circuit.IQ — Python Backend Server
+<![CDATA[# 🐍 Circuit.IQ — Python Backend Server
 
-> **Flask API server** · Physics engine · AI mentor · Database interface · Static file server
-
----
-
-## 📑 Table of Contents
-
-- [Overview](#overview)
-- [Project Structure](#-project-structure)
-- [Quick Start](#-quick-start)
-- [Environment Variables](#-environment-variables)
-- [API Endpoints](#-api-endpoints)
-- [Physics Engine](#-physics-engine)
-- [AI Mentor System](#-ai-mentor-system)
-- [Database Layer](#-database-layer)
-- [Supported Experiments](#-supported-experiments)
-- [Testing](#-testing)
-- [Dependencies](#-dependencies)
-- [Troubleshooting](#-troubleshooting)
+> Flask API server that handles physics calculations, AI tutoring, circuit storage, and serves the built website.
 
 ---
 
-## Overview
+## What This Does
 
-The backend is a **Flask 3.1** application that:
+This is the **brain** of Circuit.IQ. It:
 
-1. **Serves the built React + 3D Lab** static files from `circuit.iq (1)final/dist/`
-2. **Provides REST API endpoints** for physics calculations, circuit validation, AI guidance, and database operations
-3. **Runs a physics solver** that computes V, I, Z, P, XL, XC, phase angle, and resonant frequency
-4. **Manages circuit persistence** via SQLite (local) or Supabase (cloud PostgreSQL)
-5. **Integrates Google Gemini AI** for the PhysicsBot and AI Mentor (with local fallback)
+- 🧮 **Calculates physics** — voltage, current, impedance, power for all 26 experiments
+- ✅ **Validates circuits** — checks if wired components form a valid loop
+- 🤖 **Powers the AI mentor** — connects to Google Gemini for intelligent Q&A
+- 💾 **Saves/loads circuits** — stores student work in SQLite or Supabase
+- 📧 **Handles contact forms** — sends support emails via Resend
+- 🌐 **Serves the website** — hosts the built React + 3D lab files
 
 ---
 
-## 📁 Project Structure
+## 🚀 How to Run
+
+### With the full app (recommended):
+```bash
+# From project root:
+python start_dev.py
+```
+
+### Standalone:
+```bash
+cd LABback-IQ
+pip install -r requirements.txt
+cp .env.example .env          # Add your API keys
+python main.py                # → http://localhost:5000
+```
+
+---
+
+## 📁 File Guide
 
 ```
 LABback-IQ/
+├── main.py                ← Start here (runs the server)
+├── app.py                 ← Flask setup, CORS, registers all routes
+├── config.py              ← Reads .env file into Config class
+├── physics_engine.py      ← All the math (V=IR, impedance, resonance, etc.)
+├── ai_guide.py            ← Built-in tutoring hints (no AI key needed)
+├── database.py            ← Save/load circuits (SQLite or Supabase)
+├── test_physics.py        ← Unit tests for calculations
+├── requirements.txt       ← Python packages to install
+├── .env                   ← Your private API keys
+├── .env.example           ← Template — copy to .env
 │
-├── main.py                     ← 🚀 ENTRY POINT — delegates to app.py
-├── app.py                      ← 🌐 Flask factory — CORS, blueprints, static serving
-├── config.py                   ← ⚙️ Environment config loader (.env → Config class)
-├── physics_engine.py           ← ⚡ Rigid physics solver & DFS topology checker
-├── ai_guide.py                 ← 🤖 Local rule-based tutoring, hints, viva Q&A
-├── database.py                 ← 💾 Dual DB interface (Supabase + SQLite fallback)
-├── test_physics.py             ← 🧪 Unit tests for physics calculations
-├── requirements.txt            ← 📦 Python dependencies
+├── experiments/           ← Modular calculation plugins
+│   ├── base_experiment.py ←   Base class all experiments extend
+│   ├── ohms.py            ←   Ohm's Law: V = IR
+│   ├── lcr.py             ←   LCR Resonance: Z, XL, XC, φ, f₀
+│   └── rc.py              ←   RC Time Constant: τ = RC
 │
-├── .env                        ← 🔐 API keys & secrets (DO NOT COMMIT)
-├── .env.example                ← 📝 Template for .env setup
-│
-├── experiments/                ← 📂 Modular experiment calculation plugins
-│   ├── __init__.py             ←   Package loader & experiment registry
-│   ├── base_experiment.py      ←   Abstract base experiment class
-│   ├── ohms.py                 ←   Ohm's Law: V = IR, P = VI
-│   ├── lcr.py                  ←   LCR Resonance: Z, XL, XC, φ, f₀
-│   └── rc.py                   ←   RC Time Constant: τ = RC
-│
-└── routes/                     ← 📂 Flask API route blueprints
-    ├── __init__.py             ←   Package init
-    ├── physics.py              ←   POST /api/calculate, POST /api/validate
-    ├── physicsbot.py           ←   POST /api/physicsbot/ask (Gemini AI chat)
-    ├── contact.py              ←   POST /api/contact (Resend email tickets)
-    ├── database_routes.py      ←   GET/POST /api/db/* (circuit CRUD, profiles, logs)
-    └── attendance.py           ←   GET/POST /api/attendance/* (student tracking)
-```
-
----
-
-## 🚀 Quick Start
-
-### Standalone (Backend Only)
-
-```bash
-cd LABback-IQ
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Copy and configure environment
-cp .env.example .env
-# Edit .env with your API keys
-
-# Start the server
-python main.py
-
-# → Flask running on http://localhost:5000
-# → Auto-opens browser
-```
-
-### With Frontend (Recommended)
-
-```bash
-# From the project root:
-python start_dev.py
-
-# → Backend on :5000, React dev server on :3000
-# → API calls from :3000 are proxied to :5000
+└── routes/                ← API endpoints (one file per feature)
+    ├── physics.py         ←   /api/calculate, /api/validate
+    ├── physicsbot.py      ←   /api/physicsbot/ask (Gemini AI)
+    ├── contact.py         ←   /api/contact (email)
+    ├── database_routes.py ←   /api/db/* (save/load circuits)
+    └── attendance.py      ←   /api/attendance/* (student tracking)
 ```
 
 ---
 
 ## 🔑 Environment Variables
 
-Copy `.env.example` to `.env` and configure:
+Copy `.env.example` → `.env` and fill in what you need:
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `SECRET_KEY` | No | `dev-secret-...` | Flask session encryption key |
-| `FLASK_DEBUG` | No | `false` | Enable Flask debug mode |
-| `GEMINI_API_KEY` | Recommended | — | [Google AI Studio](https://aistudio.google.com/) API key |
-| `SUPABASE_URL` | No | — | Supabase project URL |
-| `SUPABASE_ANON_KEY` | No | — | Supabase anonymous public key |
-| `SUPABASE_SERVICE_ROLE_KEY` | No | — | Supabase service role key |
-| `RESEND_API_KEY` | No | — | [Resend.com](https://resend.com) email API key |
-| `CONTACT_TO_EMAIL` | No | `team@circuitiq.dev` | Contact form recipient email |
-| `PORT` | No | `5000` | Server listening port |
+| Variable | What it does | Without it... |
+|----------|-------------|---------------|
+| `GEMINI_API_KEY` | AI mentor & PhysicsBot | Uses built-in formulas instead |
+| `SUPABASE_URL` | Cloud database connection | Uses local SQLite file |
+| `SUPABASE_ANON_KEY` | Cloud database auth | Uses local SQLite file |
+| `RESEND_API_KEY` | Sends contact form emails | Logs to console |
+| `FLASK_DEBUG` | Shows detailed errors | Defaults to `false` |
+| `PORT` | Server port | Defaults to `5000` |
 
-**Fallback Behavior:**
-- No Gemini key → AI uses local rule-based physics formulas
-- No Supabase keys → Database uses local SQLite (`circuit_iq.db`)
-- No Resend key → Contact form logs to console
+> **The server works with zero API keys configured.** Everything has a local fallback.
 
 ---
 
-## 🌐 API Endpoints
+## 🌐 All API Endpoints
 
-### Physics Routes (`routes/physics.py`)
+### Physics Calculations
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/calculate` | Compute circuit values for given parameters |
-| `POST` | `/api/validate` | Validate circuit topology (DFS closed-loop check) |
+**`POST /api/calculate`** — Compute circuit values
 
-#### `POST /api/calculate`
-
-**Request:**
 ```json
+// Request:
 {
   "params": { "V": 12, "R": 100, "L": 50, "C": 100, "f": 50, "T": 25 },
   "active_experiment": "ohms",
   "button_pressed": false
 }
-```
 
-**Response:**
-```json
+// Response:
 {
   "status": "success",
-  "metrics": {
-    "V": 12, "I": 0.12, "Z": 100, "P": 1.44,
-    "XL": 0, "XC": 0, "phi": 0, "f0": 0
-  }
+  "metrics": { "V": 12, "I": 0.12, "Z": 100, "P": 1.44 }
 }
 ```
 
-#### `POST /api/validate`
+**`POST /api/validate`** — Check if circuit is wired correctly
 
-**Request:**
 ```json
+// Request:
 {
-  "placed_components": [
-    { "type": "source", "id": 0, "terminals": [0, 1] },
-    { "type": "resistor", "id": 1, "terminals": [1, 2] }
-  ],
+  "placed_components": [{ "type": "source", "id": 0, "terminals": [0, 1] }],
   "wires": [[[0, 1], [1, 0]]],
   "required_types": ["source", "resistor"]
 }
-```
 
-**Response:**
-```json
+// Response:
 { "valid": true, "message": "Circuit forms a valid closed loop." }
 ```
 
 ---
 
-### PhysicsBot AI Routes (`routes/physicsbot.py`)
+### AI PhysicsBot
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/physicsbot/ask` | AI-powered physics Q&A (Gemini or local) |
+**`POST /api/physicsbot/ask`** — Ask a physics question
 
-**Request:**
 ```json
+// Request:
 { "question": "What is Ohm's Law?" }
-```
 
-**Response:**
-```json
+// Response:
 {
-  "answer": "Ohm's Law states that V = IR...",
+  "answer": "Ohm's Law states that current is proportional to voltage...",
   "formulas": [{ "name": "Ohm's Law", "expr": "V = I × R" }],
   "recommended_experiment": "ohms"
 }
@@ -198,166 +138,95 @@ Copy `.env.example` to `.env` and configure:
 
 ---
 
-### Database Routes (`routes/database_routes.py`)
+### Circuit Storage
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/db/save-circuit` | Save/update a circuit layout |
-| `GET` | `/api/db/load-circuit` | Load a saved circuit by experiment type |
-| `GET` | `/api/db/experiment-logs` | Get experiment attempt history |
-| `POST` | `/api/db/experiment-log` | Log an experiment result |
-| `GET` | `/api/db/profile` | Retrieve user profile |
-| `POST` | `/api/db/profile` | Create/update user profile |
-
----
-
-### Contact Routes (`routes/contact.py`)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/contact` | Submit a support ticket (via Resend email) |
+| Endpoint | Method | What it does |
+|----------|--------|-------------|
+| `/api/db/save-circuit` | POST | Save component positions + wires + params |
+| `/api/db/load-circuit` | GET | Load a saved circuit (params: `experiment_type`, `user_id`) |
+| `/api/db/experiment-log` | POST | Record an experiment result with score |
+| `/api/db/experiment-logs` | GET | Get past experiment attempts |
+| `/api/db/profile` | GET | Get student profile |
+| `/api/db/profile` | POST | Create or update student profile |
 
 ---
 
-### Attendance Routes (`routes/attendance.py`)
+### Other
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/attendance/students` | List all student records |
-| `POST` | `/api/attendance/mark` | Mark attendance for a student |
-| `GET` | `/api/attendance/report` | Get attendance report |
+| Endpoint | Method | What it does |
+|----------|--------|-------------|
+| `/api/contact` | POST | Submit support ticket (sends email) |
+| `/api/attendance/students` | GET | List student records |
+| `/api/attendance/mark` | POST | Mark attendance |
 
 ---
 
 ## ⚡ Physics Engine
 
-The solver in `physics_engine.py` handles all circuit computations:
+The solver in `physics_engine.py` handles calculations per experiment:
 
-| Experiment | Computed Values |
-|-----------|----------------|
-| `ohms` | V, I = V/R, P = VI |
-| `kvl` / `kcl` | V, I, R, P (Kirchhoff networks) |
-| `lcr` / `rc_rl_rlc` | XL = ωL, XC = 1/ωC, Z = √(R²+(XL−XC)²), φ, f₀ |
-| `rc` | τ = RC, charging curve |
-| `series_parallel` | R_series = R1+R2, R_parallel |
-| `wheatstone` | Bridge balance: Rx = R3·R2/R1 |
-| `diode_iv` | Shockley equation, barrier voltage |
-| `faraday` / `lenz` | EMF = −N(ΔΦ/Δt), pulse waveform |
-| `solenoid` | B = μ₀nI |
-| `transformer` | Vs = Vp·(Ns/Np) |
-| `arduino_led` | I = (Vpin − Vled)/R |
-
----
-
-## 🤖 AI Mentor System
-
-Two levels of intelligence:
-
-1. **Google Gemini AI** (when API key is configured)
-   - Natural language physics explanations
-   - Step-by-step problem solving
-   - Context-aware experiment recommendations
-
-2. **Local Rule-Based Engine** (`ai_guide.py`) — always available
-   - Keyword-matched physics formulas
-   - Experiment-specific hints and theory
-   - Viva voce questions with explanations
+| Experiment | What it computes |
+|-----------|-----------------|
+| Ohm's Law | V, I = V/R, P = VI |
+| KVL / KCL | Voltage drops, branch currents |
+| LCR / RC_RL_RLC | XL, XC, Z, phase angle φ, resonant frequency f₀ |
+| RC | Time constant τ = RC |
+| Wheatstone | Bridge balance point |
+| Diode | Shockley equation, barrier voltage 0.7V |
+| Transformer | Voltage ratio Vs/Vp = Ns/Np |
+| Solenoid | Magnetic field B = μ₀nI |
+| Faraday / Lenz | Induced EMF pulses |
+| Arduino LED | I = (Vpin − Vled) / R |
 
 ---
 
-## 💾 Database Layer
+## 💾 Database
 
-`database.py` provides a **dual-backend** interface:
+Two backends, automatically selected:
 
-| Feature | Supabase (Cloud) | SQLite (Local) |
-|---------|-------------------|----------------|
-| **When used** | `SUPABASE_URL` + `SUPABASE_ANON_KEY` set | Default fallback |
-| **Database** | PostgreSQL | `circuit_iq.db` file |
-| **Auth** | Row-Level Security (RLS) | None (single user) |
-| **Initialization** | Manual via `schema.sql` + `customise.sql` | Auto-created on first run |
+| If... | Then uses... |
+|-------|-------------|
+| `SUPABASE_URL` is set | Supabase PostgreSQL (cloud) |
+| No Supabase keys | SQLite file (`circuit_iq.db`) |
 
-**Tables:** `profiles`, `circuits`, `experiment_logs`
-
-**Key functions:**
-- `save_circuit()` — Upsert circuit layout by experiment type
-- `load_circuit()` — Retrieve saved circuit for restore
-- `save_experiment_log()` — Record experiment attempt with score
-- `get_profile()` / `upsert_profile()` — User profile CRUD
+**Tables:**
+- `profiles` — student name, university, semester
+- `circuits` — saved circuit layouts (JSON with components, wires, params)
+- `experiment_logs` — experiment results, scores, duration
 
 ---
 
-## 🔬 Supported Experiments
-
-| Key | Name | Required Components |
-|-----|------|---------------------|
-| `ohms` | Ohm's Law Verification | source, resistor |
-| `kvl` | Kirchhoff's Voltage Law | source, resistor |
-| `kcl` | Kirchhoff's Current Law | source, resistor |
-| `rc_rl_rlc` | LCR AC Impedance | source, resistor, inductor, capacitor |
-| `lcr` | Series LCR Resonance | source, resistor, inductor, capacitor |
-| `rc` | RC Time Constant | source, resistor, capacitor |
-| `series_parallel` | Series & Parallel Loads | source, resistor |
-| `wheatstone` | Wheatstone Bridge | source, resistor |
-| `diode_iv` | Diode I-V Characteristics | source, resistor, diode, ammeter, voltmeter |
-| `voltage_divider` | Voltage & Current Divider | source, resistor |
-| `planck_led` | Planck's Constant (LEDs) | source, resistor, led |
-| `arduino_led` | Arduino LED Control | source, button, led, resistor |
-| `faraday` | Faraday's Induction | — (slider-based) |
-| `lenz` | Lenz's Law | — (slider-based) |
-| `solenoid` | Solenoid Field | — (slider-based) |
-| `transformer` | AC Transformer | — (slider-based) |
-| `biot_savart` | Biot-Savart's Law | — (slider-based) |
-| `planck_photocell` | Planck's Photocell | — (slider-based) |
-| `stefan_law` | Stefan's Law | — (slider-based) |
-| `ideal_gas` | Ideal Gas Equation | — (slider-based) |
-| `boyle` | Boyle's Law | — (slider-based) |
-| `charles` | Charles's Law | — (slider-based) |
-| `specific_heat` | Specific Heat | — (slider-based) |
-| `photoelectric` | Photoelectric Effect | — (slider-based) |
-| `radioactive` | Radioactive Decay | — (slider-based) |
-| `de_broglie` | de Broglie Wave | — (slider-based) |
-| `bohr_model` | Bohr Hydrogen Atom | — (slider-based) |
-
----
-
-## 🧪 Testing
+## 🧪 Running Tests
 
 ```bash
-cd LABback-IQ
 python test_physics.py
 ```
 
-Tests cover:
-- Ohm's Law calculations (V/I/R relationships)
-- LCR impedance and resonant frequency
-- RC time constant computation
-- Edge cases (zero resistance, zero frequency)
+Tests Ohm's Law, LCR impedance, RC time constant, and edge cases.
 
 ---
 
 ## 📦 Dependencies
 
-| Package | Version | Purpose |
-|---------|---------|---------|
-| `flask` | 3.1.0 | Web framework |
-| `flask-cors` | 5.0.0 | Cross-origin request handling |
-| `python-dotenv` | 1.0.1 | Environment variable loading |
-| `google-generativeai` | 0.8.3 | Gemini AI integration |
-| `supabase` | 2.10.0 | Supabase client SDK |
+| Package | Version | Why |
+|---------|---------|-----|
+| flask | 3.1.0 | Web server |
+| flask-cors | 5.0.0 | Allow cross-origin API calls |
+| python-dotenv | 1.0.1 | Load .env file |
+| google-generativeai | 0.8.3 | Gemini AI integration |
+| supabase | 2.10.0 | Cloud database client |
 
-> **Note:** Python's built-in `sqlite3` is used for local database — no extra install needed.
+Plus Python's built-in `sqlite3` (no install needed).
 
 ---
 
-## ❓ Troubleshooting
+## ❓ Common Problems
 
-| Problem | Solution |
-|---------|----------|
-| `ModuleNotFoundError` | Run `pip install -r requirements.txt` |
-| Port 5000 already in use | `lsof -ti:5000 \| xargs kill` or change `PORT` in `.env` |
-| Gemini AI not responding | Verify `GEMINI_API_KEY` in `.env` is valid |
-| Database errors | Delete `circuit_iq.db` and restart (auto-recreated) |
-| Supabase connection failed | Verify `SUPABASE_URL` and keys, or remove them to use SQLite |
-| CORS errors in browser | Ensure CORS origins include your dev server URL |
-| Contact form not sending | Add `RESEND_API_KEY` to `.env` |
+| Problem | Fix |
+|---------|-----|
+| `ModuleNotFoundError` | `pip install -r requirements.txt` |
+| Port 5000 in use | Change `PORT` in `.env` or kill the process |
+| AI not responding | Check `GEMINI_API_KEY` in `.env` |
+| Database errors | Delete `circuit_iq.db` and restart (auto-recreates) |
+| CORS errors | Make sure the dev server URL is in `app.py` CORS origins |
 ]]>

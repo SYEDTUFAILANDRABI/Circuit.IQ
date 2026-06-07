@@ -4,57 +4,88 @@
 
 ### AI-Powered 3D Virtual Physics Laboratory
 
-> A premium, full-stack interactive 3D physics simulation portal with AI tutoring,
-> real-time circuit building on virtual breadboards, and automated lab report generation.
+A full-stack 3D physics simulation platform where students build circuits on virtual breadboards,
+run experiments, and get AI-powered guidance — all in the browser.
 
-[![Python](https://img.shields.io/badge/Python-3.8+-3776AB?logo=python&logoColor=white)](#prerequisites)
-[![Flask](https://img.shields.io/badge/Flask-3.1-000000?logo=flask&logoColor=white)](#backend-server)
-[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](#react-portal)
-[![Three.js](https://img.shields.io/badge/Three.js-r184-000000?logo=threedotjs&logoColor=white)](#3d-lab-simulator)
-[![Vite](https://img.shields.io/badge/Vite-8.0-646CFF?logo=vite&logoColor=white)](#build-tooling)
-[![SQLite](https://img.shields.io/badge/SQLite-3-003B57?logo=sqlite&logoColor=white)](#database)
-[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white)](#database)
+[![Python 3.8+](https://img.shields.io/badge/Python-3.8+-3776AB?logo=python&logoColor=white)](#-prerequisites)
+[![Flask 3.1](https://img.shields.io/badge/Flask-3.1-000000?logo=flask&logoColor=white)](#overview)
+[![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](#overview)
+[![Three.js r184](https://img.shields.io/badge/Three.js-r184-000000?logo=threedotjs&logoColor=white)](#overview)
+[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white)](#-database)
 
 </div>
 
 ---
 
-## 📑 Table of Contents
+## What is Circuit.IQ?
 
-- [Overview](#overview)
-- [Project Structure](#-project-structure)
-- [Prerequisites](#-prerequisites)
-- [Quick Start](#-quick-start)
-- [Environment Variables](#-environment-variables)
-- [Build Pipeline](#-build-pipeline)
-- [Physics Experiments (26 Total)](#-physics-experiments-26-total)
-- [Architecture](#-architecture)
-- [API Reference](#-api-reference)
-- [Database Schema](#-database-schema)
-- [Key Scripts](#-key-scripts)
-- [Troubleshooting](#-troubleshooting)
-- [Sub-Project READMEs](#-sub-project-readmes)
+Circuit.IQ lets students **drag-and-drop** electronic components onto a 3D breadboard, **wire them together**, and **simulate real physics** — all inside a web browser. An AI tutor guides them through each experiment step by step.
+
+### Three Main Parts
+
+| Part | What it does | Tech | Port |
+|------|-------------|------|------|
+| 🌐 **Website** | Homepage, experiment catalog, AI chat | React + TypeScript | `3000` |
+| 🔬 **3D Lab** | Interactive breadboard simulator | Three.js + Vite | iframe |
+| 🐍 **Server** | Physics calculations, database, AI | Flask + Python | `5000` |
+
+### What Students Can Do
+
+- 🧪 Run **26 physics experiments** (Ohm's Law, LCR circuits, Faraday's Law, etc.)
+- 🔌 Drag resistors, capacitors, LEDs, and wires onto a 3D breadboard
+- 📊 See live voltage/current meters, oscilloscope waveforms, and V-I graphs
+- 🤖 Ask an **AI mentor** questions about physics (powered by Google Gemini)
+- 📄 Download a complete **PDF lab report** with theory, data, and grading
+- 💾 Circuits **auto-save** — come back later and pick up where you left off
 
 ---
 
-## Overview
+## 🚀 Quick Start (3 Steps)
 
-Circuit.IQ is a **three-part** full-stack application:
+### Step 1: Install Everything
 
-| Component | Directory | Tech | Port |
-|-----------|-----------|------|------|
-| **React Portal** | `circuit.iq (1)final/` | React 19 + TypeScript + TailwindCSS 4 | `3000` |
-| **3D Lab Simulator** | `LABfront-IQ-3D/` | Three.js r184 + Vite 8 + Vanilla JS | Embedded via iframe |
-| **Python Backend** | `LABback-IQ/` | Flask 3.1 + Gemini AI + SQLite/Supabase | `5000` |
+```bash
+git clone https://github.com/SYEDTUFAILANDRABI/Circuit.IQ.git
+cd Circuit.IQ
 
-**Key features:**
-- 🔬 **26 interactive physics experiments** across 6 domains
-- 🧪 **3D breadboard** with drag-and-drop components, real-time wiring, and electron animation
-- 🤖 **AI Mentor** powered by Google Gemini (with local rule-based fallback)
-- 📊 **Live meters** (V, I, Z, P), oscilloscope, V-I graph, and observation table
-- 📄 **Automated PDF lab reports** with aim, theory, data, graphs, viva Q&A, and grading
-- 💾 **Circuit persistence** — auto-saves to SQLite (local) or Supabase (cloud)
-- 🎓 **Assessment engine** with viva questions, scoring, and grade calculation
+# Python packages
+pip install -r LABback-IQ/requirements.txt
+
+# 3D Lab packages
+cd LABfront-IQ-3D && npm install && cd ..
+
+# Website packages
+cd "circuit.iq (1)final" && npm install && cd ..
+```
+
+### Step 2: Add Your API Key (Optional)
+
+```bash
+cp LABback-IQ/.env.example LABback-IQ/.env
+```
+
+Open `LABback-IQ/.env` and paste your [Google Gemini API key](https://aistudio.google.com/).
+Without it, the app still works — it just uses built-in formulas instead of AI.
+
+### Step 3: Start the App
+
+```bash
+python start_dev.py
+```
+
+Opens **http://localhost:3000** automatically. Pick an experiment and click **"Launch Lab"**.
+
+> Press `Ctrl+C` to stop.
+
+---
+
+## 📋 Prerequisites
+
+| Tool | Minimum Version | Check with |
+|------|----------------|------------|
+| Python | 3.8+ | `python --version` |
+| Node.js | 18+ | `node --version` |
+| npm | 9+ | `npm --version` |
 
 ---
 
@@ -63,416 +94,212 @@ Circuit.IQ is a **three-part** full-stack application:
 ```
 Circuit.IQ/
 │
-├── README.md                         # ← You are here (root documentation)
-├── DEVELOPER_GUIDE.md                # Developer recipes & architecture guide
-├── start_dev.py                      # 🚀 Unified dev startup (runs backend + frontend)
-├── build_all.py                      # 🏗️ Production build automation script
-├── schema.sql                        # Supabase PostgreSQL schema (tables, RLS, seeds)
-├── customise.sql                     # Database column extensions & customizations
-├── circuit_iq.db                     # Local SQLite database file (auto-created)
-├── .gitignore                        # Git ignore rules
+├── start_dev.py              ← Run this to start everything
+├── build_all.py              ← Run this to build for production
+├── schema.sql                ← Database tables (for Supabase)
+├── customise.sql             ← Extra database columns
+├── circuit_iq.db             ← Local database (auto-created)
 │
-├── LABback-IQ/                       # 🐍 PYTHON BACKEND SERVER
-│   ├── main.py                       #   Startup entrypoint (delegates to app.py)
-│   ├── app.py                        #   Flask factory — CORS, blueprints, static serving
-│   ├── config.py                     #   Environment config loader (.env → Config class)
-│   ├── physics_engine.py             #   ⚡ Rigid physics solver & DFS topology checker
-│   ├── ai_guide.py                   #   🤖 Local rule-based tutoring & quiz engine
-│   ├── database.py                   #   💾 Dual DB interface (Supabase + SQLite fallback)
-│   ├── test_physics.py               #   🧪 Unit tests for physics calculations
-│   ├── requirements.txt              #   Python dependencies
-│   ├── .env                          #   API keys & secrets (DO NOT COMMIT)
-│   ├── .env.example                  #   Template for .env
-│   ├── experiments/                   #   📂 Modular experiment calculation plugins
-│   │   ├── __init__.py               #     Package loader & registry
-│   │   ├── base_experiment.py        #     Abstract base class
-│   │   ├── ohms.py                   #     Ohm's Law calculations
-│   │   ├── lcr.py                    #     LCR resonance calculations
-│   │   └── rc.py                     #     RC time constant calculations
-│   └── routes/                       #   📂 Flask API blueprints
-│       ├── __init__.py               #     Package init
-│       ├── physics.py                #     POST /api/calculate, /api/validate
-│       ├── physicsbot.py             #     POST /api/physicsbot/ask (Gemini AI)
-│       ├── contact.py                #     POST /api/contact (Resend email)
-│       ├── database_routes.py        #     GET/POST /api/db/* (circuit CRUD)
-│       └── attendance.py             #     GET/POST /api/attendance/* (tracking)
+├── LABback-IQ/               ← 🐍 Python Server
+│   ├── main.py               ←   Start here
+│   ├── app.py                ←   Flask setup + routes
+│   ├── config.py             ←   Reads .env settings
+│   ├── physics_engine.py     ←   Math calculations
+│   ├── ai_guide.py           ←   Built-in tutoring logic
+│   ├── database.py           ←   Save/load circuits
+│   ├── .env                  ←   Your API keys (private!)
+│   ├── requirements.txt      ←   Python packages
+│   ├── experiments/           ←   Experiment plugins (ohms, lcr, rc)
+│   └── routes/                ←   API endpoints
+│       ├── physics.py         ←     /api/calculate, /api/validate
+│       ├── physicsbot.py      ←     /api/physicsbot/ask
+│       ├── contact.py         ←     /api/contact
+│       ├── database_routes.py ←     /api/db/* (save/load)
+│       └── attendance.py      ←     /api/attendance/*
 │
-├── LABfront-IQ-3D/                   # ⚡ 3D WEBGL VIRTUAL LAB SIMULATOR
-│   ├── index.html                    #   HTML shell (topbar, panels, meters, AI chat)
-│   ├── package.json                  #   NPM config (Three.js + Vite)
-│   ├── vite.config.js                #   Vite build config with API proxy
-│   ├── src/
-│   │   ├── main.js                   #   ⭐ Core app (11,000+ lines — all frontend logic)
-│   │   └── style.css                 #   🎨 Complete design system & panel styling
-│   ├── public/                       #   Static assets (models, textures, icons)
-│   │   ├── models/                   #     GLTF 3D models (breadboard, resistor, etc.)
-│   │   └── *.svg, *.jpg              #     Icons, favicon, textures
-│   └── dist/                         #   Built output (auto-generated by Vite)
+├── LABfront-IQ-3D/           ← ⚡ 3D Lab Simulator
+│   ├── index.html            ←   UI layout (panels, meters, chat)
+│   ├── src/main.js           ←   ⭐ All lab logic (11,000 lines)
+│   ├── src/style.css         ←   Visual styling
+│   ├── public/models/        ←   3D models (breadboard, resistor)
+│   └── dist/                 ←   Built files (auto-generated)
 │
-└── circuit.iq (1)final/              # ⚛️ REACT MAIN PORTAL & WEBSITE
-    ├── index.html                    #   Root HTML template
-    ├── package.json                  #   NPM config (React, TailwindCSS, Three.js, Zustand)
-    ├── vite.config.ts                #   Vite config with API proxy to port 5000
-    ├── tsconfig.json                 #   TypeScript configuration
-    ├── src/
-    │   ├── main.tsx                  #   React DOM entry point
-    │   ├── App.tsx                   #   🧭 Router & page transition shell
-    │   ├── index.css                 #   Global styles & Tailwind imports
-    │   ├── store/
-    │   │   └── useAppStore.ts        #   📦 Zustand global state store
-    │   ├── pages/
-    │   │   ├── LandingPage.tsx       #   🏠 Homepage — catalog, domains, AI console
-    │   │   ├── LabStudio.tsx         #   🔬 Fullscreen iframe wrapper for 3D lab
-    │   │   └── ContactPage.tsx       #   📞 Support portal & ticket submission
-    │   ├── components/
-    │   │   ├── Navbar.tsx            #   Navigation bar
-    │   │   ├── AntigravityHero.tsx   #   3D floating hero animation
-    │   │   ├── PhysicsBotPanel.tsx   #   AI PhysicsBot chat panel
-    │   │   ├── PhysicsShowcase.tsx   #   Interactive showcase widgets
-    │   │   ├── InteractiveCircuitLines.tsx  # Neural plexus background
-    │   │   ├── InteractiveBreadboard.tsx    # Breadboard visualization
-    │   │   ├── CyberpunkLedMatrix.tsx       # LED matrix animation
-    │   │   ├── AttendanceSystem.tsx  #   Student attendance tracker
-    │   │   └── TeamRolesSection.tsx  #   Team cards & demo consoles
-    │   └── lib/                      #   Utility libraries
-    └── public/                       #   Static assets
-        ├── lab.html                  #   Built 3D lab (copied from LABfront-IQ-3D/dist)
-        └── assets/                   #   Built lab JS/CSS bundles
+└── circuit.iq (1)final/      ← ⚛️ React Website
+    ├── src/App.tsx            ←   Page router
+    ├── src/pages/
+    │   ├── LandingPage.tsx    ←   Homepage + experiment catalog
+    │   ├── LabStudio.tsx      ←   Loads 3D lab in iframe
+    │   └── ContactPage.tsx    ←   Support form
+    ├── src/components/        ←   Navbar, Hero, AI Panel, etc.
+    ├── src/store/             ←   Zustand state management
+    └── public/lab.html        ←   Built 3D lab (from build_all.py)
 ```
-
----
-
-## 📋 Prerequisites
-
-| Tool | Version | Required For |
-|------|---------|-------------|
-| **Python** | 3.8+ | Backend server, physics engine |
-| **Node.js** | 18+ | Frontend builds, dev servers |
-| **npm** | 9+ | Package management |
-| **Git** | Any | Version control |
-
----
-
-## 🚀 Quick Start
-
-### 1. Clone & Install Dependencies
-
-```bash
-# Clone the repository
-git clone https://github.com/SYEDTUFAILANDRABI/Circuit.IQ.git
-cd Circuit.IQ
-
-# Install Python dependencies
-cd LABback-IQ
-pip install -r requirements.txt
-cd ..
-
-# Install 3D Lab dependencies
-cd LABfront-IQ-3D
-npm install
-cd ..
-
-# Install React Portal dependencies
-cd "circuit.iq (1)final"
-npm install
-cd ..
-```
-
-### 2. Configure Environment
-
-```bash
-# Copy example environment file
-cp LABback-IQ/.env.example LABback-IQ/.env
-
-# Edit .env and add your API keys (see Environment Variables section)
-```
-
-### 3. Run in Development Mode
-
-```bash
-# Single command to start everything:
-python start_dev.py
-```
-
-This launches:
-- **Python backend** on [http://localhost:5000](http://localhost:5000)
-- **React dev server** on [http://localhost:3000](http://localhost:3000) (proxies `/api` → port 5000)
-- Auto-opens Chrome to the portal
-
-Press `Ctrl+C` to stop both servers.
-
-### 4. Open the App
-
-Navigate to **http://localhost:3000** → Select an experiment → Click **"Launch Lab"**
 
 ---
 
 ## 🔑 Environment Variables
 
-All environment variables are stored in `LABback-IQ/.env`. Copy from `.env.example`:
+All settings go in `LABback-IQ/.env` (copy from `.env.example`):
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `SECRET_KEY` | No | Flask session secret (defaults to dev key) |
-| `FLASK_DEBUG` | No | Enable debug mode (`true`/`false`) |
-| `GEMINI_API_KEY` | **Recommended** | Google Gemini API key for AI Mentor & PhysicsBot |
-| `SUPABASE_URL` | No | Supabase project URL (for cloud DB) |
-| `SUPABASE_ANON_KEY` | No | Supabase anonymous key |
-| `SUPABASE_SERVICE_ROLE_KEY` | No | Supabase service role key |
-| `RESEND_API_KEY` | No | Resend.com key for contact form emails |
-| `CONTACT_TO_EMAIL` | No | Email address for contact notifications |
-| `PORT` | No | Backend port (default: `5000`) |
+| Variable | What it does | Required? |
+|----------|-------------|-----------|
+| `GEMINI_API_KEY` | Enables AI mentor and PhysicsBot | Recommended |
+| `SUPABASE_URL` | Cloud database URL | No — uses local SQLite |
+| `SUPABASE_ANON_KEY` | Cloud database key | No — uses local SQLite |
+| `RESEND_API_KEY` | Sends contact form emails | No — logs to console |
+| `FLASK_DEBUG` | Shows detailed errors | No — defaults to `false` |
+| `PORT` | Server port | No — defaults to `5000` |
 
-> **Graceful Fallbacks:**
-> - No `GEMINI_API_KEY` → AI uses local rule-based formulas and guidance
-> - No `SUPABASE_*` keys → Database falls back to local SQLite (`circuit_iq.db`)
-> - No `RESEND_API_KEY` → Contact form logs to console instead of sending email
+> **Everything works without API keys.** The app falls back to local alternatives automatically.
 
 ---
 
-## 🏗️ Build Pipeline
+## 🔬 All 26 Experiments
 
-### Development (Hot Reload)
+### ⚡ Electricity & Circuits
 
-```bash
-python start_dev.py     # Runs backend + frontend concurrently
-```
+| # | Experiment | What Students Learn | Key Formula |
+|---|-----------|-------------------|-------------|
+| 1 | **Ohm's Law** | Voltage, current, resistance relationship | V = IR |
+| 2 | **Kirchhoff's Voltage Law** | Voltage drops in a loop sum to zero | ΣV = 0 |
+| 3 | **Kirchhoff's Current Law** | Current at a junction is conserved | ΣI_in = ΣI_out |
+| 4 | **LCR AC Impedance** | How R, L, C affect AC circuits | Z = √(R² + (XL−XC)²) |
+| 5 | **Series LCR Resonance** | Finding resonant frequency | f₀ = 1/(2π√LC) |
+| 6 | **RC Time Constant** | How capacitors charge over time | τ = RC |
+| 7 | **Series & Parallel** | Combining resistors | 1/R = 1/R₁ + 1/R₂ |
+| 8 | **Wheatstone Bridge** | Measuring unknown resistance | Rx = R₃(R₂/R₁) |
 
-### Production Build
+### 🔌 Semiconductors
 
-```bash
-# Option A: Automated (recommended)
-python build_all.py
+| # | Experiment | What Students Learn | Key Formula |
+|---|-----------|-------------------|-------------|
+| 9 | **Diode I-V Curve** | How diodes conduct in one direction | I = Is·e^(V/nVt) |
+| 10 | **Voltage Divider** | Splitting voltage between resistors | Vout = Vin·R₂/(R₁+R₂) |
+| 11 | **Arduino LED** | Controlling LEDs with switches | I = (V−Vled)/R |
 
-# Option B: Manual step-by-step
-# Step 1: Build the 3D Lab
-cd LABfront-IQ-3D
-npm run build
+### 🧲 Electromagnetism
 
-# Step 2: Copy lab assets to React public folder
-# (build_all.py does this automatically)
+| # | Experiment | What Students Learn | Key Formula |
+|---|-----------|-------------------|-------------|
+| 12 | **Faraday's Law** | Moving magnets create voltage | E = −N(ΔΦ/Δt) |
+| 13 | **Lenz's Law** | Induced current opposes change | Opposes dΦ/dt |
+| 14 | **Solenoid Field** | Magnetic field in a coil | B = μ₀nI |
+| 15 | **Transformer** | Voltage conversion with coils | Vs/Vp = Ns/Np |
+| 16 | **Biot-Savart** | Field around a wire | B = μ₀I/(2πr) |
 
-# Step 3: Build the React Portal
-cd "../circuit.iq (1)final"
-npm run build
-```
+### ⚛️ Modern Physics
 
-**Build flow:**
-```
-LABfront-IQ-3D/src/ ──► Vite build ──► dist/index.html + dist/assets/
-                                              │
-                              Copy as lab.html + assets/ to:
-                                              │
-                                              ▼
-                    circuit.iq (1)final/public/lab.html
-                    circuit.iq (1)final/public/assets/
-                                              │
-                              React Vite build │
-                                              ▼
-                    circuit.iq (1)final/dist/   ← Served by Flask
-```
+| # | Experiment | What Students Learn | Key Formula |
+|---|-----------|-------------------|-------------|
+| 17 | **Planck (LEDs)** | Finding Planck's constant with LEDs | h = eVλ/c |
+| 18 | **Planck (Photocell)** | Photoelectric stopping voltage | eVs = hf − Φ |
+| 19 | **Photoelectric Effect** | Light ejects electrons from metals | Kmax = hν − Φ |
+| 20 | **Radioactive Decay** | Half-life and exponential decay | N = N₀e^(−λt) |
+| 21 | **de Broglie Wave** | Matter has wave properties | λ = h/(mv) |
+| 22 | **Bohr Atom** | Electron energy levels in hydrogen | ΔE = 13.6(1/nf²−1/ni²) |
 
-### Running Production Build
+### 🔥 Thermodynamics
 
-```bash
-cd LABback-IQ
-python main.py          # Serves built files from dist/ on port 5000
-```
+| # | Experiment | What Students Learn | Key Formula |
+|---|-----------|-------------------|-------------|
+| 23 | **Stefan's Law** | Radiation scales with T⁴ | P = σεAT⁴ |
+| 24 | **Ideal Gas** | Pressure, volume, temperature | PV = nRT |
+| 25 | **Boyle's Law** | Pressure × Volume = constant | P₁V₁ = P₂V₂ |
+| 26 | **Charles's Law** | Volume grows with temperature | V₁/T₁ = V₂/T₂ |
 
----
-
-## 🔬 Physics Experiments (26 Total)
-
-### ⚡ Electricity & Circuits (8 experiments)
-
-| # | Key | Experiment | Key Formula | Components |
-|---|-----|-----------|-------------|------------|
-| 1 | `ohms` | Ohm's Law Verification | `V = I × R` | Source, Resistor |
-| 2 | `kvl` | Kirchhoff's Voltage Law | `ΣV = 0` | Source, Resistor |
-| 3 | `kcl` | Kirchhoff's Current Law | `ΣI_in = ΣI_out` | Source, Resistor |
-| 4 | `rc_rl_rlc` | LCR AC Impedance | `Z = √[R² + (XL−XC)²]` | Source, R, L, C |
-| 5 | `lcr` | Series LCR Resonance | `f₀ = 1/(2π√LC)` | Source, R, L, C |
-| 6 | `rc` | RC Time Constant | `τ = R × C` | Source, R, C |
-| 7 | `series_parallel` | Series & Parallel Loads | `1/R_eq = 1/R1 + 1/R2` | Source, Resistor |
-| 8 | `wheatstone` | Wheatstone Bridge | `Rx = R3 × (R2/R1)` | Source, Resistor |
-
-### 🔌 Semiconductor & Components (3 experiments)
-
-| # | Key | Experiment | Key Formula | Components |
-|---|-----|-----------|-------------|------------|
-| 9 | `diode_iv` | Diode I-V Characteristics | `I = Is(e^(Vd/nVt) − 1)` | Source, R, Diode |
-| 10 | `voltage_divider` | Voltage & Current Divider | `Vout = Vin × R2/(R1+R2)` | Source, Resistor |
-| 11 | `arduino_led` | Arduino LED Control | `I = (Vpin − Vled)/R` | Source, Button, LED, R |
-
-### 🧲 Electromagnetism (5 experiments)
-
-| # | Key | Experiment | Key Formula |
-|---|-----|-----------|-------------|
-| 12 | `faraday` | Faraday's Induction Law | `E = −N(ΔΦ/Δt)` |
-| 13 | `lenz` | Lenz's Law Demonstration | Direction opposes `dΦ/dt` |
-| 14 | `solenoid` | Solenoid Magnetic Field | `B = μ₀nI` |
-| 15 | `transformer` | AC Transformer Ratio | `Vs/Vp = Ns/Np` |
-| 16 | `biot_savart` | Biot-Savart's Law | `B = μ₀I/(2πr)` |
-
-### ⚛️ Modern & Quantum Physics (6 experiments)
-
-| # | Key | Experiment | Key Formula |
-|---|-----|-----------|-------------|
-| 17 | `planck_led` | Planck's Constant (LEDs) | `h = (eVthλ)/c` |
-| 18 | `planck_photocell` | Planck's Constant (Photocell) | `eVs = hf − Φ` |
-| 19 | `photoelectric` | Photoelectric Effect | `Kmax = hν − Φ` |
-| 20 | `radioactive` | Radioactive Decay | `N(t) = N₀e^(−λt)` |
-| 21 | `de_broglie` | de Broglie Matter Wave | `λ = h/(mv)` |
-| 22 | `bohr_model` | Bohr Hydrogen Atom | `ΔE = 13.6(1/nf² − 1/ni²) eV` |
-
-### 🔥 Thermodynamics (4 experiments)
-
-| # | Key | Experiment | Key Formula |
-|---|-----|-----------|-------------|
-| 23 | `stefan_law` | Stefan's Law | `P = σεAT⁴` |
-| 24 | `ideal_gas` | Ideal Gas Equation | `PV = nRT` |
-| 25 | `boyle` | Boyle's Law | `P₁V₁ = P₂V₂` |
-| 26 | `charles` | Charles's Law | `V₁/T₁ = V₂/T₂` |
-
-> **Note:** Experiments 1–11 use the **interactive 3D breadboard** with drag-and-drop components.
-> Experiments 12–26 use **parameter sliders** and specialized visualization widgets.
+> **Experiments 1–11** use the interactive 3D breadboard with drag-and-drop components.
+> **Experiments 12–26** use parameter sliders and visualization widgets.
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ How It Works (Architecture)
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Browser (User's Machine)                  │
-│                                                              │
-│  ┌──────────────────────┐    ┌───────────────────────────┐  │
-│  │   React Portal        │    │   3D Lab Simulator        │  │
-│  │   (Port 3000)         │    │   (Embedded iframe)       │  │
-│  │                       │    │                           │  │
-│  │  • Landing Page       │    │  • Three.js breadboard    │  │
-│  │  • Experiment Catalog │    │  • Wire drawing engine    │  │
-│  │  • PhysicsBot AI      │◄──►│  • Component placement   │  │
-│  │  • Contact Page       │    │  • Oscilloscope/Graph     │  │
-│  │  • Attendance System  │    │  • PDF report generation  │  │
-│  └──────────┬───────────┘    └──────────┬────────────────┘  │
-│             │                           │                    │
-└─────────────┼───────────────────────────┼────────────────────┘
-              │  /api/*                   │  /api/*
-              ▼                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Flask Backend Server (Port 5000)                │
-│                                                              │
-│  ┌─────────────┐  ┌──────────────┐  ┌──────────────────┐   │
-│  │ physics.py   │  │ physicsbot.py│  │ database_routes  │   │
-│  │  /calculate  │  │  /ask        │  │  /save-circuit   │   │
-│  │  /validate   │  │  (Gemini AI) │  │  /load-circuit   │   │
-│  └──────┬──────┘  └──────┬───────┘  └──────┬───────────┘   │
-│         │                │                  │                │
-│         ▼                ▼                  ▼                │
-│  physics_engine.py  Google Gemini     database.py           │
-│  (DFS solver)       (AI responses)    (SQLite / Supabase)   │
-└─────────────────────────────────────────────────────────────┘
+  Student's Browser
+  ─────────────────
+  ┌──────────────┐        ┌───────────────────┐
+  │  React       │        │  3D Lab            │
+  │  Website     │───────►│  (iframe)          │
+  │  :3000       │        │  Three.js          │
+  └──────┬───────┘        └────────┬───────────┘
+         │                         │
+         │   /api/* requests       │
+         ▼                         ▼
+  ┌────────────────────────────────────────────┐
+  │         Flask Server (:5000)               │
+  │                                            │
+  │  /api/calculate   → Physics Engine         │
+  │  /api/validate    → Circuit Checker        │
+  │  /api/physicsbot  → Gemini AI / Fallback   │
+  │  /api/db/*        → SQLite or Supabase     │
+  │  /api/contact     → Email via Resend       │
+  └────────────────────────────────────────────┘
 ```
 
-### Data Flow
+**How a typical session works:**
 
-1. **User selects experiment** → React Portal loads the 3D Lab iframe with `?exp=<key>`
-2. **User builds circuit** → Drag components, draw wires on 3D breadboard
-3. **User clicks "Initialize"** → Frontend calls `POST /api/validate` + `POST /api/calculate`
-4. **Results display** → Live meters update, oscilloscope draws waveforms, graph plots data
-5. **Auto-save** → Circuit layout auto-persists to SQLite/Supabase every change
-6. **Reload** → `loadCircuitFromBackend()` restores exact component + wire positions
+1. Student opens **localhost:3000** → sees the experiment catalog
+2. Clicks **"Launch Lab"** → React loads the 3D simulator in an iframe
+3. Drags components onto the breadboard → connects them with wires
+4. Clicks **"Initialize"** → server validates the circuit and calculates V, I, Z, P
+5. Meters, oscilloscope, and graphs update in real time
+6. Circuit **auto-saves** to the database after every change
+7. On reload → saved circuit is restored exactly as it was
 
 ---
 
-## 🌐 API Reference
+## 🌐 API Endpoints
 
-### Physics Calculation
+### Physics
 
-```
-POST /api/calculate
-```
+| Endpoint | Method | What it does |
+|----------|--------|-------------|
+| `/api/calculate` | POST | Returns V, I, Z, P, XL, XC, φ, f₀ for given parameters |
+| `/api/validate` | POST | Checks if the circuit forms a valid closed loop |
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `params` | `object` | `{ V, R, L, C, f, T }` — slider values |
-| `active_experiment` | `string` | Experiment key (e.g., `"ohms"`) |
-| `button_pressed` | `boolean` | Tactile switch state |
+### AI
 
-**Response:** `{ V, I, Z, P, XL, XC, phi, f0 }`
+| Endpoint | Method | What it does |
+|----------|--------|-------------|
+| `/api/physicsbot/ask` | POST | Answers physics questions using Gemini AI |
 
----
+### Database
 
-### Circuit Validation
+| Endpoint | Method | What it does |
+|----------|--------|-------------|
+| `/api/db/save-circuit` | POST | Saves circuit layout (components + wires + params) |
+| `/api/db/load-circuit` | GET | Loads a previously saved circuit |
+| `/api/db/experiment-log` | POST | Records an experiment attempt with score |
+| `/api/db/experiment-logs` | GET | Gets history of past attempts |
+| `/api/db/profile` | GET/POST | Read or update user profile |
 
-```
-POST /api/validate
-```
+### Other
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `placed_components` | `array` | `[{ type, id, terminals }]` |
-| `wires` | `array` | Wire connection pairs |
-| `required_types` | `array` | Required component types for experiment |
-
-**Response:** `{ valid: true/false, message: "..." }`
-
----
-
-### AI PhysicsBot
-
-```
-POST /api/physicsbot/ask
-```
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `question` | `string` | User's physics question |
-
-**Response:** `{ answer, formulas[], recommended_experiment }`
+| Endpoint | Method | What it does |
+|----------|--------|-------------|
+| `/api/contact` | POST | Sends a support email via Resend |
+| `/api/attendance/*` | GET/POST | Student attendance tracking |
 
 ---
 
-### Circuit Persistence
+## 💾 Database
 
-```
-POST /api/db/save-circuit    — Save/update circuit layout
-GET  /api/db/load-circuit    — Load saved circuit (query: experiment_type, user_id)
-GET  /api/db/experiment-logs — Get experiment attempt history
-POST /api/db/experiment-log  — Save experiment result log
-GET  /api/db/profile         — Get user profile
-POST /api/db/profile         — Create/update user profile
-```
+The app stores data in **two ways** (automatically chosen):
 
----
+| Mode | When | Storage |
+|------|------|---------|
+| **SQLite** (default) | No Supabase keys in `.env` | Local file: `circuit_iq.db` |
+| **Supabase** (cloud) | Supabase keys configured | PostgreSQL on Supabase |
 
-### Contact Form
+### What Gets Saved
 
-```
-POST /api/contact
-```
+| Table | Stores |
+|-------|--------|
+| `profiles` | Student name, university, semester, graduation year |
+| `circuits` | Component positions, wire connections, slider values (as JSON) |
+| `experiment_logs` | Experiment results, scores, duration, attempt count |
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `name` | `string` | Sender name |
-| `email` | `string` | Sender email |
-| `message` | `string` | Support message |
-
----
-
-## 💾 Database Schema
-
-The app uses **dual database support**: Supabase (PostgreSQL) for production, SQLite for local development.
-
-### Tables
-
-| Table | Purpose | Key Columns |
-|-------|---------|-------------|
-| `profiles` | User profiles | `id`, `full_name`, `university`, `semester`, `graduation_year`, `role`, `phone` |
-| `circuits` | Saved circuit layouts | `id`, `user_id`, `name`, `circuit_data` (JSONB), `status`, `is_public`, `tags` |
-| `experiment_logs` | Experiment attempt records | `id`, `user_id`, `circuit_id`, `experiment_type`, `results`, `score`, `duration_seconds` |
-
-### Circuit Data Format (JSONB)
+### Example Circuit Data (JSON)
 
 ```json
 {
@@ -484,56 +311,58 @@ The app uses **dual database support**: Supabase (PostgreSQL) for production, SQ
     { "fromHole": 14, "toHole": 130 },
     { "fromHole": 200, "toHole": 15 }
   ],
-  "params": { "V": 12, "R": 100, "L": 50, "C": 100, "f": 50, "T": 25 },
-  "experiment_type": "ohms"
+  "params": { "V": 12, "R": 100, "L": 50, "C": 100, "f": 50, "T": 25 }
 }
 ```
 
-### SQL Files
+---
 
-| File | Purpose |
-|------|---------|
-| `schema.sql` | Base Supabase schema — tables, triggers, RLS policies, seed data |
-| `customise.sql` | Column extensions — adds `graduation_year`, `role`, `phone`, `tags`, `score`, etc. |
+## 🏗️ Building for Production
+
+```bash
+# One command does everything:
+python build_all.py
+```
+
+This runs three steps automatically:
+
+```
+1. Build 3D Lab        →  LABfront-IQ-3D/dist/
+2. Copy to website     →  circuit.iq (1)final/public/lab.html
+3. Build website       →  circuit.iq (1)final/dist/
+```
+
+Then serve with Flask:
+```bash
+cd LABback-IQ && python main.py
+# → Opens http://localhost:5000 with everything bundled
+```
 
 ---
 
-## 🔧 Key Scripts
+## ❓ Common Problems
 
-| Script | Command | What It Does |
-|--------|---------|-------------|
-| `start_dev.py` | `python start_dev.py` | Runs Flask backend + React dev server concurrently |
-| `build_all.py` | `python build_all.py` | Builds 3D lab → copies to React → builds React portal |
-| `test_physics.py` | `python LABback-IQ/test_physics.py` | Runs physics engine unit tests |
-
----
-
-## ❓ Troubleshooting
-
-| Problem | Solution |
-|---------|----------|
-| `ModuleNotFoundError: flask` | Run `pip install -r LABback-IQ/requirements.txt` |
-| `npm ERR! missing script: dev` | Run `npm install` in the relevant directory first |
-| 3D models not loading | Check `LABfront-IQ-3D/public/models/` paths |
-| API calls returning 404 | Ensure Python backend is running on port 5000 |
-| White screen in lab | Open browser DevTools console for JS errors |
-| Database not saving | Check `.env` Supabase keys or verify `circuit_iq.db` exists |
-| AI Mentor not responding | Add `GEMINI_API_KEY` to `LABback-IQ/.env` |
-| Build fails after code changes | Run `python build_all.py` to rebuild everything |
+| Problem | Fix |
+|---------|-----|
+| `ModuleNotFoundError: flask` | `pip install -r LABback-IQ/requirements.txt` |
+| `npm ERR! missing script: dev` | `npm install` in the right folder first |
+| 3D lab shows white screen | Open browser console (F12) → check for JS errors |
+| API calls fail (404) | Make sure `python start_dev.py` is running |
+| AI mentor doesn't respond | Add `GEMINI_API_KEY` to `LABback-IQ/.env` |
+| Circuit doesn't save | Check that `circuit_iq.db` exists in project root |
 | Port already in use | Kill processes on ports 3000/5000, then restart |
+| Build fails | Run `npm install` in both frontend folders, then `python build_all.py` |
 
 ---
 
-## 📖 Sub-Project READMEs
+## 📖 More Documentation
 
-Each sub-project has its own detailed README:
-
-| Sub-Project | README Location |
-|-------------|----------------|
-| Python Backend | [`LABback-IQ/README.md`](LABback-IQ/README.md) |
-| 3D Lab Simulator | [`LABfront-IQ-3D/README.md`](LABfront-IQ-3D/README.md) |
-| React Portal | [`circuit.iq (1)final/README.md`](circuit.iq%20(1)final/README.md) |
-| Developer Guide | [`DEVELOPER_GUIDE.md`](DEVELOPER_GUIDE.md) |
+| Document | What it covers |
+|----------|---------------|
+| [LABback-IQ/README.md](LABback-IQ/README.md) | Server setup, all API details, physics engine docs |
+| [LABfront-IQ-3D/README.md](LABfront-IQ-3D/README.md) | 3D lab code map, wire system, breadboard internals |
+| [circuit.iq (1)final/README.md](circuit.iq%20(1)final/README.md) | React pages, components, state management |
+| [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) | How to add experiments, components, routes |
 
 ---
 
@@ -541,7 +370,7 @@ Each sub-project has its own detailed README:
 
 **Built with ❤️ by the Circuit.IQ Team**
 
-*Python · Flask · React · Three.js · Gemini AI · Supabase*
+Python · Flask · React · Three.js · Gemini AI · Supabase
 
 </div>
 ]]>
