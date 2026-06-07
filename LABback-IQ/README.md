@@ -1,4 +1,4 @@
-<![CDATA[# 🐍 Circuit.IQ — Python Backend Server
+# 🐍 Circuit.IQ — Python Backend Server
 
 > Flask API server that handles physics calculations, AI tutoring, circuit storage, and serves the built website.
 
@@ -229,4 +229,3 @@ Plus Python's built-in `sqlite3` (no install needed).
 | AI not responding | Check `GEMINI_API_KEY` in `.env` |
 | Database errors | Delete `circuit_iq.db` and restart (auto-recreates) |
 | CORS errors | Make sure the dev server URL is in `app.py` CORS origins |
-]]>

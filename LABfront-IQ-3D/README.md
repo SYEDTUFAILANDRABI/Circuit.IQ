@@ -1,4 +1,4 @@
-<![CDATA[# ⚡ Circuit.IQ — 3D Lab Simulator
+# ⚡ Circuit.IQ — 3D Lab Simulator
 
 > The interactive 3D breadboard where students build circuits, draw wires, and run physics experiments.
 
@@ -232,4 +232,3 @@ The "Download Lab Report" button generates a printable PDF with:
 | Wires shifting on reload | The `false` flag in `loadCircuitFromBackend` should fix this |
 | PDF won't download | Allow pop-ups for localhost in browser settings |
 | Build errors | `npm install` then `npm run build` |
-]]>

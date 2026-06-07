@@ -1,4 +1,4 @@
-<![CDATA[# 🛠️ Circuit.IQ – Developer Guide
+# 🛠️ Circuit.IQ – Developer Guide
 
 > A quick‑start reference for contributors who want to extend the platform (new experiments, components, APIs, or UI).
 
@@ -167,4 +167,3 @@ Contributions are welcome – feel free to open a Pull Request, add tests, and u
 <div align="center">
 Built with ❤️ by the Circuit.IQ Team – Python, Flask, React, Three.js, Gemini AI.
 </div>
-]]>

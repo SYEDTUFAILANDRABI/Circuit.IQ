@@ -1,4 +1,4 @@
-<![CDATA[# ⚛️ Circuit.IQ — React Website Portal
+# ⚛️ Circuit.IQ — React Website Portal
 
 > The main website — landing page, experiment catalog, AI chat, and 3D lab launcher.
 
@@ -196,4 +196,3 @@ python build_all.py
 | 3D hero not showing | Check browser WebGL support (console for errors) |
 | Lab iframe is blank | Run `python build_all.py` to create `public/lab.html` |
 | Styles missing | Ensure TailwindCSS plugin is in `vite.config.ts` |
-]]>
