@@ -650,8 +650,9 @@ function WebcamMonitorView({ session: initialSession, regNo, onLabUnlock, onLabP
         document.head.appendChild(s);
       });
 
-      await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js');
-      await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js');
+      await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs-backend-webgl@4.15.0/dist/tf-backend-webgl.min.js');
+await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js');
+await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js');
 
       const cocoSsd = (window as any).cocoSsd;
       detectorRef.current = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
