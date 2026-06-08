@@ -710,7 +710,7 @@ await loadScript('https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3
             body: JSON.stringify({ people_count: count }),
           });
         } catch {}
-      }, 2000);
+      }, 1500);
 
     } catch (e: any) {
       setCamError(e.name === 'NotAllowedError' ? 'Camera permission denied. Please allow camera access.' : 'Could not access camera.');
