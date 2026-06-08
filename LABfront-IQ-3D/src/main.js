@@ -7013,6 +7013,26 @@ function initThreeJS() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
     parent.appendChild(renderer.domElement);
+
+    // Explicitly clean up WebGL context on page unload to prevent Chrome context leaks
+    window.addEventListener('unload', () => {
+      if (renderer) {
+        try {
+          const gl = renderer.getContext();
+          if (gl) {
+            const ext = gl.getExtension('WEBGL_lose_context');
+            if (ext) ext.loseContext();
+          }
+        } catch (e) {
+          console.warn("Failed to lose WebGL context on unload:", e);
+        }
+        try {
+          renderer.dispose();
+        } catch (e) {
+          console.warn("Failed to dispose renderer on unload:", e);
+        }
+      }
+    });
     
     // --- STAGE LIGHTING (BRIGHTENED FOR METALLIC/STANDARD MATERIAL SHADERS) ---
     scene.add(new THREE.AmbientLight(0xffffff, 2.0));

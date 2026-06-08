@@ -163,15 +163,23 @@ python main.py
 ```
 Go to **http://localhost:5000** to access the production build.
 
+## 📖 Developer Guides & Easy Access Links
+
+For quick access to code sections, integration details, and guides:
+*   🤖 **AI Context Guide**: [AI_HANDOVER.md](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/AI_HANDOVER.md) — Prompt template & reference file mappings for AI assistants.
+*   🛠️ **Integration Details**: [DEVELOPER_GUIDE.md](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/DEVELOPER_GUIDE.md) — Comprehensive developer notes on database structures, wire persistence, and state.
+*   🐍 **Backend Server**: [LABback-IQ/README.md](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/LABback-IQ/README.md) — Python Flask architecture, API endpoints, and schemas.
+*   ⚡ **3D Simulator**: [LABfront-IQ-3D/README.md](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/LABfront-IQ-3D/README.md) — Three.js scene architecture and WebGL configurations.
+*   ⚛️ **React Website**: [circuit.iq (1)final/README.md](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/circuit.iq%20(1)final/README.md) — React portal state, store hooks, and component guide.
+
 ---
 
-## 📖 Sub-Project Guides
+## 🛠️ Performance & Troubleshooting
 
-For deeper code details, configuration recipes, and backend routes, consult these specific guides:
-*   🐍 **Backend Guide**: [LABback-IQ/README.md](LABback-IQ/README.md)
-*   ⚡ **3D Simulator Guide**: [LABfront-IQ-3D/README.md](LABfront-IQ-3D/README.md)
-*   ⚛️ **React Portal Guide**: [circuit.iq (1)final/README.md](circuit.iq%20(1)final/README.md)
-*   🛠️ **Developer Integration Guide**: [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)
+### WebGL Context Management (Memory Leaks Fixed)
+To ensure the application runs smoothly without crashing the browser:
+*   **WebGL Context Limits**: Chrome limits active WebGL contexts per session. We have implemented clean disposal logic where the `THREE.WebGLRenderer` context is explicitly lost (`WEBGL_lose_context` extension) and disposed of immediately when the simulator iframe is reloaded or unmounted.
+*   **React Post-Processing Bloom**: If you encounter low framerates on low-end machines, toggle **High Fidelity Mode** in the settings panel to disable resource-heavy post-processing bloom.
 
 ---
 
