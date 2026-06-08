@@ -38,6 +38,28 @@ Circuit.IQ is a premium, interactive WebGL-based physics sandbox. Students can d
 *   **Rich Measurements**: Integrated digital meters (V, I, Z, P), a functional dual-channel oscilloscope, and live V-I graphs.
 *   **Automated Lab Reports**: Click to download a comprehensive PDF report with your observation tables, graph screenshot, Viva Q&A, and auto-generated grade.
 *   **Auto-Save & Persistence**: Restores your exact component placements and wire routes upon refresh (backed by local SQLite or cloud Supabase).
+*   **Live Attendance & Presence Lock**: Integrated webcam session manager utilizing client-side TensorFlow.js (COCO-SSD) to automatically verify student presence, lock/unlock the lab workspace, and auto-pause simulations when a student leaves the camera frame.
+
+---
+
+## 👥 Live Attendance & Security System
+
+Circuit.IQ includes a professional, classroom-grade attendance and presence verification system designed to help professors monitor group lab sessions and prevent unattended simulations.
+
+### System Workflow
+1. **Professor Portal (Admin)**: 
+   * Professors log in using an admin password to create active lab sessions.
+   * They specify the target experiment, group names, expected group size, and registered student registration numbers.
+2. **Student Portal (Join)**:
+   * Students enter the generated **Session Code** and their registration numbers.
+   * Once checked in, they are queued to enter the lab.
+3. **Computer Vision Presence Lock**:
+   * The system gains access to the local webcam and dynamically loads **TensorFlow.js (COCO-SSD)** from a secure CDN.
+   * A local object detection loop runs every 1.5 seconds to count the number of students/people present in front of the camera.
+   * **Active Pause/Resume Safeguard**: If a student leaves the frame, the system detects the discrepancy, pauses the session status, and locks/pauses the 3D physics simulation instantly. When they re-enter, the lab resumes.
+4. **Audit Logs & Export**:
+   * The backend logs every state change: check-in timestamps, presence count drops, pause/resume timeline milestones, and final student grades.
+   * Professors can monitor active sessions in real-time, end them, and download a detailed `.txt` text log file for academic auditing.
 
 ---
 
