@@ -224,11 +224,11 @@ The "Download Lab Report" button generates a printable PDF with:
 
 ## ❓ Common Problems
 
-| Problem | Fix |
-|---------|-----|
-| White screen | Open browser console (F12) → check for errors |
-| 3D models missing | Verify files exist in `public/models/` |
-| API calls failing | Make sure backend is running on port 5000 |
-| Wires shifting on reload | The `false` flag in `loadCircuitFromBackend` should fix this |
-| PDF won't download | Allow pop-ups for localhost in browser settings |
-| Build errors | `npm install` then `npm run build` |
+| Problem | Cause / Symptom | Fix |
+|---------|-----------------|-----|
+| White screen / WebGL Crash | Chrome limits active WebGL contexts per session; frequent reloads exceed limit. | Reload the page or close other WebGL tabs. We have added `unload` handlers in `main.js` and React `unmount` dispatches to call `loseContext()` and `renderer.dispose()` automatically. |
+| 3D models missing | GLTF/GLB models failed to load. | Verify files exist in `/public/models/` and paths are correct. |
+| API calls failing | Flask server is not responding. | Make sure backend is running on port 5000 (`python start_dev.py`). |
+| Wires shifting on reload | Snapping logic snaps wires to nearby pins on load. | Ensure `create3DWire` is called with the `false` flag during DB load (`loadCircuitFromBackend`) to bypass snapping. |
+| PDF won't download | Browser blocks pop-up windows. | Allow pop-ups for localhost in your browser settings. |
+| Build errors | Missing dependencies or outdated bundle. | Run `npm install` and `npm run build` in the directory. |

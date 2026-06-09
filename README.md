@@ -4,44 +4,141 @@
 
 ### AI-Powered 3D Virtual Physics Laboratory
 
-A full-stack 3D physics simulation platform where students build circuits on virtual breadboards, run experiments, and get AI-powered guidance — all in the browser.
+A premium, full-stack 3D physics simulation platform where students construct circuits on virtual breadboards, perform real-time measurements, and receive AI-guided tutoring — all inside a modern, glassmorphic browser portal.
 
-[![Python 3.8+](https://img.shields.io/badge/Python-3.8+-3776AB?logo=python&logoColor=white)](#-prerequisites)
-[![Flask 3.1](https://img.shields.io/badge/Flask-3.1-000000?logo=flask&logoColor=white)](#overview)
-[![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](#overview)
-[![Three.js r184](https://img.shields.io/badge/Three.js-r184-000000?logo=threedotjs&logoColor=white)](#overview)
-[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white)](#-database)
+[![Python 3.8+](https://img.shields.io/badge/Python-3.8+-3776AB?logo=python&logoColor=white)](#-backend-server-python-flask)
+[![Flask 3.1](https://img.shields.io/badge/Flask-3.1-000000?logo=flask&logoColor=white)](#-backend-server-python-flask)
+[![React 19](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](#-react-portal)
+[![Three.js r184](https://img.shields.io/badge/Three.js-r184-000000?logo=threedotjs&logoColor=white)](#-3d-simulator-threejs)
+[![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3ECF8E?logo=supabase&logoColor=white)](#-database-sync--persistence)
 
 </div>
 
 ---
 
-## Overview
-
-Circuit.IQ is a premium, interactive WebGL-based physics sandbox. Students can drag components onto a virtual 3D breadboard, draw wires to build circuits, and run simulations. An AI Mentor is embedded to provide real-time guidance.
-
-### Architecture At A Glance
-
-| Component | Directory | Tech Stack | Role | Port |
-| :--- | :--- | :--- | :--- | :--- |
-| **React Website** | `circuit.iq (1)final/` | React 19, TypeScript, Zustand, Tailwind | Portal, Landing Page, AI Mentor | `3000` |
-| **3D Simulator** | `LABfront-IQ-3D/` | Three.js (r184), HTML5 Canvas, Vite | WebGL Breadboard, Oscilloscope, Graph | Iframe |
-| **Python Server** | `LABback-IQ/` | Flask 3.1, Gemini API, SQLite, Supabase | Calculations, AI endpoints, DB persistence | `5000` |
+## 📖 Navigation & Quick Links
+*   [🛠️ System Architecture & Data Flow](#-system-architecture--data-flow)
+*   [🔗 Connection & Communication Architecture](#-connection--communication-architecture)
+*   [🌟 Key Features](#-key-features)
+*   [👥 Live Attendance & Security System](#-live-attendance--security-system)
+*   [🤖 Global PhysicsBot AI Console](#-global-physicsbot-ai-console)
+*   [💾 Database Sync & Persistence](#-database-sync--persistence)
+*   [🔌 All API Endpoints Reference](#-all-api-endpoints-reference)
+*   [📁 Project Directory & Component Map](#-project-directory--component-map)
+*   [🚀 Installation & Development Quickstart](#-installation--development-quickstart)
+*   [🎨 Design System & Visuals](#-design-system--visuals)
+*   [🔬 List of 26 Simulator Experiments](#-list-of-26-simulator-experiments)
+*   [🛠️ Performance & Troubleshooting](#-performance--troubleshooting)
 
 ---
 
-## Key Features
+## 🛠️ System Architecture & Data Flow
 
-*   **26 Interactive Experiments**: Spanning Electricity, Semiconductors, Electromagnetism, Modern Physics, and Thermodynamics.
-*   **3D Breadboard Simulator**: Full drag-and-drop workflow for resistors, capacitors, LEDs, diodes, and switches.
-*   **Intelligent AI Assistant**: Context-aware [PhysicsBotPanel.tsx](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/circuit.iq%20(1)final/src/components/PhysicsBotPanel.tsx) inside the lab simulator reads your current components, wires, and parameters, using Gemini AI to diagnose faults.
-*   **Global PhysicsBot AI Console**: Homepage terminal-like AI playground ([LandingPage.tsx](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/circuit.iq%20(1)final/src/pages/LandingPage.tsx)) featuring command suggestions (`$ ohms-solver`, `$ lcr-resonance`) and smart matching that recommends and auto-loads specific 3D simulations.
-*   **Rich Measurements**: Integrated digital meters (V, I, Z, P), a functional dual-channel oscilloscope, and live V-I graphs.
-*   **Automated Lab Reports**: Click to print a formatted PDF report with aim, apparatus, theory, key formulas, observation tables, graded viva Q&A, and auto-generated grade.
-*   **Dual-Database Adapter Engine**: Automatic zero-setup synchronization between local SQLite (`circuit_iq.db`) and cloud Supabase (PostgreSQL), pre-seeded with student profiles and circuit data.
-*   **Live Attendance & Presence Lock**: Webcam session manager utilizing client-side TensorFlow.js (COCO-SSD) to automatically verify student presence, lock/unlock the lab workspace, and auto-pause simulations when a student leaves the camera frame.
-*   **Offline Heuristic Fallback**: Intelligent keyword-based tutoring fallback that ensures students get structured formulas and guidance even without a configured `GEMINI_API_KEY`.
-*   **Support & Diagnostics Portal**: Multi-category ticketing system for bug reports and feature requests with Resend API email dispatching.
+Circuit.IQ is designed with a decoupled but highly integrated three-tier architecture:
+1.  **Core Web Portal (React 19)**: Manages authentication, profile settings, the interactive experiment catalog, global AI chatbot queries, contact tickets, and the classroom attendance system.
+2.  **3D Breadboard Simulator (Three.js)**: Runs in a dedicated WebGL scene inside a same-origin `iframe`. It handles the drag-and-drop workspace, physical wiring connections, visual electron flow animations, oscilloscope waveforms, and observation charts.
+3.  **Python Flask Backend**: Handles rigorous calculations (voltage, current, impedance, transient time constants, calorimetry, and radioactivity), persists user save states, routes student questions to Gemini AI, generates diagnostic audit logs, and sends notification emails via Resend.
+
+### 🌐 Architectural Flowchart
+```mermaid
+graph TD
+    subgraph Frontend Portal [Port 3000: React Web Portal]
+        LP[LandingPage.tsx] --> LS[LabStudio.tsx]
+        AS[AttendanceSystem.tsx]
+        CP[ContactPage.tsx]
+        US[useAppStore.ts - Zustand State]
+    end
+
+    subgraph Simulator [3D WebGL Simulator inside iframe]
+        LH[lab.html] --> MJ[main.js - Three.js Scene]
+        MJ --> OSC[Oscilloscope & Graph Canvas]
+        MJ --> PDF[PDF Report Generator]
+    end
+
+    subgraph Backend [Port 5000: Flask API Server]
+        APP[app.py - App Factory]
+        PR[routes/physics.py]
+        PBR[routes/physicsbot.py]
+        ATR[routes/attendance.py]
+        DBR[routes/database_routes.py]
+        CR[routes/contact.py]
+        PE[physics_engine.py]
+        DB[database.py]
+    end
+
+    subgraph Data [Storage Layer]
+        SQL[(SQLite circuit_iq.db)]
+        SB[(Supabase PostgreSQL)]
+    end
+
+    %% Connections
+    LS -- Embeds via iframe --> LH
+    AS -- Polls & updates presence --> ATR
+    CP -- Submits ticket --> CR
+    MJ -- POST /api/calculate & /api/validate --> PR
+    MJ -- POST /api/physicsbot/ask --> PBR
+    MJ -- GET/POST /api/db/* --> DBR
+    
+    PR --> PE
+    PBR --> Gemini[Gemini 2.5-flash API]
+    PBR -- Fallback --> PE
+    DBR --> DB
+    DB --> SQL
+    DB --> SB
+```
+
+### 🔄 End-to-End Simulation Sequence
+This sequence demonstrates the loading, circuit construction, backend verification, real-time math execution, and log saving flow:
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Student as Student (Browser)
+    participant RP as React Portal (Port 3000)
+    participant IF as 3D Simulator Iframe
+    participant FB as Flask Backend (Port 5000)
+    participant DB as SQLite/Supabase DB
+
+    Student->>RP: Selects Experiment (e.g. Ohm's Law) & clicks "Launch Lab"
+    Note over RP: useAppStore.openLab('ohms') sets isLabOpen = true
+    RP->>IF: Mounts <iframe src="/lab.html?exp=ohms" />
+    IF->>FB: GET /api/db/load-circuit?experiment_type=ohms&user_id=...
+    FB->>DB: Fetch saved layout
+    DB-->>FB: Return circuit data (components + wires)
+    FB-->>IF: Return circuit state JSON
+    Note over IF: main.js places 3D meshes & draws curves
+    Student->>IF: Connects wires & adjusts sliders (V, R)
+    IF->>FB: POST /api/db/save-circuit (auto-saves placement)
+    Student->>IF: Clicks "Initialize System"
+    IF->>FB: POST /api/validate (checks closed loop)
+    FB-->>IF: { valid: true }
+    IF->>FB: POST /api/calculate (sends V, R parameters)
+    FB-->>IF: { V, I, P } readings
+    Note over IF: Updates digital meters & V-I graph canvas
+```
+
+---
+
+## 🔗 Connection & Communication Architecture
+
+*   **Same-Origin Iframe Embedding**: The React website wrapper ([LabStudio.tsx](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/circuit.iq%20(1)final/src/pages/LabStudio.tsx)) loads `lab.html` in an iframe. Since the Flask server hosts the static bundle on the same port in production (and dev mode uses Vite proxies), they share cookies, session tokens, and local storage seamlessly.
+*   **Parameter Synchronization**: When the student moves a slider in the simulator control panel, the changes are captured locally in `state.params` and dispatched to `/api/calculate`. The backend calculates the resulting electrical states, returning current, impedance, phase angles, and energy values. These are immediately written to the digital meters and recorded in `state.dataPoints` for graph plotting.
+*   **Automatic Backup (Auto-Save)**: Every placement of a component or drawing of a wire triggers a background asynchronous POST request to `/api/db/save-circuit`. If the student refreshes or crashes, the simulator queries `/api/db/load-circuit` and reconstructs the scene automatically.
+*   **Fidelity Lock (Wire Restoration)**: 
+    *   *Manual user drawing*: Wires snap to closest holes automatically: `create3DWire(start, end, true)`.
+    *   *Database reloading*: Restores positions exactly without snapping adjustments: `create3DWire(from, to, false)`. This keeps components and wires in their exact custom layout locations.
+
+---
+
+## 🌟 Key Features
+
+*   **26 Physics Modules**: Covering breadboard circuits, semiconductors, visual electromagnetism simulators, ideal gases, calorimetry, stopping voltages, orbital shells, and radioactive half-lives.
+*   **Photorealistic 3D Breadboard Workspace**: Interactive Three.js scene supporting orbital rotations, component dragging, and Bézier wire drawing.
+*   **Context-Aware AI Mentor**: Panel-based chatbot inside the simulator ([PhysicsBotPanel.tsx](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/circuit.iq%20(1)final/src/components/PhysicsBotPanel.tsx)) that reads the current layout structure, slider values, and meter readouts to guide students through faults.
+*   **Global PhysicsBot Chat Console**: Homepage terminal simulator equipped with quick-command shortcuts (`ohms-solver`, `lcr-resonance`) that matches, explains, and loads target simulations with a single click.
+*   **Integrated Telemetry Instruments**: Active virtual digital multimeters, a functional dual-channel oscilloscope, and live data plotting canvas graphs.
+*   **Printable Academic Lab Reports**: Dynamically prints professional PDF reports compiling the student's name, university, aim, apparatus, theory formulas, observation tables, graded viva voce questions, and conclusion text.
+*   **Dual-Database Adapter Engine**: Fluid database synchronization using a local SQLite driver (`circuit_iq.db`) as a default fallback and cloud Supabase (PostgreSQL) when environment keys are active.
+*   **Classroom Security & Presence Lock**: Client-side TensorFlow.js camera monitoring loop checking student presence to automatically lock the lab and pause ongoing simulations.
 
 ---
 
@@ -50,19 +147,21 @@ Circuit.IQ is a premium, interactive WebGL-based physics sandbox. Students can d
 Circuit.IQ includes a professional, classroom-grade attendance and presence verification system designed to help professors monitor group lab sessions and prevent unattended simulations.
 
 ### System Workflow
-1. **Professor Portal (Admin)**: 
-   * Professors log in using an admin password to create active lab sessions.
-   * They specify the target experiment, group names, expected group size, and registered student registration numbers.
-2. **Student Portal (Join)**:
-   * Students enter the generated **Session Code** and their registration numbers.
-   * Once checked in, they are queued to enter the lab.
-3. **Computer Vision Presence Lock**:
-   * The system gains access to the local webcam and dynamically loads **TensorFlow.js (COCO-SSD)** from a secure CDN.
-   * A local object detection loop runs every 1.5 seconds to count the number of students/people present in front of the camera.
-   * **Active Pause/Resume Safeguard**: If a student leaves the frame, the system detects the discrepancy, pauses the session status, and locks/pauses the 3D physics simulation instantly. When they re-enter, the lab resumes.
-4. **Audit Logs & Export**:
-   * The backend logs every state change: check-in timestamps, presence count drops, pause/resume timeline milestones, and final student grades.
-   * Professors can monitor active sessions in real-time, end them, and download a detailed `.txt` text log file for academic auditing.
+1.  **Professor Session Creation**:
+    *   Professors log in to the admin dashboard using `ADMIN_PASSWORD` (default: `circuitiq@admin2025`).
+    *   They select the target experiment, group name, expected group size, and input the authorized registration numbers.
+    *   The backend creates a session code (e.g. `A3F92B1C`) and tracks check-in events in-memory.
+2.  **Student Check-in**:
+    *   Students enter the classroom session code and their registration number.
+    *   The portal checks if they are authorized and logs them into a queue.
+    *   When all registered members are checked in, the session activates.
+3.  **Computer Vision Presence Verification**:
+    *   The student's webcam begins scanning and loads the pre-trained object-detection model **TensorFlow.js (COCO-SSD)** from a secure CDN.
+    *   A local detection loop runs every 1.5 seconds, counting the number of individuals present in the frame.
+    *   **Sim Safety Safeguard**: If any student leaves the camera frame (count drops below the registered group threshold), the portal triggers `onLabPause()`. This immediately locks the 3D lab controls, pauses the simulation, and posts a `paused` status to `/api/session/<id>/presence`. When the student returns, the simulation resumes.
+4.  **Audit Trail Logging**:
+    *   The system records every checkpoint: check-in timestamps, camera presence drops, pause/resume timeline events, and final grades.
+    *   Professors can monitor live status logs, end the session, and export a clean `.txt` log file for grading.
 
 ---
 
@@ -76,170 +175,224 @@ The homepage features a terminal-style chatbot interface dedicated to general ph
 
 ---
 
-## 💾 Database Sync & Dual Adapters
+## 💾 Database Sync & Persistence
 
-The Flask backend is equipped with a hybrid database layer ([database.py](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/LABback-IQ/database.py)) that provides a zero-setup local dev experience while remaining cloud-ready:
-*   **SQLite Fallback**: If no Supabase environment variables are configured in `.env`, the app automatically initializes `circuit_iq.db` locally.
-*   **Automatic Seeding**: Seeds a default student profile (Aisha Rahman) and a sample series circuit layout on first boot so the lab is fully usable immediately.
-*   **Table Schemas**:
-    *   `profiles`: Tracks student names, universities, semesters, graduation years, roles, and active statuses.
-    *   `circuits`: Stores coordinate coordinates, tag arrays, placement configurations, and wire arrays as JSONB.
-    *   `experiment_logs`: Records experiment duration, scores, and feedback for grading.
+The backend uses a dual database adapter structure ([database.py](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/LABback-IQ/database.py)) for automatic environment compatibility:
+*   **Local SQLite Driver**: Saves data to `circuit_iq.db` automatically if Supabase variables are absent.
+*   **Seeded Sandbox**: Initializes a default profile for student `Aisha Rahman` (ID: `a1b2c3d4-e5f6-7890-abcd-ef1234567890`) and pre-configures a sample Ohm's Law circuit so the simulator is functional on fresh deployments.
+*   **PostgreSQL Migration**: The `schema.sql` and `customise.sql` define matching schemas, constraints, trigger functions for updated timestamps, Row Level Security (RLS) policies, and test data seeding for deployment on Supabase.
 
 ---
 
-## 📞 Support & Ticketing System
+## 🔌 All API Endpoints Reference
 
-A modular contact page ([ContactPage.tsx](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/circuit.iq%20(1)final/src/pages/ContactPage.tsx)) is integrated into the client portal to handle feedback and bug submissions:
-*   **Form Validation**: Validates client-side inputs (valid email checks, minimum message length).
-*   **API Ticket Logging**: Sends a request to `/api/contact` which creates a unique UUID-based Ticket ID.
-*   **Resend API Integration**: If `RESEND_API_KEY` is provided, emails the submission to the designated administrative email (`CONTACT_TO_EMAIL`), falling back to standard stdout logging in the Flask terminal on empty keys.
+### 🧮 Physics & Calculations
+*   `POST /api/validate`: Validates circuit wiring using a union-find connection search algorithm.
+*   `POST /api/calculate`: Computes metrics (V, I, Z, P, phase angle, resonance) for the active experiment.
 
-## 🚀 Quick Start (3 Steps)
+### 🤖 AI PhysicsBot
+*   `POST /api/physicsbot/ask`: Receives user question + circuit state, and prompts Gemini 2.5-flash for context-aware lab help.
+*   `POST /api/physics-bot`: Receives general physics questions on the homepage and returns explanations, formulas, and recommended simulation keys.
+
+### 💾 Storage & Logs
+*   `POST /api/db/save-circuit`: Saves active components, wire connections, and slider parameters.
+*   `GET /api/db/load-circuit`: Fetches saved layout JSON for an experiment (queries: `user_id`, `experiment_type`).
+*   `POST /api/db/save-log`: Saves experiment completion metrics, grades, and notes.
+*   `GET /api/db/get-logs`: Retrieves past lab logs for auditing (queries: `user_id`, `experiment_type`).
+*   `GET /api/db/profile`: Fetches student profile data.
+*   `POST /api/db/profile`: Creates or updates student metadata.
+
+### 🎓 Classroom Attendance
+*   `POST /api/admin/login`: Verifies admin password and issues session token.
+*   `POST /api/admin/session/create`: Spawns a tracking session with student numbers.
+*   `GET /api/admin/session/list`: Lists all sessions.
+*   `DELETE /api/admin/session/<id>/delete`: Removes a session.
+*   `POST /api/session/join`: Student check-in via join code.
+*   `GET /api/session/<id>/status`: Polls status (waiting, active, paused, ended).
+*   `POST /api/session/<id>/presence`: Updates camera detection counts.
+*   `POST /api/session/<id>/end`: Concludes session and compiles logs.
+*   `GET /api/session/<id>/log`: Downloads audit logs.
+
+### 📞 Support & Feedback
+*   `POST /api/contact`: Submits support tickets and emails them via Resend API.
+
+---
+
+## 📁 Project Directory & Component Map
+
+Below is a map of the repository's directories and primary source files:
+
+```
+Circuit.IQ/
+├── start_dev.py                # Starts Flask and React Dev servers concurrently
+├── build_all.py                # Production build pipeline compiler
+├── schema.sql                  # PostgreSQL core table schemas (Supabase)
+├── customise.sql               # DB extension columns and migration queries
+├── circuit_iq.db               # Auto-created local SQLite database file
+│
+├── LABback-IQ/                 # 🐍 PYTHON FLASK BACKEND SERVER
+│   ├── main.py                 # Backend entrypoint (runs create_app())
+│   ├── app.py                  # Flask configuration, blueprints, CORS, and static routes
+│   ├── config.py               # Reads environment keys from .env
+│   ├── database.py             # Database wrapper (SQLite/Supabase sync layer)
+│   ├── physics_engine.py       # Physics calculations for DC, AC, and visual simulators
+│   ├── ai_guide.py             # Offline guidance steps, formulas, and viva questions
+│   ├── test_physics.py         # Unit tests for verification
+│   └── routes/                 # Flask route controllers
+│       ├── physics.py          #   /api/validate and /api/calculate
+│       ├── physicsbot.py       #   /api/physicsbot/ask and /api/physics-bot
+│       ├── database_routes.py  #   /api/db/* save, load, profile, and logs
+│       ├── attendance.py       #   /api/admin/* and /api/session/* attendance
+│       └── contact.py          #   /api/contact support ticketing
+│
+├── LABfront-IQ-3D/             # ⚡ 3D SIMULATOR (THREE.JS ENGINE)
+│   ├── index.html              # Simulation structure, meters, graph overlay, and panels
+│   ├── src/main.js             # 3D Breadboard, drag-drop, curves, graph, and PDF report
+│   ├── src/style.css           # Glassmorphic panels, neon dark-theme styles
+│   └── public/models/          # GLTF 3D components (resistors, switches, diodes)
+│
+└── circuit.iq (1)final/        # ⚛️ REACT WEB PORTAL
+    ├── src/main.tsx            # React application entrypoint
+    ├── src/App.tsx             # SPA route navigator
+    ├── src/index.css           # Global typography, glassmorphism, and Tailwind
+    ├── src/store/
+    │   └── useAppStore.ts      # Zustand global state (lab view, experiment selected)
+    ├── src/pages/              # Main view files
+    │   ├── LandingPage.tsx     #   Hero scene, experiment catalog, and AI chatbot console
+    │   ├── LabStudio.tsx       #   Fullscreen simulator iframe container
+    │   └── ContactPage.tsx     #   Support submission form and diagnostics FAQ
+    └── src/components/         # Modular interactive widgets
+        ├── Navbar.tsx          #   Sleek navigation controls
+        ├── AntigravityHero.tsx #   3D floating components animation (Three.js/Fiber)
+        ├── PhysicsBotPanel.tsx #   Lab chat sidebar connector
+        ├── AttendanceSystem.tsx#   Professor/Student live monitor and TensorFlow controller
+        ├── CyberpunkLedMatrix.tsx # LED grid animation
+        └── TeamRolesSection.tsx#   Founders showcase cards
+```
+
+---
+
+## 🚀 Installation & Development Quickstart
+
+Ensure you have [Node.js (v18+)](https://nodejs.org/) and [Python (v3.8+)](https://www.python.org/) installed.
 
 ### 1. Install Dependencies
-Ensure you have [Node.js (18+)](https://nodejs.org/) and [Python (3.8+)](https://www.python.org/) installed.
-
 ```bash
 # Clone the repository
 git clone https://github.com/SYEDTUFAILANDRABI/Circuit.IQ.git
 cd Circuit.IQ
 
-# Install Python requirements
+# Install Python backend requirements
 pip install -r LABback-IQ/requirements.txt
 
-# Install 3D Simulator packages
+# Install 3D Lab Simulator packages
 cd LABfront-IQ-3D && npm install && cd ..
 
-# Install React Website packages
+# Install React Web Portal packages
 cd "circuit.iq (1)final" && npm install && cd ..
 ```
 
-### 2. Configure Environment (Optional)
-Copy the example environment file:
+### 2. Configure Environment Variables
+Copy the backend environment variables template:
 ```bash
 cp LABback-IQ/.env.example LABback-IQ/.env
 ```
-Open `LABback-IQ/.env` and optionally add your `GEMINI_API_KEY` for AI tutoring. If left blank, the app will gracefully fall back to local rule-based physics formulas.
+Open `LABback-IQ/.env` and edit your parameters:
+*   `GEMINI_API_KEY`: Set your Gemini key. If empty, the app runs on built-in offline guidance.
+*   `SUPABASE_URL` / `SUPABASE_ANON_KEY`: Configures Supabase cloud database. If empty, local SQLite database (`circuit_iq.db`) is used.
+*   `RESEND_API_KEY`: Connects Resend for emailing support tickets. If empty, logs to console.
 
 ### 3. Run in Development Mode
-Start both frontend and backend servers simultaneously:
+Start both development servers concurrently using our unified script:
 ```bash
 python start_dev.py
 ```
-This automatically opens **http://localhost:3000** in your browser. Choose an experiment and click **Launch Lab** to start!
+This launches the Python Flask backend on port `5000` and the React frontend portal on port `3000`, automatically opening `http://localhost:3000` in your default browser.
 
----
-
-## 📁 Project Directory Structure
-
-```
-Circuit.IQ/
-├── start_dev.py              # Startup dev script (runs Flask + React)
-├── build_all.py              # Production build pipeline compiler
-├── schema.sql                # Supabase database table definitions
-├── customise.sql             # DB extensions and customization columns
-├── circuit_iq.db             # Local SQLite database file (auto-created)
-│
-├── LABback-IQ/               # 🐍 Python Flask Backend
-│   ├── main.py               # Main production entrypoint
-│   ├── app.py                # Server configuration, static files, blueprints
-│   ├── physics_engine.py     # Rigorous math solver for all 26 experiments
-│   ├── database.py           # SQLite/Supabase abstraction layer
-│   ├── routes/               # API endpoint blueprints (physics, db, AI)
-│   └── experiments/          # Modular physics calculation plugins
-│
-├── LABfront-IQ-3D/           # ⚡ 3D Simulator (Three.js)
-│   ├── index.html            # Lab UI structure, meters, panels
-│   ├── src/main.js           # Main WebGL rendering, wire-drawing, and logic
-│   └── public/models/        # GLTF 3D electronic components
-│
-└── circuit.iq (1)final/      # ⚛️ React Web Portal
-    ├── src/pages/            # Landing page, contact page, iframe wrapper
-    ├── src/components/        # UI components (Hero, AI panel, showcases)
-    └── public/                # Built 3D Lab assets copied during build
-```
-
----
-
-## 🔬 Physics Experiments (26 Total)
-
-### ⚡ Electricity & Circuits (Breadboard Interactive)
-1. **Ohm's Law Verification** – Find the linear relationship between voltage and current (`V = I × R`).
-2. **Kirchhoff's Voltage Law (KVL)** – Verify that the sum of voltages around any closed loop is zero (`ΣV = 0`).
-3. **Kirchhoff's Current Law (KCL)** – Prove that current entering a junction equals current leaving it (`ΣI_in = ΣI_out`).
-4. **LCR AC Impedance** – Analyze impedance `Z` under alternating current (`Z = √[R² + (XL−XC)²]`).
-5. **Series LCR Resonance** – Find the frequency where inductive and capacitive reactances cancel (`f₀ = 1/(2π√LC)`).
-6. **RC Time Constant** – Charge and discharge a capacitor to observe transient response (`τ = R × C`).
-7. **Series & Parallel Loads** – Observe how equivalent resistance changes based on circuit topology.
-8. **Wheatstone Bridge** – Determine an unknown resistance by balancing bridge branches (`Rx = R3 × R2 / R1`).
-
-### 🔌 Semiconductor & Components (Breadboard Interactive)
-9. **Diode I-V Characteristics** – Graph the exponential forward bias current and reverse block behavior.
-10. **Voltage & Current Divider** – Learn how series and parallel resistor networks divide electric energy.
-11. **Arduino LED Control** – Interactive push-button LED switcher simulating microcontroller logic.
-
-### 🧲 Electromagnetism (Visualizer Widget)
-12. **Faraday's Induction Law** – Induce voltage pulses by moving a magnet through a multi-turn coil.
-13. **Lenz's Law Demonstration** – Observe how the direction of induced current opposes the magnetic change.
-14. **Solenoid Magnetic Field** – Calculate field strength inside a current-carrying coil (`B = μ₀nI`).
-15. **AC Transformer Ratio** – Change primary/secondary turns to step-up or step-down voltage.
-16. **Biot-Savart's Law** – Plot magnetic flux density at varying distances from a straight wire.
-
-### ⚛️ Modern & Quantum Physics (Visualizer Widget)
-17. **Planck's Constant (LEDs)** – Determine `h` by finding the threshold voltage of different color LEDs.
-18. **Planck's Constant (Photocell)** – Measure stopping potential under different monochromatic light wavelengths.
-19. **Photoelectric Effect** – Eject electrons from metal targets by varying light intensity and frequency.
-20. **Radioactive Decay** – Watch unstable nuclei decay exponentially over time (`N(t) = N₀e^(−λt)`).
-21. **de Broglie Matter Wave** – Study wave-particle duality by calculating particle wavelengths (`λ = h/p`).
-22. **Bohr Hydrogen Atom** – Simulate energy level transitions and emission spectral lines.
-
-### 🔥 Thermodynamics (Visualizer Widget)
-23. **Stefan-Boltzmann Law** – Verify radiated energy scales with the fourth power of temperature (`P = σϵAT⁴`).
-24. **Ideal Gas Equation** – Interlink Pressure, Volume, and Temperature variables (`PV = nRT`).
-25. **Boyle's Law** – Compress a gas at a constant temperature to see pressure change (`P₁V₁ = P₂V₂`).
-26. **Charles's Law** – Heat a gas at constant pressure to watch it expand (`V₁/T₁ = V₂/T₂`).
-
----
-
-## 🏗️ Production Build & Deploy
-
-To build the entire project for production deployment, run the automated build script:
+### 4. Build for Production
+To bundle the entire project into static files for deployment, run:
 ```bash
 python build_all.py
 ```
-This builds the 3D Simulator, copies the bundles to the React public assets folder, compiles the React portal into `circuit.iq (1)final/dist/`, and primes the backend server to serve it directly.
+This compiles the 3D WebGL simulator, copies the compiled assets to the React public directory, packages the React app into `dist/`, and prepares the Flask backend to host it directly.
 
-Once built, launch the production server:
+Once built, you can run the production server:
 ```bash
 cd LABback-IQ
 python main.py
 ```
-Go to **http://localhost:5000** to access the production build.
+Open `http://localhost:5000` to access the final build.
 
-## 📖 Developer Guides & Easy Access Links
+---
 
-For quick access to code sections, integration details, and guides:
-*   🤖 **AI Context Guide**: [AI_HANDOVER.md](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/AI_HANDOVER.md) — Prompt template & reference file mappings for AI assistants.
-*   🛠️ **Integration Details**: [DEVELOPER_GUIDE.md](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/DEVELOPER_GUIDE.md) — Comprehensive developer notes on database structures, wire persistence, and state.
-*   🐍 **Backend Server**: [LABback-IQ/README.md](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/LABback-IQ/README.md) — Python Flask architecture, API endpoints, and schemas.
-*   ⚡ **3D Simulator**: [LABfront-IQ-3D/README.md](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/LABfront-IQ-3D/README.md) — Three.js scene architecture and WebGL configurations.
-*   ⚛️ **React Website**: [circuit.iq (1)final/README.md](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/circuit.iq%20(1)final/README.md) — React portal state, store hooks, and component guide.
+## 🎨 Design System & Visuals
+
+Circuit.IQ uses a premium dark aesthetic combined with modern typography:
+*   **Palette**: Neon accents (Emerald green `#10b981`, Cyber blue `#3b82f6`, Dark void `#070b14`) styled with dynamic hover gradients.
+*   **Typography**: Utilizes `Outfit` and `Inter` via Google Fonts.
+*   **Glassmorphism**: UI panels are structured with light borders, backdrop blur properties (`backdrop-filter: blur(16px)`), and semi-transparent backgrounds.
+*   **Animations**: Built using GSAP, Framer Motion, and Tailwind transitions.
+
+---
+
+## 🔬 List of 26 Simulator Experiments
+
+### ⚡ Electricity & Circuits
+1.  **Ohm's Law Verification** – Find the linear relationship between voltage and current (`V = I × R`).
+2.  **Kirchhoff's Voltage Law (KVL)** – Verify that loop voltages sum to zero (`ΣV = 0`).
+3.  **Kirchhoff's Current Law (KCL)** – Prove that current entering a node equals current leaving it (`ΣI_in = ΣI_out`).
+4.  **LCR AC Impedance** – Analyze impedance `Z` under AC currents (`Z = √[R² + (XL−XC)²]`).
+5.  **Series LCR Resonance** – Find the frequency where inductive and capacitive reactances cancel (`f₀ = 1/(2π√LC)`).
+6.  **RC Time Constant** – Observe capacitor transient response timings (`τ = R × C`).
+7.  **Series & Parallel Loads** – Compare total resistance combinations.
+8.  **Wheatstone Bridge** – Calculate an unknown resistor value at balance.
+
+### 🔌 Semiconductor & Components
+9.  **Diode I-V Characteristics** – Graph exponential diode forward and reverse bias behaviors.
+10. **Voltage & Current Divider** – Study division ratios in series/parallel configurations.
+11. **Arduino LED Control** – Assemble switch and LED digital loops using Arduino power structures.
+
+### 🧲 Electromagnetism
+12. **Faraday's Induction Law** – Induce voltage by moving a magnet through a coil.
+13. **Lenz's Law Demonstration** – Observe how induced voltage polarity opposes change.
+14. **Solenoid Magnetic Field** – Calculate field strength inside a coil (`B = μ₀nI`).
+15. **AC Transformer Ratio** – Step-up or step-down voltage values using windings ratios.
+16. **Biot-Savart's Law** – Plot magnetic field decay from a straight wire.
+
+### ⚛️ Modern & Quantum Physics
+17. **Planck's Constant (LEDs)** – Find `h` using colored LED turn-on threshold voltages.
+18. **Planck's Constant (Photocell)** – Measure stopping potential of a vacuum photocell.
+19. **Photoelectric Effect** – Observe electron ejection under varying light wavelengths.
+20. **Radioactive Decay** – Watch parent nuclei decay exponentially (`N(t) = N₀e^(−λt)`).
+21. **de Broglie Matter Wave** – Study wave-particle duality wavelengths (`λ = h/p`).
+22. **Bohr Hydrogen Atom** – Simulate Discrete orbital shells and spectral emissions.
+
+### 🔥 Thermodynamics
+23. **Stefan-Boltzmann Law** – Verify radiated energy scales with temperature (`P = σϵAT⁴`).
+24. **Ideal Gas Equation** – Interlink state variables (`PV = nRT`).
+25. **Boyle's Law** – Plot volume contraction under scaling pressures (`P₁V₁ = P₂V₂`).
+26. **Charles's Law** – Observe gas expansion under thermal heating (`V₁/T₁ = V₂/T₂`).
 
 ---
 
 ## 🛠️ Performance & Troubleshooting
 
-### WebGL Context Management (Memory Leaks Fixed)
-To ensure the application runs smoothly without crashing the browser:
-*   **WebGL Context Limits**: Chrome limits active WebGL contexts per session. We have implemented clean disposal logic where the `THREE.WebGLRenderer` context is explicitly lost (`WEBGL_lose_context` extension) and disposed of immediately when the simulator iframe is reloaded or unmounted.
-*   **React Post-Processing Bloom**: If you encounter low framerates on low-end machines, toggle **High Fidelity Mode** in the settings panel to disable resource-heavy post-processing bloom.
+### WebGL Context Management (Leaks Resolved)
+*   **Chrome Limits**: Chrome limits active WebGL contexts per browser session. Frequent iframe reloads can lead to a `WebGL Context Lost` crash.
+*   **Automatic Cleanups**: Circuit.IQ includes unmount hooks inside `LabStudio.tsx` and window `unload` events in `main.js` that invoke `loseContext()` and `renderer.dispose()` automatically when leaving the lab, preventing memory leaks.
+*   **Post-Processing Control**: If you experience low frame rates, toggle **High Fidelity Mode** in the settings panel to disable post-processing bloom.
+
+### General Diagnostic Fixes
+*   *Module Errors*: Run `pip install -r requirements.txt` and `npm install` in corresponding directories.
+*   *Port Conflicts*: If port 5000 or 3000 is occupied, set a custom port in `LABback-IQ/.env` or terminate the conflicting process.
+*   *PDF Pop-ups*: Ensure your browser is configured to allow pop-ups for `localhost` to download reports.
+*   *Wire Snapping Glitches*: If wires jump incorrectly on load, verify the database loads them using `false` (skipping snapping adjustments).
 
 ---
 
 <div align="center">
 
-**Circuit.IQ Team**
-*Interactive Virtual Laboratories for Modern Physics Education*
+**Circuit.IQ Development Team**  
+*Interactive Virtual Physics Laboratories for Modern Science & Engineering*
 
 </div>
