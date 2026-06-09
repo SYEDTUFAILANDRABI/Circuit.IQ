@@ -28,7 +28,7 @@ python start_dev.py    # Starts backend + this website
 
 ### Standalone:
 ```bash
-cd "circuit.iq (1)final"
+cd LABfront-IQ-Portal
 npm install
 npm run dev            # → http://localhost:3000
 ```
@@ -40,7 +40,7 @@ npm run dev            # → http://localhost:3000
 ## 📁 File Guide
 
 ```
-circuit.iq (1)final/
+LABfront-IQ-Portal/
 ├── index.html                     ← Root HTML template
 ├── package.json                   ← Dependencies
 ├── vite.config.ts                 ← Build config + API proxy → :5000

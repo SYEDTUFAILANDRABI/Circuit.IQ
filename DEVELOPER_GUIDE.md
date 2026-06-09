@@ -25,7 +25,7 @@ cp LABback-IQ/.env.example LABback-IQ/.env   # optional keys
 cd LABfront-IQ-3D && npm install && cd ..
 
 # React portal
-cd "circuit.iq (1)final" && npm install && cd ..
+cd LABfront-IQ-Portal && npm install && cd ..
 ```
 
 Run everything with a single command:
@@ -113,7 +113,7 @@ python build_all.py   # builds 3D lab, copies assets, builds React portal
 cd LABback-IQ && python main.py   # serves on :5000
 ```
 
-The built site is in `circuit.iq (1)final/dist/` and can be deployed to any static‑file host (Netlify, Vercel) while Flask can run on any PaaS (Render, Railway).
+The built site is in `LABfront-IQ-Portal/dist/` and can be deployed to any static‑file host (Netlify, Vercel) while Flask can run on any PaaS (Render, Railway).
 
 ---
 
@@ -155,8 +155,8 @@ The built site is in `circuit.iq (1)final/dist/` and can be deployed to any stat
 
 - **API Reference** – see `LABback-IQ/README.md`
 - **3D Lab Code Map** – see `LABfront-IQ-3D/README.md`
-- **React Component Tree** – see `circuit.iq (1)final/README.md`
-- **Database Schema** – see `schema.sql` and `customise.sql`
+- **React Component Tree** – see `LABfront-IQ-Portal/README.md`
+- **Database Schema** – see `LABdata-IQ/schema.sql` and `LABdata-IQ/customise.sql`
 
 ---
 

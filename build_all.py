@@ -12,7 +12,7 @@ import subprocess
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 THREE_DIR = os.path.join(BASE_DIR, "LABfront-IQ-3D")
-REACT_DIR = os.path.join(BASE_DIR, "circuit.iq (1)final")
+REACT_DIR = os.path.join(BASE_DIR, "LABfront-IQ-Portal")
 
 def run_cmd(args, cwd):
     print(f"Running: {' '.join(args)} in {cwd}")

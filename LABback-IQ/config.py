@@ -18,7 +18,7 @@ class Config:
 
     # Frontend dist directory (served as static files)
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    DIST_DIR = os.path.join(BASE_DIR, "circuit.iq (1)final", "dist")
+    DIST_DIR = os.path.join(BASE_DIR, "LABfront-IQ-Portal", "dist")
 
     # Gemini AI
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")

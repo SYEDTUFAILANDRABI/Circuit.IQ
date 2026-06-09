@@ -120,7 +120,7 @@ sequenceDiagram
 
 ## 🔗 Connection & Communication Architecture
 
-*   **Same-Origin Iframe Embedding**: The React website wrapper ([LabStudio.tsx](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/circuit.iq%20(1)final/src/pages/LabStudio.tsx)) loads `lab.html` in an iframe. Since the Flask server hosts the static bundle on the same port in production (and dev mode uses Vite proxies), they share cookies, session tokens, and local storage seamlessly.
+*   **Same-Origin Iframe Embedding**: The React website wrapper ([LabStudio.tsx](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/LABfront-IQ-Portal/src/pages/LabStudio.tsx)) loads `lab.html` in an iframe. Since the Flask server hosts the static bundle on the same port in production (and dev mode uses Vite proxies), they share cookies, session tokens, and local storage seamlessly.
 *   **Parameter Synchronization**: When the student moves a slider in the simulator control panel, the changes are captured locally in `state.params` and dispatched to `/api/calculate`. The backend calculates the resulting electrical states, returning current, impedance, phase angles, and energy values. These are immediately written to the digital meters and recorded in `state.dataPoints` for graph plotting.
 *   **Automatic Backup (Auto-Save)**: Every placement of a component or drawing of a wire triggers a background asynchronous POST request to `/api/db/save-circuit`. If the student refreshes or crashes, the simulator queries `/api/db/load-circuit` and reconstructs the scene automatically.
 *   **Fidelity Lock (Wire Restoration)**: 
@@ -133,7 +133,7 @@ sequenceDiagram
 
 *   **26 Physics Modules**: Covering breadboard circuits, semiconductors, visual electromagnetism simulators, ideal gases, calorimetry, stopping voltages, orbital shells, and radioactive half-lives.
 *   **Photorealistic 3D Breadboard Workspace**: Interactive Three.js scene supporting orbital rotations, component dragging, and Bézier wire drawing.
-*   **Context-Aware AI Mentor**: Panel-based chatbot inside the simulator ([PhysicsBotPanel.tsx](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/circuit.iq%20(1)final/src/components/PhysicsBotPanel.tsx)) that reads the current layout structure, slider values, and meter readouts to guide students through faults.
+*   **Context-Aware AI Mentor**: Panel-based chatbot inside the simulator ([PhysicsBotPanel.tsx](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/LABfront-IQ-Portal/src/components/PhysicsBotPanel.tsx)) that reads the current layout structure, slider values, and meter readouts to guide students through faults.
 *   **Global PhysicsBot Chat Console**: Homepage terminal simulator equipped with quick-command shortcuts (`ohms-solver`, `lcr-resonance`) that matches, explains, and loads target simulations with a single click.
 *   **Integrated Telemetry Instruments**: Active virtual digital multimeters, a functional dual-channel oscilloscope, and live data plotting canvas graphs.
 *   **Printable Academic Lab Reports**: Dynamically prints professional PDF reports compiling the student's name, university, aim, apparatus, theory formulas, observation tables, graded viva voce questions, and conclusion text.
@@ -180,7 +180,7 @@ The homepage features a terminal-style chatbot interface dedicated to general ph
 The backend uses a dual database adapter structure ([database.py](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/LABback-IQ/database.py)) for automatic environment compatibility:
 *   **Local SQLite Driver**: Saves data to `circuit_iq.db` automatically if Supabase variables are absent.
 *   **Seeded Sandbox**: Initializes a default profile for student `Aisha Rahman` (ID: `a1b2c3d4-e5f6-7890-abcd-ef1234567890`) and pre-configures a sample Ohm's Law circuit so the simulator is functional on fresh deployments.
-*   **PostgreSQL Migration**: The `schema.sql` and `customise.sql` define matching schemas, constraints, trigger functions for updated timestamps, Row Level Security (RLS) policies, and test data seeding for deployment on Supabase.
+*   **PostgreSQL Migration**: The database script files ([schema.sql](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/LABdata-IQ/schema.sql)) and ([customise.sql](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/LABdata-IQ/customise.sql)) define matching schemas, constraints, trigger functions for updated timestamps, Row Level Security (RLS) policies, and test data seeding for deployment on Supabase.
 
 ---
 
@@ -226,8 +226,9 @@ Below is a map of the repository's directories and primary source files:
 Circuit.IQ/
 ├── start_dev.py                # Starts Flask and React Dev servers concurrently
 ├── build_all.py                # Production build pipeline compiler
-├── schema.sql                  # PostgreSQL core table schemas (Supabase)
-├── customise.sql               # DB extension columns and migration queries
+├── LABdata-IQ/                 # 💾 DATABASE SCHEMAS & MIGRATIONS
+│   ├── schema.sql              #   PostgreSQL core table schemas (Supabase)
+│   └── customise.sql           #   DB extension columns and migration queries
 ├── circuit_iq.db               # Auto-created local SQLite database file
 │
 ├── LABback-IQ/                 # 🐍 PYTHON FLASK BACKEND SERVER
@@ -251,7 +252,7 @@ Circuit.IQ/
 │   ├── src/style.css           # Glassmorphic panels, neon dark-theme styles
 │   └── public/models/          # GLTF 3D components (resistors, switches, diodes)
 │
-└── circuit.iq (1)final/        # ⚛️ REACT WEB PORTAL
+└── LABfront-IQ-Portal/        # ⚛️ REACT WEB PORTAL
     ├── src/main.tsx            # React application entrypoint
     ├── src/App.tsx             # SPA route navigator
     ├── src/index.css           # Global typography, glassmorphism, and Tailwind
@@ -289,7 +290,7 @@ pip install -r LABback-IQ/requirements.txt
 cd LABfront-IQ-3D && npm install && cd ..
 
 # Install React Web Portal packages
-cd "circuit.iq (1)final" && npm install && cd ..
+cd LABfront-IQ-Portal && npm install && cd ..
 ```
 
 ### 2. Configure Environment Variables

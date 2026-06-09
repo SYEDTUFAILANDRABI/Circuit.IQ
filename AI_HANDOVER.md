@@ -12,7 +12,7 @@ You are an expert AI software engineer. I am working on a project called **Circu
 Please review the codebase structure and key rules below before we start:
 
 ### 1. Project Architecture
-*   **React Portal** (`circuit.iq (1)final/`): Main portal/website using React 19, TypeScript, Zustand, and TailwindCSS 4.
+*   **React Portal** (`LABfront-IQ-Portal/`): Main portal/website using React 19, TypeScript, Zustand, and TailwindCSS 4.
 *   **3D Simulator** (`LABfront-IQ-3D/`): Interactive WebGL breadboard built using Three.js (r184) and Vanilla JS, bundled with Vite 8. It is embedded into the React portal via a fullscreen `iframe` (`/lab.html?exp=<experiment_type>`).
 *   **Flask Backend** (`LABback-IQ/`): Python server handling physics calculations (`physics_engine.py`), database persistence, and Google Gemini API integration (`routes/physicsbot.py`).
 
@@ -47,7 +47,7 @@ Confirm you understand this architecture and are ready to assist me with debuggi
 ## 🛠️ Key Reference Files for the AI
 
 If the new AI needs to edit specific code sections, direct them to:
-1.  **3D Logic & Wire snapping**: [LABfront-IQ-3D/src/main.js](file:///c:/Users/anaya/OneDrive/Desktop/tufail%20upgrade/Circuit.IQ/LABfront-IQ-3D/src/main.js)
-2.  **Physics Math & Solvers**: [LABback-IQ/physics_engine.py](file:///c:/Users/anaya/OneDrive/Desktop/tufail%20upgrade/Circuit.IQ/LABback-IQ/physics_engine.py)
-3.  **Local SQLite & Cloud DB client**: [LABback-IQ/database.py](file:///c:/Users/anaya/OneDrive/Desktop/tufail%20upgrade/Circuit.IQ/LABback-IQ/database.py)
-4.  **React Routing & State Management**: [circuit.iq (1)final/src/store/useAppStore.ts](file:///c:/Users/anaya/OneDrive/Desktop/tufail%20upgrade/Circuit.IQ/circuit.iq%20(1)final/src/store/useAppStore.ts)
+1.  **3D Logic & Wire snapping**: [main.js](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/LABfront-IQ-3D/src/main.js)
+2.  **Physics Math & Solvers**: [physics_engine.py](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/LABback-IQ/physics_engine.py)
+3.  **Local SQLite & Cloud DB client**: [database.py](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/LABback-IQ/database.py)
+4.  **React Routing & State Management**: [useAppStore.ts](file:///c:/Users/anaya/OneDrive/Desktop/working%20folder%20new/Circuit.IQ/LABfront-IQ-Portal/src/store/useAppStore.ts)
