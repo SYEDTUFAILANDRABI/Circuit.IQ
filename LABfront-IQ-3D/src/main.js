@@ -719,11 +719,26 @@ function calculateCircuitLocal(params, activeExperiment, buttonPressed) {
     I = idealCurrent * noise;
     Z = V / (I || 1);
     P = V * I;
-  } else if (activeExperiment === 'kvl' || activeExperiment === 'kcl') {
+  } else if (activeExperiment === 'kvl') {
     V = params.V;
-    I = V / (params.R || 1);
-    Z = params.R;
+    const R1 = params.R;
+    const R2 = params.L;
+    Z = R1 + R2;
+    I = V / (Z || 1);
+    const VR1 = I * R1;
+    const VR2 = I * R2;
     P = V * I;
+    return { V, I, Z, P, VR1, VR2, XL: 0, XC: 0, phi: 0, f0: 0 };
+  } else if (activeExperiment === 'kcl') {
+    V = params.V;
+    const R1 = params.R;
+    const R2 = params.L;
+    Z = (R1 * R2) / ((R1 + R2) || 1);
+    I = V / (Z || 1);
+    const IR1 = V / (R1 || 1);
+    const IR2 = V / (R2 || 1);
+    P = V * I;
+    return { V, I, Z, P, IR1, IR2, XL: 0, XC: 0, phi: 0, f0: 0 };
   } else if (activeExperiment === 'lcr' || activeExperiment === 'rc_rl_rlc') {
     V = params.V; 
     const L_henrys = params.L * 1e-3;
@@ -1137,26 +1152,86 @@ function validateCircuitLocal() {
     if (!source || comps.filter(c => c.type === 'resistor').length < 2) {
       return { status: 'error', message: 'Missing required components. Place Source and at least 2 Resistors.' };
     }
+    
     const resList = comps.filter(c => c.type === 'resistor');
-    const r1 = resList[0], r2 = resList[1];
-    const posRail = find(0), negRail = find(1);
+    const r1 = resList[0];
+    const r2 = resList[1];
+    
+    const posRail = find(0);
+    const negRail = find(1);
+    
+    // Check short circuits
     if (posRail === negRail) {
       return { status: 'error', message: 'Short Circuit Detected! Positive rail (+) is connected directly to Ground (-) rail.' };
     }
-    const nodeR1_1 = find(r1.snap1), nodeR1_2 = find(r1.snap2);
-    const nodeR2_1 = find(r2.snap1), nodeR2_2 = find(r2.snap2);
-    
-    const r1_connected_to_pos = (nodeR1_1 === posRail || nodeR1_2 === posRail);
-    const r2_connected_to_pos = (nodeR2_1 === posRail || nodeR2_2 === posRail);
-    const r1_connected_to_neg = (nodeR1_1 === negRail || nodeR1_2 === negRail);
-    const r2_connected_to_neg = (nodeR2_1 === negRail || nodeR2_2 === negRail);
-    
-    const r1_to_r2 = (nodeR1_1 === nodeR2_1 || nodeR1_1 === nodeR2_2 || nodeR1_2 === nodeR2_1 || nodeR1_2 === nodeR2_2);
-    
-    if ((r1_connected_to_pos && r2_connected_to_neg && r1_to_r2) || (r2_connected_to_pos && r1_connected_to_neg && r1_to_r2)) {
-      return { status: 'success', message: 'Kirchhoff\'s Voltage Law series loop verified and closed!' };
+    if (find(r1.snap1) === find(r1.snap2)) {
+      return { status: 'error', message: 'Resistor R1 is shorted! Both terminals are connected to the same electrical node.' };
     }
-    return { status: 'error', message: 'Invalid series loop. Ensure: Battery (+) -> Resistor 1 -> Resistor 2 -> Ground (-).' };
+    if (find(r2.snap1) === find(r2.snap2)) {
+      return { status: 'error', message: 'Resistor R2 is shorted! Both terminals are connected to the same electrical node.' };
+    }
+    if (ammeter && find(ammeter.snap1) === find(ammeter.snap2)) {
+      return { status: 'error', message: 'Ammeter is shorted! Both terminals are connected to the same electrical node.' };
+    }
+    
+    // Build connection graph of series components
+    const seriesComps = [r1, r2];
+    if (ammeter) {
+      seriesComps.push(ammeter);
+    }
+    
+    // Trace path starting from posRail (Source +) to negRail (Source -)
+    let currentNode = posRail;
+    const visitedComps = new Set();
+    let stepsLeft = 10;
+    
+    while (currentNode !== negRail && stepsLeft > 0) {
+      stepsLeft--;
+      let foundNext = false;
+      for (const comp of seriesComps) {
+        if (visitedComps.has(comp)) continue;
+        
+        const n1 = find(comp.snap1);
+        const n2 = find(comp.snap2);
+        
+        if (n1 === currentNode) {
+          currentNode = n2;
+          visitedComps.add(comp);
+          foundNext = true;
+          break;
+        } else if (n2 === currentNode) {
+          currentNode = n1;
+          visitedComps.add(comp);
+          foundNext = true;
+          break;
+        }
+      }
+      if (!foundNext) break;
+    }
+    
+    // Check if loop is closed
+    if (currentNode !== negRail) {
+      return { status: 'error', message: 'Circuit is open! Connect the components in a complete closed loop from Battery (+) to Ground (-).' };
+    }
+    
+    // Check if all series components are visited
+    for (const comp of seriesComps) {
+      if (!visitedComps.has(comp)) {
+        const name = comp.type === 'ammeter' ? 'Ammeter' : 'Resistor';
+        return { status: 'error', message: `${name} is placed but not connected in the active series loop.` };
+      }
+    }
+    
+    // Voltmeter check (must be connected in parallel across R1, R2, or Source)
+    if (voltmeter) {
+      const v1 = find(voltmeter.snap1);
+      const v2 = find(voltmeter.snap2);
+      if (v1 === v2) {
+        return { status: 'error', message: 'Voltmeter is shorted! Connect it in parallel across a component.' };
+      }
+    }
+    
+    return { status: 'success', message: 'Kirchhoff\'s Voltage Law series loop verified and closed!' };
   }
   
   if (expKey === 'kcl') {
@@ -1503,10 +1578,24 @@ function updateUI() {
   } else if (state.activeExperiment === 'rc_rl_rlc') {
     elements.kirchhoffDisplay.innerText = `[OK] AC Impedance Analysis:\n Z = √[R² + (XL−XC)²] = ${state.meters.ohms.toFixed(1)} Ω\n XL = ${state.analysis.XL.toFixed(1)} Ω, XC = ${state.analysis.XC.toFixed(1)} Ω\n Phase φ = ${state.analysis.phi.toFixed(1)}°\n Resonant f₀ = ${state.analysis.f0.toFixed(1)} Hz`;
   } else if (state.activeExperiment === 'kvl') {
-    const vR1 = (state.meters.volts * state.params.R / (state.params.R * 2)).toFixed(2);
-    elements.kirchhoffDisplay.innerText = `[OK] KVL Validated:\n V_source (${state.meters.volts.toFixed(2)}V) = V_R1 + V_R2\n ΣV(loop) = 0\n\n[OK] Loop Current: ${state.meters.amps.toFixed(4)} A`;
+    const Vs = state.meters.volts;
+    const R1 = state.params.R;
+    const R2 = state.params.L;
+    const R_tot = R1 + R2;
+    const I = state.meters.amps;
+    const VR1 = state.analysis.VR1 !== undefined ? state.analysis.VR1 : (I * R1);
+    const VR2 = state.analysis.VR2 !== undefined ? state.analysis.VR2 : (I * R2);
+    const P = state.meters.power;
+    elements.kirchhoffDisplay.innerText = `[OK] KVL Verified:\nVs (${Vs.toFixed(2)}V) = VR1 (${VR1.toFixed(2)}V) + VR2 (${VR2.toFixed(2)}V)\nΣV(loop) = 0\n\n✓ KVL Verified\n\nLoop Current: ${I.toFixed(4)} A\nTotal R (R1 + R2): ${R_tot.toFixed(1)} Ω\nPower: ${P.toFixed(2)} W`;
   } else if (state.activeExperiment === 'kcl') {
-    elements.kirchhoffDisplay.innerText = `[OK] KCL Validated:\n I_total = I_R1 + I_R2\n ΣI(node) = 0\n\n[OK] Total Current: ${state.meters.amps.toFixed(4)} A`;
+    const Vs = state.meters.volts;
+    const R1 = state.params.R;
+    const R2 = state.params.L;
+    const I_tot = state.meters.amps;
+    const IR1 = state.analysis.IR1 !== undefined ? state.analysis.IR1 : (Vs / (R1 || 1));
+    const IR2 = state.analysis.IR2 !== undefined ? state.analysis.IR2 : (Vs / (R2 || 1));
+    const Z_eq = (R1 * R2) / ((R1 + R2) || 1);
+    elements.kirchhoffDisplay.innerText = `[OK] KCL Verified:\nI_total (${(I_tot * 1000).toFixed(1)}mA) = I_R1 (${(IR1 * 1000).toFixed(1)}mA) + I_R2 (${(IR2 * 1000).toFixed(1)}mA)\nΣI(node) = 0\n\n✓ KCL Verified\n\nSource Voltage: ${Vs.toFixed(2)} V\nEquivalent R_eq: ${Z_eq.toFixed(1)} Ω\nPower: ${state.meters.power.toFixed(2)} W`;
   } else if (state.activeExperiment === 'series_parallel') {
     elements.kirchhoffDisplay.innerText = `[OK] Series-Parallel Network:\n V_source = ${state.meters.volts.toFixed(2)} V\n I_total = ${state.meters.amps.toFixed(4)} A\n R_eq = ${state.meters.ohms.toFixed(1)} Ω`;
   } else if (state.activeExperiment === 'wheatstone') {
@@ -1771,7 +1860,7 @@ function updateParameterValue(key, val) {
   }
 
   updateDynamicTextures();
-  triggerSingleCalculation();
+  throttledTriggerCalculation();
   debouncedSaveCircuit();
 }
 
@@ -1870,11 +1959,13 @@ const sliderConfigs = {
   },
   kvl: {
     V: { label: "Source Voltage", min: 0, max: 30, step: 0.1, val: 12, unit: "V" },
-    R: { label: "Loop Resistance R1", min: 1, max: 1000, step: 0.1, val: 100, unit: "Ω" }
+    R: { label: "Resistor R1", min: 1, max: 1000, step: 0.1, val: 50, unit: "Ω" },
+    L: { label: "Resistor R2", min: 1, max: 1000, step: 0.1, val: 50, unit: "Ω" }
   },
   kcl: {
     V: { label: "Source Voltage", min: 0, max: 30, step: 0.1, val: 12, unit: "V" },
-    R: { label: "Branch Resistance R1", min: 1, max: 1000, step: 0.1, val: 100, unit: "Ω" }
+    R: { label: "Resistor R1", min: 1, max: 1000, step: 0.1, val: 50, unit: "Ω" },
+    L: { label: "Resistor R2", min: 1, max: 1000, step: 0.1, val: 50, unit: "Ω" }
   },
   rc_rl_rlc: {
     V: { label: "Source Voltage", min: 1, max: 24, step: 1, val: 12, unit: "V" },
@@ -4919,6 +5010,14 @@ async function startSimulation() {
       } else if (state.activeExperiment === 'rc_rl_rlc') {
         completeStep(3);
       } else if (state.activeExperiment === 'kvl') {
+        completeStep(1);
+        const voltmeter = state.placedComponents.find(c => c.type === 'voltmeter');
+        if (voltmeter) {
+          const uf = runUnionFind();
+          if (uf.find(voltmeter.snap1) !== uf.find(voltmeter.snap2)) {
+            completeStep(2);
+          }
+        }
         completeStep(3);
       } else if (state.activeExperiment === 'kcl') {
         completeStep(3);
@@ -4953,11 +5052,16 @@ function autoBuildExperiment() {
     create3DWire(14 * 14 + 2, 14 * 14 + 4);
   } else if (expKey === 'kvl') {
     placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
-    placeComponent3D('resistor', 7 * 14 + 4, 11 * 14 + 4);
-    placeComponent3D('resistor', 13 * 14 + 4, 17 * 14 + 4);
-    create3DWire(2 * 14 + 0, 7 * 14 + 4);
-    create3DWire(11 * 14 + 4, 13 * 14 + 4);
-    create3DWire(17 * 14 + 4, 2 * 14 + 1);
+    placeComponent3D('resistor', 7 * 14 + 5, 11 * 14 + 5);      // Resistor 1: Col 8-12, Row D
+    placeComponent3D('resistor', 13 * 14 + 5, 17 * 14 + 5);     // Resistor 2: Col 14-18, Row D
+    placeComponent3D('ammeter', 11 * 14 + 9, 13 * 14 + 9);      // Ammeter: Col 12-14, Row H
+    placeComponent3D('voltmeter', 7 * 14 + 3, 11 * 14 + 3);     // Voltmeter: Col 8-12, Row B
+    create3DWire(7 * 14 + 0, 7 * 14 + 6);                       // Source (+) rail Col 8 to Col 8 Row E (internally links to R1 start & Voltmeter +)
+    create3DWire(11 * 14 + 6, 11 * 14 + 9);                     // Col 12 Row E (internally links to R1 end & Voltmeter -) to Ammeter (+) Col 12 Row H
+    create3DWire(13 * 14 + 9, 13 * 14 + 6);                     // Ammeter (-) Col 14 Row H to Col 14 Row E (internally links to R2 start)
+    create3DWire(17 * 14 + 6, 17 * 14 + 1);                     // Col 18 Row E (internally links to R2 end) to Source (-) rail Col 18
+    create3DWire(7 * 14 + 3, 7 * 14 + 4);                       // Voltmeter (+) Col 8 Row B to Col 8 Row C (parallel link)
+    create3DWire(11 * 14 + 3, 11 * 14 + 4);                     // Voltmeter (-) Col 12 Row B to Col 12 Row C (parallel link)
   } else if (expKey === 'kcl') {
     placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
     placeComponent3D('resistor', 8 * 14 + 3, 12 * 14 + 3);
@@ -5339,9 +5443,11 @@ function updateTargetHighlights() {
   else if (state.activeExperiment === 'kvl') {
     const source = findComp('source');
     const resistors = comps.filter(c => c.type === 'resistor');
+    const ammeter = findComp('ammeter');
+    const voltmeter = findComp('voltmeter');
     
-    const resistor1 = resistors.find(r => r.snap1 === 7 * 14 + 4 || r.snap2 === 7 * 14 + 4);
-    const resistor2 = resistors.find(r => r.snap1 === 13 * 14 + 4 || r.snap2 === 13 * 14 + 4);
+    const resistor1 = resistors.find(r => r.snap1 === 7 * 14 + 5 || r.snap2 === 7 * 14 + 5);
+    const resistor2 = resistors.find(r => r.snap1 === 13 * 14 + 5 || r.snap2 === 13 * 14 + 5);
 
     if (!source) {
       if (!state.selectedTool || state.selectedTool === 'source') {
@@ -5350,39 +5456,73 @@ function updateTargetHighlights() {
       }
     } else if (!resistor1) {
       if (!state.selectedTool || state.selectedTool === 'resistor') {
-        targetHighlightRing1 = addRing(7 * 14 + 4);
-        targetHighlightRing2 = addRing(11 * 14 + 4);
+        targetHighlightRing1 = addRing(7 * 14 + 5);
+        targetHighlightRing2 = addRing(11 * 14 + 5);
       }
     } else if (!resistor2) {
       if (!state.selectedTool || state.selectedTool === 'resistor') {
-        targetHighlightRing1 = addRing(13 * 14 + 4);
-        targetHighlightRing2 = addRing(17 * 14 + 4);
+        targetHighlightRing1 = addRing(13 * 14 + 5);
+        targetHighlightRing2 = addRing(17 * 14 + 5);
+      }
+    } else if (!ammeter) {
+      if (!state.selectedTool || state.selectedTool === 'ammeter') {
+        targetHighlightRing1 = addRing(11 * 14 + 9);
+        targetHighlightRing2 = addRing(13 * 14 + 9);
+      }
+    } else if (!voltmeter) {
+      if (!state.selectedTool || state.selectedTool === 'voltmeter') {
+        targetHighlightRing1 = addRing(7 * 14 + 3);
+        targetHighlightRing2 = addRing(11 * 14 + 3);
       }
     } else {
       if (!state.selectedTool || state.selectedTool === 'wire') {
         const r1_1 = resistor1.snap1, r1_2 = resistor1.snap2;
         const r2_1 = resistor2.snap1, r2_2 = resistor2.snap2;
+        const am1 = ammeter.snap1, am2 = ammeter.snap2;
+        const volt1 = voltmeter.snap1, volt2 = voltmeter.snap2;
 
-        const s_to_r1 = (uf.find(2 * 14 + 0) === uf.find(r1_1) || uf.find(2 * 14 + 0) === uf.find(r1_2));
+        const s_to_r1 = (uf.find(7 * 14 + 0) === uf.find(r1_1) || uf.find(7 * 14 + 0) === uf.find(r1_2));
         if (!s_to_r1) {
-          targetHighlightRing1 = addRing(2 * 14 + 0, true);
-          targetHighlightRing2 = addRing(r1_1, true);
+          targetHighlightRing1 = addRing(7 * 14 + 0, true);
+          targetHighlightRing2 = addRing(7 * 14 + 6, true);
           return;
         }
 
-        const r1_free = (uf.find(2 * 14 + 0) === uf.find(r1_1)) ? r1_2 : r1_1;
-        const r1_to_r2 = (uf.find(r1_free) === uf.find(r2_1) || uf.find(r1_free) === uf.find(r2_2));
-        if (!r1_to_r2) {
-          targetHighlightRing1 = addRing(r1_free, true);
-          targetHighlightRing2 = addRing(r2_1, true);
+        const r1_free = (uf.find(7 * 14 + 0) === uf.find(r1_1)) ? r1_2 : r1_1;
+        const r1_to_am = (uf.find(r1_free) === uf.find(am1) || uf.find(r1_free) === uf.find(am2));
+        if (!r1_to_am) {
+          targetHighlightRing1 = addRing(11 * 14 + 6, true);
+          targetHighlightRing2 = addRing(11 * 14 + 9, true);
           return;
         }
 
-        const r2_free = (uf.find(r1_free) === uf.find(r2_1)) ? r2_2 : r2_1;
-        const r2_to_gnd = (uf.find(r2_free) === uf.find(2 * 14 + 1));
+        const am_free = (uf.find(r1_free) === uf.find(am1)) ? am2 : am1;
+        const am_to_r2 = (uf.find(am_free) === uf.find(r2_1) || uf.find(am_free) === uf.find(r2_2));
+        if (!am_to_r2) {
+          targetHighlightRing1 = addRing(13 * 14 + 9, true);
+          targetHighlightRing2 = addRing(13 * 14 + 6, true);
+          return;
+        }
+
+        const r2_free = (uf.find(am_free) === uf.find(r2_1)) ? r2_2 : r2_1;
+        const r2_to_gnd = (uf.find(r2_free) === uf.find(17 * 14 + 1));
         if (!r2_to_gnd) {
-          targetHighlightRing1 = addRing(r2_free, true);
-          targetHighlightRing2 = addRing(2 * 14 + 1, true);
+          targetHighlightRing1 = addRing(17 * 14 + 6, true);
+          targetHighlightRing2 = addRing(17 * 14 + 1, true);
+          return;
+        }
+
+        const volt1_connected = (uf.find(volt1) === uf.find(r1_1) || uf.find(volt1) === uf.find(r1_2));
+        if (!volt1_connected) {
+          targetHighlightRing1 = addRing(7 * 14 + 3, true);
+          targetHighlightRing2 = addRing(7 * 14 + 4, true);
+          return;
+        }
+
+        const volt2_connected = (uf.find(volt2) === uf.find(r1_1) || uf.find(volt2) === uf.find(r1_2));
+        if (!volt2_connected) {
+          targetHighlightRing1 = addRing(11 * 14 + 3, true);
+          targetHighlightRing2 = addRing(11 * 14 + 4, true);
           return;
         }
       }
@@ -7597,6 +7737,7 @@ function initThreeJS() {
         updateTelemetryCounts();
         updateAIMentor();
         updateTargetHighlights();
+        debouncedSaveCircuit();
         return;
       }
       
@@ -7653,6 +7794,7 @@ function initThreeJS() {
         updateTelemetryCounts();
         updateAIMentor();
         updateTargetHighlights();
+        debouncedSaveCircuit();
         return;
       }
       
@@ -8189,6 +8331,31 @@ function initInstruments3D() {
   ammeterScreenTexture.colorSpace = THREE.SRGBColorSpace;
 }
 
+let lastCalculationTime = 0;
+let calculationThrottleTimeout = null;
+
+function throttledTriggerCalculation() {
+  const now = Date.now();
+  const throttleMs = 150;
+  
+  if (now - lastCalculationTime >= throttleMs) {
+    if (calculationThrottleTimeout) {
+      clearTimeout(calculationThrottleTimeout);
+      calculationThrottleTimeout = null;
+    }
+    lastCalculationTime = now;
+    triggerSingleCalculation();
+  } else {
+    if (!calculationThrottleTimeout) {
+      calculationThrottleTimeout = setTimeout(() => {
+        lastCalculationTime = Date.now();
+        calculationThrottleTimeout = null;
+        triggerSingleCalculation();
+      }, throttleMs - (now - lastCalculationTime));
+    }
+  }
+}
+
 async function triggerSingleCalculation() {
   if (!state.isRunning) return;
   try {
@@ -8234,6 +8401,11 @@ async function triggerSingleCalculation() {
     state.analysis.phi = data.phi;
     state.analysis.f0 = data.f0;
     
+    if (data.VR1 !== undefined) state.analysis.VR1 = data.VR1;
+    if (data.VR2 !== undefined) state.analysis.VR2 = data.VR2;
+    if (data.IR1 !== undefined) state.analysis.IR1 = data.IR1;
+    if (data.IR2 !== undefined) state.analysis.IR2 = data.IR2;
+    
     // Complete final step if loop is closed, running, and button pressed
     if (state.activeExperiment === 'arduino_led' && state.isRunning && state.buttonPressed && state.meters.amps > 0) {
       completeStep(6);
@@ -8250,6 +8422,102 @@ async function triggerSingleCalculation() {
   } catch (e) {
     console.error("Single calculation trigger error", e);
   }
+}
+
+function getVoltmeterReading() {
+  if (!state.isRunning) return 0.0;
+  
+  const voltmeter = state.placedComponents.find(c => c.type === 'voltmeter');
+  if (!voltmeter) return 0.0;
+  
+  const uf = runUnionFind();
+  const find = (x) => uf.find(x);
+  
+  const v1 = find(voltmeter.snap1);
+  const v2 = find(voltmeter.snap2);
+  
+  if (v1 === v2) return 0.0;
+  
+  const source = state.placedComponents.find(c => c.type === 'source');
+  if (!source) return 0.0;
+  
+  const posRail = find(0);
+  const negRail = find(1);
+  
+  const potentials = {};
+  potentials[posRail] = state.meters.volts;
+  potentials[negRail] = 0.0;
+  
+  if (state.activeExperiment === 'ohms') {
+    const resistor = state.placedComponents.find(c => c.type === 'resistor');
+    if (resistor) {
+      const r1 = find(resistor.snap1);
+      const r2 = find(resistor.snap2);
+      if ((v1 === r1 && v2 === r2) || (v1 === r2 && v2 === r1)) {
+        return state.meters.volts;
+      }
+    }
+  } else if (state.activeExperiment === 'kvl' || state.activeExperiment === 'series_parallel') {
+    const resistors = state.placedComponents.filter(c => c.type === 'resistor');
+    if (resistors.length >= 2) {
+      const r1 = resistors[0];
+      const r2 = resistors[1];
+      
+      const r1_1 = find(r1.snap1);
+      const r1_2 = find(r1.snap2);
+      const r2_1 = find(r2.snap1);
+      const r2_2 = find(r2.snap2);
+      
+      const R1_val = state.params.R;
+      const R2_val = state.activeExperiment === 'kvl' ? state.params.L : (state.params.L || 100);
+      
+      let juncNode = null;
+      let r1ConnectedToPos = (r1_1 === posRail || r1_2 === posRail);
+      let r2ConnectedToNeg = (r2_1 === negRail || r2_2 === negRail);
+      
+      if (r1ConnectedToPos && r2ConnectedToNeg) {
+        const r1_other = (r1_1 === posRail) ? r1_2 : r1_1;
+        const r2_other = (r2_1 === negRail) ? r2_2 : r2_1;
+        if (find(r1_other) === find(r2_other)) {
+          juncNode = find(r1_other);
+          potentials[juncNode] = state.meters.volts * R2_val / (R1_val + R2_val);
+        }
+      } else {
+        let r2ConnectedToPos = (r2_1 === posRail || r2_2 === posRail);
+        let r1ConnectedToNeg = (r1_1 === negRail || r1_2 === negRail);
+        if (r2ConnectedToPos && r1ConnectedToNeg) {
+          const r2_other = (r2_1 === posRail) ? r2_2 : r2_1;
+          const r1_other = (r1_1 === negRail) ? r1_2 : r1_1;
+          if (find(r2_other) === find(r1_other)) {
+            juncNode = find(r2_other);
+            potentials[juncNode] = state.meters.volts * R1_val / (R1_val + R2_val);
+          }
+        }
+      }
+    }
+  }
+  
+  const V1 = potentials[v1] !== undefined ? potentials[v1] : (v1 === posRail ? state.meters.volts : 0.0);
+  const V2 = potentials[v2] !== undefined ? potentials[v2] : (v2 === posRail ? state.meters.volts : 0.0);
+  
+  return Math.abs(V1 - V2);
+}
+
+function getAmmeterReading() {
+  if (!state.isRunning) return 0.0;
+  
+  const ammeter = state.placedComponents.find(c => c.type === 'ammeter');
+  if (!ammeter) return 0.0;
+  
+  const uf = runUnionFind();
+  const find = (x) => uf.find(x);
+  
+  const am1 = find(ammeter.snap1);
+  const am2 = find(ammeter.snap2);
+  
+  if (am1 === am2) return 0.0;
+  
+  return state.meters.amps;
 }
 
 function updateDynamicTextures() {
@@ -8296,7 +8564,7 @@ function updateDynamicTextures() {
     vCtx.lineWidth = 1;
     vCtx.beginPath(); vCtx.moveTo(10, 32); vCtx.lineTo(W - 10, 32); vCtx.stroke();
     // Main reading value
-    const voltsVal = state.isRunning ? state.meters.volts.toFixed(3) : '0.000';
+    const voltsVal = state.isRunning ? getVoltmeterReading().toFixed(3) : '0.000';
     vCtx.fillStyle = state.isRunning ? '#f87171' : '#4b5563';
     vCtx.font = 'bold 38px Courier New';
     vCtx.textAlign = 'right';
@@ -8340,11 +8608,12 @@ function updateDynamicTextures() {
     // Main reading
     let ampsDisplay, unitLabel;
     if (state.isRunning) {
-      if (state.meters.amps < 0.1) {
-        ampsDisplay = (state.meters.amps * 1000).toFixed(2);
+      const currentVal = getAmmeterReading();
+      if (currentVal < 0.1) {
+        ampsDisplay = (currentVal * 1000).toFixed(2);
         unitLabel = 'mA';
       } else {
-        ampsDisplay = state.meters.amps.toFixed(4);
+        ampsDisplay = currentVal.toFixed(4);
         unitLabel = 'A';
       }
     } else {
@@ -9550,9 +9819,9 @@ function createComponentVisuals(type, snap1, snap2, customColor = null) {
     group.userData = { powerButton: pBtn, powerLed: pLed };
     
     const localL = new THREE.Vector3(-0.35, 0.3, 0.18).applyQuaternion(group.quaternion).add(mid);
-    leads.push(createMetalLead(localL, p1));
+    leads.push(createSourceLead(localL, p1, 0xef4444));
     const localR = new THREE.Vector3(0.35, 0.3, 0.18).applyQuaternion(group.quaternion).add(mid);
-    leads.push(createMetalLead(localR, p2));
+    leads.push(createSourceLead(localR, p2, 0x111827));
   }
   else if (type === 'ammeter' || type === 'voltmeter') {
     const isAm = type === 'ammeter';
@@ -9944,6 +10213,80 @@ function createBentMetalLead(start, end) {
   return new THREE.Mesh(geo, mat);
 }
 
+function createSourceLead(start, end, colorCode) {
+  const group = new THREE.Group();
+
+  // Route the lead from the terminal post, forward in front of the casing,
+  // down, then horizontally to the breadboard snap hole position.
+  const frontDir = new THREE.Vector3(0, 0, 1); // toward camera
+
+  const points = [];
+  // 1. Start at terminal post
+  points.push(start.clone());
+
+  // 2. Come forward from terminal post (clear the casing front face)
+  const fwd = start.clone().addScaledVector(frontDir, 0.32);
+  points.push(fwd);
+
+  // 3. Drop down in front of the casing
+  const dropFront = fwd.clone();
+  dropFront.y = end.y + 0.28;
+  points.push(dropFront);
+
+  // 4. Move toward snap hole at low level (under the module)
+  const approach = end.clone();
+  approach.y = end.y + 0.28;
+  points.push(approach);
+
+  // 5. Arrive at snap hole top
+  points.push(end.clone());
+
+  // 6. Into the hole
+  const snapInside = end.clone();
+  snapInside.y = end.y - 0.08;
+  points.push(snapInside);
+
+  const curve = new THREE.CatmullRomCurve3(points);
+  const geo = new THREE.TubeGeometry(curve, 48, 0.024, 8, false);
+  const wireMat = new THREE.MeshStandardMaterial({
+    color: colorCode,
+    roughness: 0.45,
+    metalness: 0.25
+  });
+  const wire = new THREE.Mesh(geo, wireMat);
+  wire.castShadow = true;
+  wire.receiveShadow = true;
+  group.add(wire);
+
+  // Plastic connector sleeve at breadboard end
+  const sleeveGeo = new THREE.CylinderGeometry(0.038, 0.038, 0.18, 12);
+  const sleeveMat = new THREE.MeshStandardMaterial({
+    color: colorCode,
+    roughness: 0.55,
+    metalness: 0.1
+  });
+  const sleeve = new THREE.Mesh(sleeveGeo, sleeveMat);
+  sleeve.position.copy(end);
+  sleeve.position.y += 0.09;
+  sleeve.castShadow = true;
+  group.add(sleeve);
+
+  // Silver metal pin inserting into breadboard
+  const pinGeo = new THREE.CylinderGeometry(0.013, 0.013, 0.10, 8);
+  const pinMat = new THREE.MeshStandardMaterial({
+    color: 0xd1d5db,
+    metalness: 0.92,
+    roughness: 0.08
+  });
+  const pin = new THREE.Mesh(pinGeo, pinMat);
+  pin.position.copy(end);
+  pin.position.y -= 0.01;
+  pin.castShadow = true;
+  group.add(pin);
+
+  return group;
+}
+
 function getOccupiedHoles() {
   const occupied = new Set();
   state.placedComponents.forEach(comp => {
@@ -10143,7 +10486,7 @@ function updateInspector() {
     } else if (comp.type === 'ammeter' || comp.type === 'voltmeter') {
       typeName = comp.type === 'ammeter' ? 'Digital Ammeter' : 'Digital Voltmeter';
       detailsHTML = `
-        <div class="prop-row"><span class="prop-label">Measurement</span><span class="prop-val" style="color:var(--yellow)">${comp.type === 'ammeter' ? (state.meters.amps * 1000).toFixed(1) + ' mA' : state.meters.volts.toFixed(2) + ' V'}</span></div>
+        <div class="prop-row"><span class="prop-label">Measurement</span><span class="prop-val" style="color:var(--yellow)">${comp.type === 'ammeter' ? (getAmmeterReading() * 1000).toFixed(1) + ' mA' : getVoltmeterReading().toFixed(2) + ' V'}</span></div>
         <div class="prop-row"><span class="prop-label">Terminals</span><span class="prop-val">${getHoleName(comp.snap1)} (+) ↔ ${getHoleName(comp.snap2)} (-)</span></div>
       `;
     }
@@ -10151,12 +10494,25 @@ function updateInspector() {
     if (state.isRunning) {
       let calcHTML = '';
       if (comp.type === 'resistor') {
+        let res_val = state.params.R;
+        let v_drop = state.meters.amps * res_val;
+        const resistors = state.placedComponents.filter(c => c.type === 'resistor');
+        const resIdx = resistors.indexOf(comp);
+        
+        if (state.activeExperiment === 'kvl' || state.activeExperiment === 'series_parallel') {
+          if (resIdx === 0) {
+            res_val = state.params.R;
+            v_drop = state.analysis.VR1 !== undefined ? state.analysis.VR1 : (state.meters.amps * res_val);
+          } else if (resIdx === 1) {
+            res_val = state.activeExperiment === 'kvl' ? state.params.L : (state.params.L || 100);
+            v_drop = state.analysis.VR2 !== undefined ? state.analysis.VR2 : (state.meters.amps * res_val);
+          }
+        }
         const current_mA = state.meters.amps * 1000;
-        const voltage_drop = state.meters.amps * state.params.R;
-        const power_mW = state.meters.amps * voltage_drop * 1000;
+        const power_mW = state.meters.amps * v_drop * 1000;
         calcHTML = `
           <div class="prop-row"><span class="prop-label">Current</span><span class="prop-val">${current_mA.toFixed(2)} mA</span></div>
-          <div class="prop-row"><span class="prop-label">Voltage Drop</span><span class="prop-val">${voltage_drop.toFixed(2)} V</span></div>
+          <div class="prop-row"><span class="prop-label">Voltage Drop</span><span class="prop-val">${v_drop.toFixed(2)} V</span></div>
           <div class="prop-row"><span class="prop-label">Power Dissipated</span><span class="prop-val">${power_mW.toFixed(2)} mW</span></div>
         `;
       } else if (comp.type === 'led') {
@@ -10254,6 +10610,19 @@ function updateInspector() {
   } else {
     infoEl.innerHTML = 'Click a hole or component to inspect.';
   }
+}
+
+function checkIntersectionXZ(a, b, c, d) {
+  const det = (b.x - a.x) * (d.z - c.z) - (b.z - a.z) * (d.x - c.x);
+  if (Math.abs(det) < 0.0001) return null; // Parallel or collinear
+  
+  const lambda = ((d.z - c.z) * (d.x - a.x) + (c.x - d.x) * (d.z - a.z)) / det;
+  const gamma = ((a.z - b.z) * (d.x - a.x) + (b.x - a.x) * (d.z - a.z)) / det;
+  
+  if (lambda >= 0 && lambda <= 1 && gamma >= 0 && gamma <= 1) {
+    return { lambda, gamma };
+  }
+  return null;
 }
 
 function createWireCurve(p1, p2, seed = 0, currentWireIdx = -1) {
@@ -10355,6 +10724,10 @@ function createWireCurve(p1, p2, seed = 0, currentWireIdx = -1) {
     state.wires.forEach((otherWire, otherIdx) => {
       if (otherIdx === currentWireIdx) return;
       if (!otherWire.curve) return;
+
+      const otherP1 = getSnapPos(otherWire.fromHole);
+      const otherP2 = getSnapPos(otherWire.toHole);
+      if (!otherP1 || !otherP2) return;
 
       const otherMid = otherWire.curve.getPointAt(0.5);
       // Distance on XZ plane between midpoints

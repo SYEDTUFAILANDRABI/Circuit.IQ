@@ -32,7 +32,9 @@ interface CircuitContext {
 }
 
 export default function PhysicsBotPanel() {
-  const { physicsBotOpen, setPhysicsBotOpen, currentExperiment } = useAppStore();
+  const physicsBotOpen = useAppStore((state) => state.physicsBotOpen);
+  const setPhysicsBotOpen = useAppStore((state) => state.setPhysicsBotOpen);
+  const currentExperiment = useAppStore((state) => state.currentExperiment);
 
   const [messages, setMessages]       = useState<Message[]>([]);
   const [input, setInput]             = useState('');

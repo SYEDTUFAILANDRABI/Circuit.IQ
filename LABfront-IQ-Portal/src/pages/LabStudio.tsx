@@ -4,7 +4,8 @@ import { useAppStore } from '../store/useAppStore';
 import { Zap, Cpu, Sliders, Lightbulb, Activity, Gauge } from 'lucide-react';
 
 export default function LabStudio() {
-  const { setLabOpen, currentExperiment } = useAppStore();
+  const setLabOpen = useAppStore((state) => state.setLabOpen);
+  const currentExperiment = useAppStore((state) => state.currentExperiment);
   const [progress, setProgress] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
   const [shouldLoadIframe, setShouldLoadIframe] = useState(false);

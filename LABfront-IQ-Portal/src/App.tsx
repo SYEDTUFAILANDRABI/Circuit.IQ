@@ -16,7 +16,11 @@ import { cn } from './lib/utils';
 import PhysicsBotPanel from './components/PhysicsBotPanel';
 
 export default function App() {
-  const { isLabOpen, theme, activeTab, setLabOpen, setActiveTab } = useAppStore();
+  const isLabOpen = useAppStore((state) => state.isLabOpen);
+  const theme = useAppStore((state) => state.theme);
+  const activeTab = useAppStore((state) => state.activeTab);
+  const setLabOpen = useAppStore((state) => state.setLabOpen);
+  const setActiveTab = useAppStore((state) => state.setActiveTab);
 
   useEffect(() => {
     if (theme === 'dark') {

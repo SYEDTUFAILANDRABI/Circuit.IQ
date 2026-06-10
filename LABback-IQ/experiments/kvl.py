@@ -7,10 +7,17 @@ class KvlExperiment(BaseExperiment):
 
     def calculate(self, params, button_pressed=True):
         V = params['V']
-        R = params['R_eff']
+        R1 = params['R_eff']
+        R2_nominal = params['L'] * 1000.0
+        alpha = 0.00393
+        T = params['T']
+        R2 = R2_nominal * (1.0 + alpha * (T - 25.0))
         
-        Z = R
-        I = V / R if R > 0.0 else 0.0
+        Z = R1 + R2
+        I = V / Z if Z > 0.0 else 0.0
+        
+        VR1 = I * R1
+        VR2 = I * R2
         P = V * I
         
         return {
@@ -21,5 +28,7 @@ class KvlExperiment(BaseExperiment):
             'phi': 0.0,
             'f0': 0.0,
             'V': V,
+            'VR1': VR1,
+            'VR2': VR2,
             'P': P
         }

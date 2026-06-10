@@ -87,6 +87,34 @@ class TestPhysicsEngine(unittest.TestCase):
         # V (pressure) should be (1.0 * 8.314 * 300.0) / 10.0 = 249.42 kPa
         self.assertAlmostEqual(res['V'], 249.42)
 
+    def test_kvl(self):
+        # Vs = 12V, R1 = 50Ω, R2 = 50Ω (L = 0.05H)
+        self.engine.set_param('V', 12.0)
+        self.engine.set_param('R', 50.0)
+        self.engine.set_param('L', 0.05) # L represents R2 in mH (so 50mH is 50Ω)
+        self.engine.set_param('T', 25.0)
+
+        res = self.engine.calculate('kvl')
+        self.assertAlmostEqual(res['Z'], 100.0) # R1 + R2 = 100Ω
+        self.assertAlmostEqual(res['I'], 0.12) # 12V / 100Ω = 0.12A
+        self.assertAlmostEqual(res['VR1'], 6.0) # 0.12A * 50Ω = 6V
+        self.assertAlmostEqual(res['VR2'], 6.0) # 0.12A * 50Ω = 6V
+        self.assertAlmostEqual(res['P'], 1.44) # 12V * 0.12A = 1.44W
+
+    def test_kcl(self):
+        # Vs = 12V, R1 = 50Ω, R2 = 50Ω
+        self.engine.set_param('V', 12.0)
+        self.engine.set_param('R', 50.0)
+        self.engine.set_param('L', 0.05)
+        self.engine.set_param('T', 25.0)
+
+        res = self.engine.calculate('kcl')
+        self.assertAlmostEqual(res['Z'], 25.0) # 50 || 50 = 25Ω
+        self.assertAlmostEqual(res['I'], 0.48) # 12V / 25Ω = 0.48A
+        self.assertAlmostEqual(res['IR1'], 0.24) # 12V / 50Ω = 0.24A
+        self.assertAlmostEqual(res['IR2'], 0.24) # 12V / 50Ω = 0.24A
+        self.assertAlmostEqual(res['P'], 5.76) # 12V * 0.48A = 5.76W
+
     def test_circuit_validator(self):
         placed = [
             {'type': 'source', 'id': 0},

@@ -5,7 +5,14 @@ import { LayoutGrid, FlaskConical, Cpu, Bot, FileText, Info, Zap, Moon, Sun, Men
 import { cn } from '../lib/utils';
 
 export default function Navbar() {
-const { setLabOpen, isLabOpen, theme, toggleTheme, activeTab, setActiveTab, physicsBotOpen, setPhysicsBotOpen } = useAppStore();
+  const setLabOpen = useAppStore((state) => state.setLabOpen);
+  const isLabOpen = useAppStore((state) => state.isLabOpen);
+  const theme = useAppStore((state) => state.theme);
+  const toggleTheme = useAppStore((state) => state.toggleTheme);
+  const activeTab = useAppStore((state) => state.activeTab);
+  const setActiveTab = useAppStore((state) => state.setActiveTab);
+  const physicsBotOpen = useAppStore((state) => state.physicsBotOpen);
+  const setPhysicsBotOpen = useAppStore((state) => state.setPhysicsBotOpen);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
