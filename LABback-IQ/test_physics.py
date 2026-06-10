@@ -87,6 +87,53 @@ class TestPhysicsEngine(unittest.TestCase):
         # V (pressure) should be (1.0 * 8.314 * 300.0) / 10.0 = 249.42 kPa
         self.assertAlmostEqual(res['V'], 249.42)
 
+    def test_kvl(self):
+        # V = 12.0 V, R1 = 100.0, R2 = 0.1 mH * 1000.0 = 100.0
+        # Z = R1 + R2 = 200.0
+        # I = V / Z = 0.06 A
+        # V_R1 (XL) = I * R1 = 6.0 V
+        # V_R2 (XC) = I * R2 = 6.0 V
+        self.engine.set_param('V', 12.0)
+        self.engine.set_param('R', 100.0)
+        self.engine.set_param('L', 100.0 * 1e-3) # L is set in UI, converted to Henries in backend route
+        self.engine.set_param('T', 25.0)
+        
+        res = self.engine.calculate('kvl')
+        self.assertAlmostEqual(res['Z'], 200.0)
+        self.assertAlmostEqual(res['I'], 0.06)
+        self.assertAlmostEqual(res['XL'], 6.0) # V_R1
+        self.assertAlmostEqual(res['XC'], 6.0) # V_R2
+
+    def test_kcl(self):
+        # V = 12.0 V, R1 = 100.0, R2 = 0.1 mH * 1000.0 = 100.0
+        # Z = (R1 * R2) / (R1 + R2) = 50.0
+        # I_total = V / Z = 0.24 A
+        # I_R1 (XL) = V / R1 = 0.12 A
+        # I_R2 (XC) = V / R2 = 0.12 A
+        self.engine.set_param('V', 12.0)
+        self.engine.set_param('R', 100.0)
+        self.engine.set_param('L', 100.0 * 1e-3)
+        self.engine.set_param('T', 25.0)
+        
+        res = self.engine.calculate('kcl')
+        self.assertAlmostEqual(res['Z'], 50.0)
+        self.assertAlmostEqual(res['I'], 0.24)
+        self.assertAlmostEqual(res['XL'], 0.12) # I_R1
+        self.assertAlmostEqual(res['XC'], 0.12) # I_R2
+
+    def test_series_parallel(self):
+        # V = 12.0 V, R1 = 100.0, R2 = 0.1 mH * 1000.0 = 100.0
+        # Z = R1 + R2 = 200.0
+        # I = V / Z = 0.06 A
+        self.engine.set_param('V', 12.0)
+        self.engine.set_param('R', 100.0)
+        self.engine.set_param('L', 100.0 * 1e-3)
+        self.engine.set_param('T', 25.0)
+        
+        res = self.engine.calculate('series_parallel')
+        self.assertAlmostEqual(res['Z'], 200.0)
+        self.assertAlmostEqual(res['I'], 0.06)
+
     def test_circuit_validator(self):
         placed = [
             {'type': 'source', 'id': 0},

@@ -699,6 +699,21 @@ const assessmentQuestions = {
   ]
 };
 
+function checkIsParallelCircuit() {
+  const resistors = state.placedComponents.filter(c => c.type === 'resistor');
+  if (resistors.length < 2) return false;
+  const uf = runUnionFind();
+  const r1_1 = uf.find(resistors[0].snap1);
+  const r1_2 = uf.find(resistors[0].snap2);
+  const r2_1 = uf.find(resistors[1].snap1);
+  const r2_2 = uf.find(resistors[1].snap2);
+  
+  return (
+    (r1_1 === r2_1 && r1_2 === r2_2) ||
+    (r1_1 === r2_2 && r1_2 === r2_1)
+  );
+}
+
 // --- LOCAL CIRCUIT SIMULATION & TOPOLOGY ENGINE ---
 function calculateCircuitLocal(params, activeExperiment, buttonPressed) {
   let V = 0;
@@ -719,11 +734,27 @@ function calculateCircuitLocal(params, activeExperiment, buttonPressed) {
     I = idealCurrent * noise;
     Z = V / (I || 1);
     P = V * I;
-  } else if (activeExperiment === 'kvl' || activeExperiment === 'kcl') {
+  } else if (activeExperiment === 'kvl') {
     V = params.V;
-    I = V / (params.R || 1);
-    Z = params.R;
+    const R1 = params.R;
+    const R2 = params.L || 100; // Second resistor value (reuse L slider as R2)
+    Z = R1 + R2; // Series total resistance
+    I = V / (Z || 1);
     P = V * I;
+    // Store individual voltage drops for Kirchhoff display
+    f0 = R1; // Temporarily store R1 in f0 for display
+    XL = I * R1; // V_R1
+    XC = I * R2; // V_R2
+  } else if (activeExperiment === 'kcl') {
+    V = params.V;
+    const R1 = params.R;
+    const R2 = params.L || 100; // Second resistor value
+    Z = (R1 * R2) / (R1 + R2); // Parallel equivalent resistance
+    I = V / (Z || 1); // Total current before junction
+    P = V * I;
+    // Store branch currents for Kirchhoff display
+    XL = V / (R1 || 1); // I_branch1
+    XC = V / (R2 || 1); // I_branch2
   } else if (activeExperiment === 'lcr' || activeExperiment === 'rc_rl_rlc') {
     V = params.V; 
     const L_henrys = params.L * 1e-3;
@@ -746,8 +777,13 @@ function calculateCircuitLocal(params, activeExperiment, buttonPressed) {
     V = params.V;
     const R1 = params.R;
     const R2 = params.L; 
-    Z = R1 + R2; 
-    I = V / Z;
+    const isParallel = checkIsParallelCircuit();
+    if (isParallel) {
+      Z = (R1 * R2) / ((R1 + R2) || 1);
+    } else {
+      Z = R1 + R2; 
+    }
+    I = V / (Z || 1);
     P = V * I;
   } else if (activeExperiment === 'wheatstone') {
     V = params.V;
@@ -1407,13 +1443,14 @@ function startPollingCalculations() {
 
       if (isBackendCalculated) {
         try {
+          const calcParams = { ...state.params, is_parallel: checkIsParallelCircuit() };
           const response = await fetch('/api/calculate', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              params: state.params,
+              params: calcParams,
               active_experiment: state.activeExperiment,
               button_pressed: state.buttonPressed
             })
@@ -1503,10 +1540,20 @@ function updateUI() {
   } else if (state.activeExperiment === 'rc_rl_rlc') {
     elements.kirchhoffDisplay.innerText = `[OK] AC Impedance Analysis:\n Z = √[R² + (XL−XC)²] = ${state.meters.ohms.toFixed(1)} Ω\n XL = ${state.analysis.XL.toFixed(1)} Ω, XC = ${state.analysis.XC.toFixed(1)} Ω\n Phase φ = ${state.analysis.phi.toFixed(1)}°\n Resonant f₀ = ${state.analysis.f0.toFixed(1)} Hz`;
   } else if (state.activeExperiment === 'kvl') {
-    const vR1 = (state.meters.volts * state.params.R / (state.params.R * 2)).toFixed(2);
-    elements.kirchhoffDisplay.innerText = `[OK] KVL Validated:\n V_source (${state.meters.volts.toFixed(2)}V) = V_R1 + V_R2\n ΣV(loop) = 0\n\n[OK] Loop Current: ${state.meters.amps.toFixed(4)} A`;
+    const R1 = state.params.R;
+    const R2 = state.params.L || 100;
+    const I_loop = state.meters.amps;
+    const V_R1 = (I_loop * R1).toFixed(2);
+    const V_R2 = (I_loop * R2).toFixed(2);
+    const V_sum = (parseFloat(V_R1) + parseFloat(V_R2)).toFixed(2);
+    elements.kirchhoffDisplay.innerText = `[OK] KVL Validated:\n V_source = ${state.meters.volts.toFixed(2)} V\n V_R1 = I × R1 = ${V_R1} V  (R1 = ${R1} Ω)\n V_R2 = I × R2 = ${V_R2} V  (R2 = ${R2} Ω)\n V_R1 + V_R2 = ${V_sum} V\n ΣV(loop) = V_source − V_R1 − V_R2 ≈ 0\n\n[OK] Loop Current (Ammeter): ${I_loop.toFixed(4)} A`;
   } else if (state.activeExperiment === 'kcl') {
-    elements.kirchhoffDisplay.innerText = `[OK] KCL Validated:\n I_total = I_R1 + I_R2\n ΣI(node) = 0\n\n[OK] Total Current: ${state.meters.amps.toFixed(4)} A`;
+    const R1 = state.params.R;
+    const R2 = state.params.L || 100;
+    const I_total = state.meters.amps;
+    const I1 = (state.meters.volts / (R1 || 1));
+    const I2 = (state.meters.volts / (R2 || 1));
+    elements.kirchhoffDisplay.innerText = `[OK] KCL Validated:\n I_total (Ammeter) = ${I_total.toFixed(4)} A\n I_R1 = V/R1 = ${I1.toFixed(4)} A  (R1 = ${R1} Ω)\n I_R2 = V/R2 = ${I2.toFixed(4)} A  (R2 = ${R2} Ω)\n I_R1 + I_R2 = ${(I1 + I2).toFixed(4)} A\n ΣI(node) = I_total − I_R1 − I_R2 ≈ 0\n\n[OK] R_parallel = ${state.meters.ohms.toFixed(1)} Ω`;
   } else if (state.activeExperiment === 'series_parallel') {
     elements.kirchhoffDisplay.innerText = `[OK] Series-Parallel Network:\n V_source = ${state.meters.volts.toFixed(2)} V\n I_total = ${state.meters.amps.toFixed(4)} A\n R_eq = ${state.meters.ohms.toFixed(1)} Ω`;
   } else if (state.activeExperiment === 'wheatstone') {
@@ -4148,7 +4195,7 @@ function initInteraction() {
   }
 
   elements.experimentSelect.addEventListener('change', (e) => {
-    setupExperiment(e.target.value);
+    setupExperiment(e.target.value, true);
     updateAIMentor();
   });
   
@@ -4943,29 +4990,33 @@ function autoBuildExperiment() {
   const expKey = state.activeExperiment;
   if (expKey === 'ohms') {
     placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
-    placeComponent3D('resistor', 9 * 14 + 4, 14 * 14 + 4);     // Cols 9-14, row D (E)
-    placeComponent3D('ammeter', 14 * 14 + 7, 19 * 14 + 7);     // Cols 14-19, row H (below ravine)
-    placeComponent3D('voltmeter', 9 * 14 + 2, 14 * 14 + 2);    // Cols 9-14, row B (far above resistor D)
-    create3DWire(9 * 14 + 0, 9 * 14 + 4);
-    create3DWire(14 * 14 + 4, 14 * 14 + 7);
-    create3DWire(19 * 14 + 7, 19 * 14 + 1);
-    create3DWire(9 * 14 + 2, 9 * 14 + 4);
-    create3DWire(14 * 14 + 2, 14 * 14 + 4);
+    placeComponent3D('resistor', 9 * 14 + 4, 14 * 14 + 4);     // Cols 10-15, row E (top half)
+    placeComponent3D('ammeter', 14 * 14 + 7, 19 * 14 + 7);     // Cols 15-20, row H (below ravine)
+    placeComponent3D('voltmeter', 9 * 14 + 9, 14 * 14 + 9);    // Cols 10-15, row J (below ravine, isolated from resistor)
+    create3DWire(9 * 14 + 0, 9 * 14 + 4);                      // Source (+) rail to resistor start
+    create3DWire(14 * 14 + 4, 14 * 14 + 7);                    // Resistor end to ammeter start (cross ravine)
+    create3DWire(19 * 14 + 7, 19 * 14 + 1);                    // Ammeter end to Source (-) rail
+    create3DWire(9 * 14 + 4, 9 * 14 + 9);                      // Resistor terminal 1 to voltmeter terminal 1 (cross ravine)
+    create3DWire(14 * 14 + 4, 14 * 14 + 9);                    // Resistor terminal 2 to voltmeter terminal 2 (cross ravine)
   } else if (expKey === 'kvl') {
     placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
-    placeComponent3D('resistor', 7 * 14 + 4, 11 * 14 + 4);
-    placeComponent3D('resistor', 13 * 14 + 4, 17 * 14 + 4);
-    create3DWire(2 * 14 + 0, 7 * 14 + 4);
-    create3DWire(11 * 14 + 4, 13 * 14 + 4);
-    create3DWire(17 * 14 + 4, 2 * 14 + 1);
+    placeComponent3D('ammeter', 3 * 14 + 7, 7 * 14 + 7);       // Ammeter: Cols 4-8, row H (measures total loop current)
+    placeComponent3D('resistor', 7 * 14 + 4, 11 * 14 + 4);     // R1: Cols 8-12, row E
+    placeComponent3D('resistor', 13 * 14 + 4, 17 * 14 + 4);    // R2: Cols 14-18, row E
+    create3DWire(2 * 14 + 0, 3 * 14 + 7);                      // Source (+) to ammeter start (cross ravine)
+    create3DWire(7 * 14 + 7, 7 * 14 + 4);                      // Ammeter end to R1 start (cross ravine)
+    create3DWire(11 * 14 + 4, 13 * 14 + 4);                    // R1 end to R2 start
+    create3DWire(17 * 14 + 4, 2 * 14 + 1);                     // R2 end to Source (-)
   } else if (expKey === 'kcl') {
     placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
-    placeComponent3D('resistor', 8 * 14 + 3, 12 * 14 + 3);
-    placeComponent3D('resistor', 8 * 14 + 5, 12 * 14 + 5);
-    create3DWire(2 * 14 + 0, 8 * 14 + 3);
-    create3DWire(8 * 14 + 3, 8 * 14 + 5);
-    create3DWire(12 * 14 + 3, 12 * 14 + 5);
-    create3DWire(12 * 14 + 5, 2 * 14 + 1);
+    placeComponent3D('ammeter', 3 * 14 + 7, 6 * 14 + 7);       // Ammeter: Cols 4-7, row H (measures I_total before junction)
+    placeComponent3D('resistor', 8 * 14 + 3, 12 * 14 + 3);     // R1: parallel branch 1 (row C)
+    placeComponent3D('resistor', 8 * 14 + 5, 12 * 14 + 5);     // R2: parallel branch 2 (row F)
+    create3DWire(2 * 14 + 0, 3 * 14 + 7);                      // Source (+) to ammeter start
+    create3DWire(6 * 14 + 7, 8 * 14 + 3);                      // Ammeter end to junction (R1 start)
+    create3DWire(8 * 14 + 3, 8 * 14 + 5);                      // Junction: R1 start to R2 start (parallel)
+    create3DWire(12 * 14 + 3, 12 * 14 + 5);                    // R1 end to R2 end (parallel recombine)
+    create3DWire(12 * 14 + 5, 2 * 14 + 1);                     // Recombined path to Source (-)
   } else if (expKey === 'led') { // led color experiment
     placeComponent3D('source', 3 * 14 + 0, 3 * 14 + 1); // Source at Col 4 Positive & Negative
     placeComponent3D('resistor', 6 * 14 + 4, 9 * 14 + 4); // Resistor at Col 7E to 10E
@@ -5026,8 +5077,13 @@ function autoBuildExperiment() {
     placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
     placeComponent3D('resistor', 7 * 14 + 4, 11 * 14 + 4);
     placeComponent3D('resistor', 11 * 14 + 4, 15 * 14 + 4);
-    create3DWire(7 * 14 + 0, 7 * 14 + 4);
-    create3DWire(15 * 14 + 4, 15 * 14 + 1);
+    placeComponent3D('ammeter', 15 * 14 + 7, 20 * 14 + 7);       // Ammeter in series measuring loop current (row H)
+    placeComponent3D('voltmeter', 7 * 14 + 9, 11 * 14 + 9);      // Voltmeter in parallel across Resistor 1 (row J)
+    create3DWire(7 * 14 + 0, 7 * 14 + 4);                        // Source (+) to Resistor 1 start
+    create3DWire(15 * 14 + 4, 15 * 14 + 7);                      // Resistor 2 end to Ammeter start (cross ravine)
+    create3DWire(20 * 14 + 7, 20 * 14 + 1);                      // Ammeter end to Source (-)
+    create3DWire(7 * 14 + 4, 7 * 14 + 9);                        // Resistor 1 start to Voltmeter start (cross ravine)
+    create3DWire(11 * 14 + 4, 11 * 14 + 9);                      // Resistor 1 end to Voltmeter end (cross ravine)
   } else if (expKey === 'wheatstone') {
     placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
     placeComponent3D('resistor', 6 * 14 + 3, 10 * 14 + 3);  // R1
@@ -8239,16 +8295,37 @@ function updateDynamicTextures() {
   const pCtx = powerScreenCanvas.getContext('2d');
   pCtx.fillStyle = '#0f172a';
   pCtx.fillRect(0, 0, 128, 64);
-  pCtx.fillStyle = '#10b981';
-  pCtx.font = 'bold 22px Courier New';
+  
+  const isAC = ['lcr', 'rc', 'rc_rl_rlc'].includes(state.activeExperiment);
   if (state.activeExperiment === 'arduino_led') {
+    pCtx.fillStyle = '#10b981';
+    pCtx.font = 'bold 22px Courier New';
     pCtx.fillText("5.0V USB", 10, 28);
     pCtx.font = '14px Courier New';
     pCtx.fillText("ARDUINO UNO", 10, 48);
+  } else if (isAC) {
+    pCtx.fillStyle = '#06b6d4'; // Cyan text for AC
+    pCtx.font = 'bold 20px Courier New';
+    pCtx.fillText(`${state.params.V.toFixed(1)}V AC`, 10, 28);
+    pCtx.font = '14px Courier New';
+    pCtx.fillText(`${state.params.f.toFixed(0)}Hz ~`, 10, 48);
+    
+    // Draw sine wave on the right side of the screen
+    pCtx.strokeStyle = '#06b6d4';
+    pCtx.lineWidth = 1.5;
+    pCtx.beginPath();
+    for (let x = 85; x <= 120; x++) {
+      const y = 38 + Math.sin((x - 85) * 0.25) * 6;
+      if (x === 85) pCtx.moveTo(x, y);
+      else pCtx.lineTo(x, y);
+    }
+    pCtx.stroke();
   } else {
+    pCtx.fillStyle = '#10b981'; // Green for DC
+    pCtx.font = 'bold 22px Courier New';
     pCtx.fillText(`${state.params.V.toFixed(1)}V DC`, 10, 28);
     pCtx.font = '14px Courier New';
-    pCtx.fillText(`${state.params.f.toFixed(0)}Hz AC`, 10, 48);
+    pCtx.fillText("0Hz (DC)", 10, 48);
   }
   powerScreenTexture.needsUpdate = true;
   
@@ -9442,9 +9519,10 @@ function createComponentVisuals(type, snap1, snap2, customColor = null) {
     body.receiveShadow = true;
     group.add(body);
     
-    // Gold trim/accent ring around body top
+    // Gold trim/accent ring around body top (Cyan for AC, Gold for DC)
+    const isAC = ['lcr', 'rc', 'rc_rl_rlc'].includes(state.activeExperiment);
     const trimGeo = createRoundedBoxGeometry(0.88, 0.03, 0.58, 0.04);
-    const trimMat = new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.2, metalness: 0.8 });
+    const trimMat = new THREE.MeshStandardMaterial({ color: isAC ? 0x06b6d4 : 0xeab308, roughness: 0.2, metalness: 0.8 });
     const trim = new THREE.Mesh(trimGeo, trimMat);
     trim.position.y = 0.18;
     group.add(trim);
@@ -10156,6 +10234,20 @@ function updateInspector() {
       }
     }
     
+    const isArduinoSource = comp.type === 'source' && state.activeExperiment === 'arduino_led';
+    if (!isArduinoSource) {
+      detailsHTML += `
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button id="inspector-rotate-btn" style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;background:#27272a;color:var(--text);border:1px solid var(--border);border-radius:4px;font-size:11px;padding:6px 12px;cursor:pointer;font-weight:500;transition:background 0.2s">
+            <svg style="width:12px;height:12px;transform:scaleX(-1);" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12" />
+            </svg>
+            Rotate 90°
+          </button>
+        </div>
+      `;
+    }
+
     infoEl.innerHTML = `
       <div style="font-weight:600;color:var(--text);margin-bottom:6px;font-size:12px;display:flex;align-items:center;gap:6px">
         <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f97316"></span>
@@ -10174,6 +10266,14 @@ function updateInspector() {
         }
       });
     });
+
+    const rotateBtn = infoEl.querySelector('#inspector-rotate-btn');
+    if (rotateBtn) {
+      rotateBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        rotateComponent3D(state.selectedComponentIdx);
+      });
+    }
     
   } else if (state.selectedHoleIndex !== null && state.selectedHoleIndex !== undefined) {
     const snap = state.selectedHoleIndex;
@@ -10555,6 +10655,78 @@ function deleteComponent3D(idx) {
   debouncedSaveCircuit();
 }
 
+function rotateComponent3D(idx) {
+  const comp = state.placedComponents[idx];
+  if (!comp) return;
+  
+  const c1 = Math.floor(comp.snap1 / 14);
+  const r1 = comp.snap1 % 14;
+  const c2 = Math.floor(comp.snap2 / 14);
+  const r2 = comp.snap2 % 14;
+  
+  if (comp.snap1 === comp.snap2) return;
+  
+  let newSnap1 = comp.snap1;
+  let newSnap2 = comp.snap2;
+  
+  if (r1 === r2) {
+    // Horizontal -> Rotate to Vertical
+    const distCols = c2 - c1;
+    let targetRow = r1 + distCols;
+    if (targetRow < 0 || targetRow >= 14) {
+      targetRow = r1 - distCols;
+    }
+    if (targetRow < 0) targetRow = 0;
+    if (targetRow >= 14) targetRow = 13;
+    newSnap2 = c1 * 14 + targetRow;
+  } else if (c1 === c2) {
+    // Vertical -> Rotate to Horizontal
+    const distRows = r2 - r1;
+    let targetCol = c1 + distRows;
+    if (targetCol < 0 || targetCol >= 60) {
+      targetCol = c1 - distRows;
+    }
+    if (targetCol < 0) targetCol = 0;
+    if (targetCol >= 60) targetCol = 59;
+    newSnap2 = targetCol * 14 + r1;
+  } else {
+    // Diagonal/Other -> swap snap points
+    newSnap1 = comp.snap2;
+    newSnap2 = comp.snap1;
+  }
+  
+  scene.remove(comp.mesh);
+  comp.leads.forEach(l => scene.remove(l));
+  
+  const initialColor = comp.type === 'led' ? (comp.color || state.params.led_color || 'red') : null;
+  const { mesh, leads } = createComponentVisuals(comp.type, newSnap1, newSnap2, initialColor);
+  
+  scene.add(mesh);
+  leads.forEach(l => scene.add(l));
+  
+  comp.snap1 = newSnap1;
+  comp.snap2 = newSnap2;
+  comp.mesh = mesh;
+  comp.leads = leads;
+  
+  // Re-apply selection box to new mesh
+  const selectionBox = createLocalSelectionBox(comp);
+  comp.mesh.add(selectionBox);
+  
+  updateTelemetryCounts();
+  updateDynamicTextures();
+  updateAIMentor();
+  updateTargetHighlights();
+  
+  const validation = validateCircuitLocal();
+  if (validation.status === 'success') {
+    triggerSingleCalculation();
+  }
+  
+  updateInspector();
+  debouncedSaveCircuit();
+}
+
 function deleteWire3D(idx) {
   const w = state.wires[idx];
   scene.remove(w.lineMesh);
@@ -10651,7 +10823,7 @@ function populateLibraryGrid(category) {
     `;
     
     card.addEventListener('click', () => {
-      setupExperiment(key);
+      setupExperiment(key, true);
       document.getElementById('modal-library').style.display = 'none';
     });
     
@@ -10838,11 +11010,11 @@ function initAll() {
   const urlParams = new URLSearchParams(window.location.search);
   const initialExp = urlParams.get('exp') || 'ohms';
   
-  setupExperiment(initialExp, false);
   drawOscilloscope();
   
   setTimeout(() => {
     initThreeJS();
+    setupExperiment(initialExp, true);
   }, 100);
 
   // Setup Experiments Library modal event handlers

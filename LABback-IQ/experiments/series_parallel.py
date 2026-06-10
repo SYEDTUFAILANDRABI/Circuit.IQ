@@ -11,7 +11,12 @@ class SeriesParallelExperiment(BaseExperiment):
         # The L parameter (scaled by 1e-3 in frontend mapping) is used as R2 in UI
         R2 = params['L'] * 1000.0
         
-        Z = R1 + R2
+        is_parallel = params.get('is_parallel', False)
+        if is_parallel:
+            Z = (R1 * R2) / (R1 + R2) if (R1 + R2) > 0.0 else 0.0
+        else:
+            Z = R1 + R2
+            
         I = V / Z if Z > 0.0 else 0.0
         P = V * I
         

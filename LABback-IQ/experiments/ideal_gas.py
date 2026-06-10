@@ -1,3 +1,4 @@
+# pyrefly: ignore [missing-import]
 from .base_experiment import BaseExperiment
 
 class IdealGasExperiment(BaseExperiment):

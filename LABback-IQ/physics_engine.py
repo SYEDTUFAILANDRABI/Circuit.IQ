@@ -37,13 +37,17 @@ class PhysicsEngine:
             'C': 0.0001,      # Capacitance (Farads) - UI in uF
             'f': 50.0,        # Frequency (Hz)
             'V': 12.0,        # Source voltage (V)
-            'T': 25.0         # Temperature (°C)
+            'T': 25.0,        # Temperature (°C)
+            'is_parallel': False
         }
         self.energy_accumulator = 0.0
 
     def set_param(self, key, value):
         if key in self.params:
-            self.params[key] = float(value)
+            if key == 'is_parallel':
+                self.params[key] = bool(value)
+            else:
+                self.params[key] = float(value)
             # Reset energy accumulator on major resistance/temperature changes
             if key in ['R', 'T']:
                 self.reset_energy()
@@ -61,6 +65,7 @@ class PhysicsEngine:
         f = self.params['f']
         V = self.params['V']
         T = self.params['T']
+        is_parallel = self.params['is_parallel']
 
         # Temperature coefficient for copper: alpha = 0.00393 / °C
         alpha = 0.00393
@@ -75,7 +80,8 @@ class PhysicsEngine:
             'V': V,
             'T': T,
             'R_eff': R_eff,
-            'omega': omega
+            'omega': omega,
+            'is_parallel': is_parallel
         }
 
         experiment = experiments_registry.get(exp_type)

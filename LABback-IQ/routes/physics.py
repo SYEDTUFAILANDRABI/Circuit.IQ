@@ -95,6 +95,8 @@ def calculate():
             engine.set_param("f", float(params["f"]))
         if "T" in params:
             engine.set_param("T", float(params["T"]))
+        if "is_parallel" in params:
+            engine.set_param("is_parallel", bool(params["is_parallel"]))
 
         results = engine.calculate(active_experiment, button_pressed)
 
