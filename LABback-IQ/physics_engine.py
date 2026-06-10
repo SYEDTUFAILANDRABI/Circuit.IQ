@@ -102,7 +102,7 @@ class PhysicsEngine:
             phi_rad = math.radians(phi)
             P = V_out * I * math.cos(phi_rad)
         
-        return {
+        ret = {
             'XL': results.get('XL', 0.0),
             'XC': results.get('XC', 0.0),
             'Z': results.get('Z', R_eff),
@@ -115,6 +115,10 @@ class PhysicsEngine:
             'f': f,
             'P': P
         }
+        for k, v in results.items():
+            if k not in ret:
+                ret[k] = v
+        return ret
 
 
     def update_energy(self, P, dt):

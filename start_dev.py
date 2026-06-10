@@ -23,7 +23,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Path definitions
 BACKEND_DIR = os.path.join(BASE_DIR, "LABback-IQ")
-FRONTEND_DIR = os.path.join(BASE_DIR, "circuit.iq (1)final")
+FRONTEND_DIR = os.path.join(BASE_DIR, "LABfront-IQ-Portal")
 
 processes = []
 shutting_down = False

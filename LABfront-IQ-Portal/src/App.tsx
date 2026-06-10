@@ -16,7 +16,11 @@ import { cn } from './lib/utils';
 import PhysicsBotPanel from './components/PhysicsBotPanel';
 
 export default function App() {
-  const { isLabOpen, theme, activeTab, setLabOpen, setActiveTab } = useAppStore();
+  const isLabOpen = useAppStore((state) => state.isLabOpen);
+  const theme = useAppStore((state) => state.theme);
+  const activeTab = useAppStore((state) => state.activeTab);
+  const setLabOpen = useAppStore((state) => state.setLabOpen);
+  const setActiveTab = useAppStore((state) => state.setActiveTab);
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -54,10 +58,10 @@ export default function App() {
 ) : activeTab === 'attendance' ? (
   <div className="fixed inset-0 bg-[#070B14] overflow-y-auto z-[999]">
   <AttendanceSystem
-  onLabUnlock={(sessionId) => {
-    setLabOpen(true);
-    setActiveTab('home');
-  }}
+ onLabUnlock={(sessionId) => {
+  setActiveTab('home');
+  setTimeout(() => setLabOpen(true), 300);
+}}
 />
 </div>
 ) : (

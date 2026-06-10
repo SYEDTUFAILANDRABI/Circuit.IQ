@@ -8,7 +8,7 @@
 
 This is the **front door** of Circuit.IQ. Students visit this website to:
 
-- 🏠 Browse the **experiment catalog** (26 experiments across 6 physics domains)
+- 🏠 Browse the **experiment catalog** (26 experiments across 4 physics domains)
 - 🔬 **Launch the 3D lab** for any experiment
 - 🤖 Chat with the **AI PhysicsBot** to ask questions
 - 📞 Submit **support tickets** via the contact page
@@ -28,7 +28,7 @@ python start_dev.py    # Starts backend + this website
 
 ### Standalone:
 ```bash
-cd "circuit.iq (1)final"
+cd LABfront-IQ-Portal
 npm install
 npm run dev            # → http://localhost:3000
 ```
@@ -40,7 +40,7 @@ npm run dev            # → http://localhost:3000
 ## 📁 File Guide
 
 ```
-circuit.iq (1)final/
+LABfront-IQ-Portal/
 ├── index.html                     ← Root HTML template
 ├── package.json                   ← Dependencies
 ├── vite.config.ts                 ← Build config + API proxy → :5000
@@ -92,7 +92,7 @@ The homepage has these sections:
 | Section | What it shows |
 |---------|-------------|
 | **Hero** | Animated 3D floating electronic components |
-| **Experiment Catalog** | 6 domains, 26 experiments — click to launch lab |
+| **Experiment Catalog** | 4 domains, 26 experiments — click to launch lab |
 | **PhysicsBot** | Terminal-style AI chat for physics Q&A |
 | **Showcases** | Interactive mini-demos (breadboard, oscilloscope, LED matrix) |
 | **Team** | Founder profiles with role descriptions |

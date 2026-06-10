@@ -414,8 +414,26 @@ function WebGLContextDisposer() {
   useEffect(() => {
     return () => {
       // Force lose WebGL context on unmount to free up context immediately
-      gl.getContext().getExtension('WEBGL_lose_context')?.loseContext();
-      gl.dispose();
+      try {
+        if (gl && typeof gl.getContext === 'function') {
+          const ctx = gl.getContext();
+          if (ctx && typeof ctx.getExtension === 'function') {
+            const ext = ctx.getExtension('WEBGL_lose_context');
+            if (ext && typeof ext.loseContext === 'function') {
+              ext.loseContext();
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to lose WebGL context on unmount:", e);
+      }
+      try {
+        if (gl && typeof gl.dispose === 'function') {
+          gl.dispose();
+        }
+      } catch (e) {
+        console.warn("Failed to dispose WebGL renderer on unmount:", e);
+      }
     };
   }, [gl]);
   return null;

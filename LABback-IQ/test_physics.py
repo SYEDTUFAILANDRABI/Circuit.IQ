@@ -88,51 +88,51 @@ class TestPhysicsEngine(unittest.TestCase):
         self.assertAlmostEqual(res['V'], 249.42)
 
     def test_kvl(self):
-        # V = 12.0 V, R1 = 100.0, R2 = 0.1 mH * 1000.0 = 100.0
-        # Z = R1 + R2 = 200.0
-        # I = V / Z = 0.06 A
-        # V_R1 (XL) = I * R1 = 6.0 V
-        # V_R2 (XC) = I * R2 = 6.0 V
+        # Vs = 12V, R1 = 50Ω, R2 = 50Ω (L = 0.05H)
         self.engine.set_param('V', 12.0)
-        self.engine.set_param('R', 100.0)
-        self.engine.set_param('L', 100.0 * 1e-3) # L is set in UI, converted to Henries in backend route
+        self.engine.set_param('R', 50.0)
+        self.engine.set_param('L', 0.05) # L represents R2 in mH (so 50mH is 50Ω)
         self.engine.set_param('T', 25.0)
-        
+
         res = self.engine.calculate('kvl')
-        self.assertAlmostEqual(res['Z'], 200.0)
-        self.assertAlmostEqual(res['I'], 0.06)
-        self.assertAlmostEqual(res['XL'], 6.0) # V_R1
-        self.assertAlmostEqual(res['XC'], 6.0) # V_R2
+        self.assertAlmostEqual(res['Z'], 100.0) # R1 + R2 = 100Ω
+        self.assertAlmostEqual(res['I'], 0.12) # 12V / 100Ω = 0.12A
+        self.assertAlmostEqual(res['VR1'], 6.0) # 0.12A * 50Ω = 6V
+        self.assertAlmostEqual(res['VR2'], 6.0) # 0.12A * 50Ω = 6V
+        self.assertAlmostEqual(res['P'], 1.44) # 12V * 0.12A = 1.44W
 
     def test_kcl(self):
-        # V = 12.0 V, R1 = 100.0, R2 = 0.1 mH * 1000.0 = 100.0
-        # Z = (R1 * R2) / (R1 + R2) = 50.0
-        # I_total = V / Z = 0.24 A
-        # I_R1 (XL) = V / R1 = 0.12 A
-        # I_R2 (XC) = V / R2 = 0.12 A
+        # Vs = 12V, R1 = 50Ω, R2 = 50Ω
         self.engine.set_param('V', 12.0)
-        self.engine.set_param('R', 100.0)
-        self.engine.set_param('L', 100.0 * 1e-3)
+        self.engine.set_param('R', 50.0)
+        self.engine.set_param('L', 0.05)
         self.engine.set_param('T', 25.0)
-        
+
         res = self.engine.calculate('kcl')
-        self.assertAlmostEqual(res['Z'], 50.0)
-        self.assertAlmostEqual(res['I'], 0.24)
-        self.assertAlmostEqual(res['XL'], 0.12) # I_R1
-        self.assertAlmostEqual(res['XC'], 0.12) # I_R2
+        self.assertAlmostEqual(res['Z'], 25.0) # 50 || 50 = 25Ω
+        self.assertAlmostEqual(res['I'], 0.48) # 12V / 25Ω = 0.48A
+        self.assertAlmostEqual(res['IR1'], 0.24) # 12V / 50Ω = 0.24A
+        self.assertAlmostEqual(res['IR2'], 0.24) # 12V / 50Ω = 0.24A
+        self.assertAlmostEqual(res['P'], 5.76) # 12V * 0.48A = 5.76W
 
     def test_series_parallel(self):
-        # V = 12.0 V, R1 = 100.0, R2 = 0.1 mH * 1000.0 = 100.0
-        # Z = R1 + R2 = 200.0
-        # I = V / Z = 0.06 A
+        # V = 12.0 V, R1 = 100.0, R2 = 0.1 H (which is 100mH, meaning 100Ω)
         self.engine.set_param('V', 12.0)
         self.engine.set_param('R', 100.0)
-        self.engine.set_param('L', 100.0 * 1e-3)
+        self.engine.set_param('L', 0.1) # 100mH
         self.engine.set_param('T', 25.0)
         
+        # Test series case
+        self.engine.set_param('is_parallel', False)
         res = self.engine.calculate('series_parallel')
         self.assertAlmostEqual(res['Z'], 200.0)
         self.assertAlmostEqual(res['I'], 0.06)
+        
+        # Test parallel case
+        self.engine.set_param('is_parallel', True)
+        res_parallel = self.engine.calculate('series_parallel')
+        self.assertAlmostEqual(res_parallel['Z'], 50.0)
+        self.assertAlmostEqual(res_parallel['I'], 0.24)
 
     def test_circuit_validator(self):
         placed = [

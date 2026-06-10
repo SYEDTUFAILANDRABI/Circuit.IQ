@@ -58,7 +58,7 @@ function hslString(h: number, s: number, l: number, a: number = 1) {
 export default function InteractiveCircuitLines() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const { theme } = useAppStore();
+  const theme = useAppStore((state) => state.theme);
   const mouseRef = useRef({ x: -9999, y: -9999, active: false });
   const lastMouseRef = useRef({ x: -9999, y: -9999 });
 

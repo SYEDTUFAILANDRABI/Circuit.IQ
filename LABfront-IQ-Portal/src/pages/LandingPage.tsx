@@ -112,7 +112,9 @@ function BotMessage({ text }: { text: string }) {
 }
 
 export default function LandingPage({ view = 'home' }: { view?: 'home' | 'experiments' | 'physicsbot' }) {
-  const { setLabOpen, setCurrentExperiment, setActiveTab } = useAppStore();
+  const setLabOpen = useAppStore((state) => state.setLabOpen);
+  const setCurrentExperiment = useAppStore((state) => state.setCurrentExperiment);
+  const setActiveTab = useAppStore((state) => state.setActiveTab);
   const [activeCategory, setActiveCategory] = useState("circuits");
   
   // PhysicsBot State
