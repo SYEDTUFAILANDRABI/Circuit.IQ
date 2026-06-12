@@ -1282,10 +1282,26 @@ function validateCircuitLocal() {
     
     const common1 = nodeR1_1;
     const common2 = nodeR1_2;
-    const connected = (
-      (common1 === posRail && common2 === negRail) ||
-      (common2 === posRail && common1 === negRail)
-    );
+    
+    // Check if connected directly or via ammeter
+    const ammeter = findComp('ammeter');
+    let connectedToPos = (common1 === posRail || common2 === posRail);
+    let connectedToNeg = (common1 === negRail || common2 === negRail);
+    
+    if (ammeter) {
+      const am1 = find(ammeter.snap1);
+      const am2 = find(ammeter.snap2);
+      if ((am1 === posRail && (am2 === common1 || am2 === common2)) ||
+          (am2 === posRail && (am1 === common1 || am1 === common2))) {
+        connectedToPos = true;
+      }
+      if ((am1 === negRail && (am2 === common1 || am2 === common2)) ||
+          (am2 === negRail && (am1 === common1 || am1 === common2))) {
+        connectedToNeg = true;
+      }
+    }
+    
+    const connected = connectedToPos && connectedToNeg;
     if (connected) {
       return { status: 'success', message: 'Kirchhoff\'s Current Law parallel loop verified and closed!' };
     }
@@ -5092,11 +5108,11 @@ function autoBuildExperiment() {
     placeComponent3D('ammeter', 3 * 14 + 7, 6 * 14 + 7);       // Ammeter: Cols 4-7, row H (measures I_total before junction)
     placeComponent3D('resistor', 8 * 14 + 3, 12 * 14 + 3);     // R1: parallel branch 1 (row C)
     placeComponent3D('resistor', 8 * 14 + 5, 12 * 14 + 5);     // R2: parallel branch 2 (row F)
-    create3DWire(2 * 14 + 0, 3 * 14 + 7);                      // Source (+) to ammeter start
+    create3DWire(6 * 14 + 0, 3 * 14 + 7);                      // Source (+) to ammeter start (moved to Col 6 to avoid power source casing)
     create3DWire(6 * 14 + 7, 8 * 14 + 3);                      // Ammeter end to junction (R1 start)
     create3DWire(8 * 14 + 3, 8 * 14 + 5);                      // Junction: R1 start to R2 start (parallel)
     create3DWire(12 * 14 + 3, 12 * 14 + 5);                    // R1 end to R2 end (parallel recombine)
-    create3DWire(12 * 14 + 5, 2 * 14 + 1);                     // Recombined path to Source (-)
+    create3DWire(12 * 14 + 5, 6 * 14 + 1);                     // Recombined path to Source (-) (moved to Col 6 to avoid power source casing)
   } else if (expKey === 'led') { // led color experiment
     placeComponent3D('source', 3 * 14 + 0, 3 * 14 + 1); // Source at Col 4 Positive & Negative
     placeComponent3D('resistor', 6 * 14 + 4, 9 * 14 + 4); // Resistor at Col 7E to 10E
@@ -5587,14 +5603,47 @@ function updateTargetHighlights() {
         const r1_1 = resistor1.snap1, r1_2 = resistor1.snap2;
         const r2_1 = resistor2.snap1, r2_2 = resistor2.snap2;
 
-        const s_to_r1 = (uf.find(2 * 14 + 0) === uf.find(r1_1) || uf.find(2 * 14 + 0) === uf.find(r1_2));
+        const ammeter = findComp('ammeter');
+        let s_to_r1 = false;
+        let r1_start = null;
+        
+        const posRail = uf.find(6 * 14 + 0);
+        const r1_1_node = uf.find(r1_1);
+        const r1_2_node = uf.find(r1_2);
+        
+        if (r1_1_node === posRail) {
+          s_to_r1 = true;
+          r1_start = r1_1;
+        } else if (r1_2_node === posRail) {
+          s_to_r1 = true;
+          r1_start = r1_2;
+        } else if (ammeter) {
+          const am1_node = uf.find(ammeter.snap1);
+          const am2_node = uf.find(ammeter.snap2);
+          if (am1_node === posRail && am2_node === r1_1_node) {
+            s_to_r1 = true;
+            r1_start = r1_1;
+          } else if (am1_node === posRail && am2_node === r1_2_node) {
+            s_to_r1 = true;
+            r1_start = r1_2;
+          } else if (am2_node === posRail && am1_node === r1_1_node) {
+            s_to_r1 = true;
+            r1_start = r1_1;
+          } else if (am2_node === posRail && am1_node === r1_2_node) {
+            s_to_r1 = true;
+            r1_start = r1_2;
+          }
+        }
+        
         if (!s_to_r1) {
-          targetHighlightRing1 = addRing(2 * 14 + 0, true);
+          targetHighlightRing1 = addRing(6 * 14 + 0, true);
           targetHighlightRing2 = addRing(r1_1, true);
           return;
         }
 
-        const r1_start = (uf.find(2 * 14 + 0) === uf.find(r1_1)) ? r1_1 : r1_2;
+        if (!r1_start) {
+          r1_start = (uf.find(6 * 14 + 0) === uf.find(r1_1)) ? r1_1 : r1_2;
+        }
         const r1_end = (r1_start === r1_1) ? r1_2 : r1_1;
 
         const branch_in = (uf.find(r1_start) === uf.find(r2_1) || uf.find(r1_start) === uf.find(r2_2));
@@ -5613,10 +5662,21 @@ function updateTargetHighlights() {
           return;
         }
 
-        const to_gnd = (uf.find(r2_end) === uf.find(2 * 14 + 1));
+        const negRail = uf.find(6 * 14 + 1);
+        const r2_end_node = uf.find(r2_end);
+        let to_gnd = (r2_end_node === negRail);
+        
+        if (!to_gnd && ammeter) {
+          const am1_node = uf.find(ammeter.snap1);
+          const am2_node = uf.find(ammeter.snap2);
+          if ((am1_node === negRail && am2_node === r2_end_node) || (am2_node === negRail && am1_node === r2_end_node)) {
+            to_gnd = true;
+          }
+        }
+
         if (!to_gnd) {
           targetHighlightRing1 = addRing(r2_end, true);
-          targetHighlightRing2 = addRing(2 * 14 + 1, true);
+          targetHighlightRing2 = addRing(6 * 14 + 1, true);
           return;
         }
       }
