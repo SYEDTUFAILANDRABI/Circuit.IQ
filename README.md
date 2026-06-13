@@ -351,7 +351,6 @@ Circuit.IQ uses a premium dark aesthetic combined with modern typography:
 ### 🔌 Semiconductor & Components
 9.  **Diode I-V Characteristics** – Graph exponential diode forward and reverse bias behaviors.
 10. **Voltage & Current Divider** – Study division ratios in series/parallel configurations.
-11. **Arduino LED Control** – Assemble switch and LED digital loops using Arduino power structures.
 
 ### 🧲 Electromagnetism
 12. **Faraday's Induction Law** – Induce voltage by moving a magnet through a coil.

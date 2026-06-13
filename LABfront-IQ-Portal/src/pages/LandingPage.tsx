@@ -46,8 +46,7 @@ const PHYSICS_DOMAINS: DomainCategory[] = [
       { id: "voltage_divider", name: "Voltage & Current Divider", desc: "Analyze voltage drops and branch currents division ratios.", aim: "Verify the voltage division rule in series and current division in parallel circuits.", formula: "V_out = V_in * [R2 / (R1 + R2)]" },
       { id: "led", name: "LED Color & Planck's Constant", desc: "Study LED wavelength threshold turn-on voltages.", aim: "Determine Planck's constant by measuring the turn-on voltage of different colored LEDs.", formula: "e × V_th = h × ν" },
       { id: "lcr", name: "Series LCR Resonance", desc: "Find inductive and capacitive cancellation resonance point.", aim: "Determine resonant frequency of LCR series circuit.", formula: "f₀ = 1 / (2π√(LC))" },
-      { id: "rc", name: "RC Time Constant", desc: "Study capacitor charging transient voltage profiles.", aim: "Measure transient capacitor charging rate.", formula: "τ = R × C" },
-      { id: "arduino_led", name: "Arduino LED Control", desc: "Assemble basic digital control circuit loop using Arduino 5V/GND.", aim: "Control an LED using a switch and an Arduino power loop.", formula: "I = (V_pin - V_led) / R" }
+      { id: "rc", name: "RC Time Constant", desc: "Study capacitor charging transient voltage profiles.", aim: "Measure transient capacitor charging rate.", formula: "τ = R × C" }
     ]
   },
   {
@@ -114,6 +113,457 @@ function BotMessage({ text }: { text: string }) {
   }, [text]);
 
   return <p className="whitespace-pre-wrap">{displayedText}</p>;
+}
+
+interface Spark {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  alpha: number;
+  size: number;
+  color: string;
+}
+
+interface LightningArc {
+  path: Array<{ x: number; y: number }>;
+  alpha: number;
+  color: string;
+  duration: number;
+  maxDuration: number;
+}
+
+function CyberCircuitBackground() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animId: number;
+    let width = canvas.width = window.innerWidth;
+    let height = canvas.height = window.innerHeight;
+
+    const handleResize = () => {
+      if (!canvas) return;
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    };
+    window.addEventListener('resize', handleResize);
+
+    const cols = Math.ceil(width / 80) + 1;
+    const rows = Math.ceil(height / 80) + 1;
+    const nodes: Array<{ x: number; y: number; originalX: number; originalY: number; id: number }> = [];
+
+    for (let c = 0; c < cols; c++) {
+      for (let r = 0; r < rows; r++) {
+        const x = c * 80 + (Math.random() - 0.5) * 20;
+        const y = r * 80 + (Math.random() - 0.5) * 20;
+        nodes.push({ x, y, originalX: x, originalY: y, id: c * rows + r });
+      }
+    }
+
+    const wires: Array<{ from: typeof nodes[0]; to: typeof nodes[0]; length: number }> = [];
+    nodes.forEach(node => {
+      const neighbors = nodes.filter(n => {
+        if (n.id === node.id) return false;
+        const d = Math.hypot(n.x - node.x, n.y - node.y);
+        return d < 120;
+      });
+      const connections = neighbors.sort(() => 0.5 - Math.random()).slice(0, 2);
+      connections.forEach(n => {
+        if (!wires.some(w => (w.from.id === node.id && w.to.id === n.id) || (w.from.id === n.id && w.to.id === node.id))) {
+          wires.push({ from: node, to: n, length: Math.hypot(n.x - node.x, n.y - node.y) });
+        }
+      });
+    });
+
+    const particles: Array<{ wire: typeof wires[0]; progress: number; speed: number; direction: 1 | -1; color: string }> = [];
+    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#a855f7'];
+
+    const spawnParticle = () => {
+      if (wires.length === 0 || particles.length > 40) return;
+      const wire = wires[Math.floor(Math.random() * wires.length)];
+      particles.push({
+        wire,
+        progress: 0,
+        speed: (0.5 + Math.random() * 1.5) / wire.length,
+        direction: Math.random() > 0.5 ? 1 : -1,
+        color: colors[Math.floor(Math.random() * colors.length)]
+      });
+    };
+
+    for (let i = 0; i < 25; i++) {
+      spawnParticle();
+    }
+
+    let sparks: Spark[] = [];
+    let lightningArcs: LightningArc[] = [];
+
+    const generateLightningPath = (x1: number, y1: number, x2: number, y2: number, segments = 4, offset = 15) => {
+      let path = [{ x: x1, y: y1 }, { x: x2, y: y2 }];
+      for (let s = 0; s < segments; s++) {
+        const nextPath = [];
+        for (let i = 0; i < path.length - 1; i++) {
+          const p1 = path[i];
+          const p2 = path[i + 1];
+          const mx = (p1.x + p2.x) / 2;
+          const my = (p1.y + p2.y) / 2;
+          const dx = p2.x - p1.x;
+          const dy = p2.y - p1.y;
+          const len = Math.hypot(dx, dy);
+          if (len > 5) {
+            const nx = -dy / len;
+            const ny = dx / len;
+            const disp = (Math.random() - 0.5) * offset * (1 / (s * 0.8 + 1));
+            nextPath.push(p1);
+            nextPath.push({ x: mx + nx * disp, y: my + ny * disp });
+          } else {
+            nextPath.push(p1);
+          }
+        }
+        nextPath.push(path[path.length - 1]);
+        path = nextPath;
+      }
+      return path;
+    };
+
+    let mouse = { x: -1000, y: -1000 };
+    const handleMouseMove = (e: MouseEvent) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+
+      if (Math.random() < 0.65) {
+        sparks.push({
+          x: e.clientX,
+          y: e.clientY,
+          vx: (Math.random() - 0.5) * 4.5,
+          vy: (Math.random() - 0.7) * 4 - 2.5,
+          alpha: 1,
+          size: Math.random() * 1.5 + 1.0,
+          color: colors[Math.floor(Math.random() * colors.length)]
+        });
+      }
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+
+    const animate = () => {
+      ctx.fillStyle = 'rgba(7, 11, 25, 0.25)';
+      ctx.fillRect(0, 0, width, height);
+
+      // Draw subtle warped circuit grid wires
+      ctx.strokeStyle = 'rgba(30, 41, 59, 0.12)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let x = 0; x < width; x += 32) {
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+      }
+      for (let y = 0; y < height; y += 32) {
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+      }
+      ctx.stroke();
+
+      nodes.forEach(node => {
+        const dx = mouse.x - node.x;
+        const dy = mouse.y - node.y;
+        const d = Math.hypot(dx, dy);
+        if (d < 140) {
+          const force = (140 - d) / 140;
+          node.x += (mouse.x - node.x) * force * 0.05;
+          node.y += (mouse.y - node.y) * force * 0.05;
+        } else {
+          node.x += (node.originalX - node.x) * 0.05;
+          node.y += (node.originalY - node.y) * 0.05;
+        }
+      });
+
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.03)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      wires.forEach(wire => {
+        ctx.moveTo(wire.from.x, wire.from.y);
+        ctx.lineTo(wire.to.x, wire.to.y);
+      });
+      ctx.stroke();
+
+      // Update and draw lightning arcs
+      if (Math.random() < 0.01 && nodes.length > 1 && lightningArcs.length < 2) {
+        const n1 = nodes[Math.floor(Math.random() * nodes.length)];
+        const eligible = nodes.filter(n => {
+          if (n.id === n1.id) return false;
+          const d = Math.hypot(n.x - n1.x, n.y - n1.y);
+          return d > 40 && d < 180;
+        });
+        if (eligible.length > 0) {
+          const n2 = eligible[Math.floor(Math.random() * eligible.length)];
+          const color = colors[Math.floor(Math.random() * colors.length)];
+          lightningArcs.push({
+            path: generateLightningPath(n1.x, n1.y, n2.x, n2.y),
+            alpha: 1.0,
+            color: color,
+            duration: 0,
+            maxDuration: 10 + Math.floor(Math.random() * 8)
+          });
+        }
+      }
+
+      const activeArcs: LightningArc[] = [];
+      lightningArcs.forEach(arc => {
+        arc.duration++;
+        arc.alpha = 1 - (arc.duration / arc.maxDuration);
+        if (arc.alpha > 0) {
+          activeArcs.push(arc);
+          
+          ctx.save();
+          ctx.globalAlpha = arc.alpha * (Math.random() > 0.35 ? 1.0 : 0.3); // crackling effect
+          ctx.shadowBlur = 12;
+          ctx.shadowColor = arc.color;
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = Math.random() * 1.5 + 0.6;
+          
+          ctx.beginPath();
+          ctx.moveTo(arc.path[0].x, arc.path[0].y);
+          for (let i = 1; i < arc.path.length; i++) {
+            ctx.lineTo(arc.path[i].x, arc.path[i].y);
+          }
+          ctx.stroke();
+          
+          ctx.strokeStyle = arc.color;
+          ctx.lineWidth = ctx.lineWidth * 2.5;
+          ctx.stroke();
+          ctx.restore();
+        }
+      });
+      lightningArcs = activeArcs;
+
+      particles.forEach((p) => {
+        p.progress += p.speed;
+        if (p.progress >= 1) {
+          if (wires.length > 0) {
+            const wire = wires[Math.floor(Math.random() * wires.length)];
+            p.wire = wire;
+            p.progress = 0;
+            p.speed = (0.5 + Math.random() * 1.5) / wire.length;
+            p.direction = Math.random() > 0.5 ? 1 : -1;
+            p.color = colors[Math.floor(Math.random() * colors.length)];
+          }
+        }
+
+        const start = p.direction === 1 ? p.wire.from : p.wire.to;
+        const end = p.direction === 1 ? p.wire.to : p.wire.from;
+
+        const x = start.x + (end.x - start.x) * p.progress;
+        const y = start.y + (end.y - start.y) * p.progress;
+
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = p.color;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(x, y, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      ctx.shadowBlur = 0;
+
+      // Update and draw sparks
+      ctx.save();
+      const activeSparks: Spark[] = [];
+      sparks.forEach(spark => {
+        spark.vy += 0.08; // gravity
+        spark.x += spark.vx;
+        spark.y += spark.vy;
+        spark.alpha -= 0.025; // decay
+        if (spark.alpha > 0) {
+          activeSparks.push(spark);
+          ctx.globalAlpha = spark.alpha;
+          ctx.shadowBlur = 6;
+          ctx.shadowColor = spark.color;
+          ctx.fillStyle = spark.color;
+          ctx.beginPath();
+          ctx.arc(spark.x, spark.y, spark.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+      sparks = activeSparks;
+      ctx.restore();
+
+      ctx.fillStyle = 'rgba(148, 163, 184, 0.15)';
+      nodes.forEach(node => {
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      animId = requestAnimationFrame(animate);
+    };
+
+    animate();
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('mousemove', handleMouseMove);
+      cancelAnimationFrame(animId);
+    };
+  }, []);
+
+  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-0" />;
+}
+
+function ExperimentCard({ exp, categoryColor, onLaunch }: { exp: ExperimentItem; categoryColor: string; onLaunch: (id: string) => void }) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const [coords, setCoords] = useState({ x: 0, y: 0 });
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const card = cardRef.current;
+    if (!card) return;
+    const rect = card.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    setCoords({ x, y });
+  };
+
+  const card = cardRef.current;
+  let rotateX = 0;
+  let rotateY = 0;
+  let glowX = 50;
+  let glowY = 50;
+
+  if (card && isHovered) {
+    const width = card.clientWidth;
+    const height = card.clientHeight;
+    const xPct = (coords.x / width) - 0.5;
+    const yPct = (coords.y / height) - 0.5;
+    
+    rotateX = -yPct * 20; 
+    rotateY = xPct * 20;
+    glowX = (coords.x / width) * 100;
+    glowY = (coords.y / height) * 100;
+  }
+
+  let glowColor = "rgba(59, 130, 246, 0.45)"; // default blue
+  if (categoryColor.includes("purple") || categoryColor.includes("pink")) {
+    glowColor = "rgba(168, 85, 247, 0.45)";
+  } else if (categoryColor.includes("rose") || categoryColor.includes("red")) {
+    glowColor = "rgba(244, 63, 94, 0.45)";
+  } else if (categoryColor.includes("emerald") || categoryColor.includes("teal")) {
+    glowColor = "rgba(16, 185, 129, 0.45)";
+  }
+
+  return (
+    <div
+      ref={cardRef}
+      onMouseMove={handleMouseMove}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        setCoords({ x: 0, y: 0 });
+      }}
+      style={{
+        transform: `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`,
+        transformStyle: 'preserve-3d',
+        transition: isHovered ? 'none' : 'transform 0.5s ease, box-shadow 0.5s ease, border-color 0.5s ease',
+        boxShadow: isHovered 
+          ? `0 30px 60px -15px rgba(0, 0, 0, 0.6), 0 0 25px 3px ${glowColor.replace('0.45', '0.25')}` 
+          : '0 10px 30px -15px rgba(0, 0, 0, 0.5)',
+        borderColor: isHovered ? glowColor : 'rgba(255, 255, 255, 0.05)',
+      }}
+      className="p-6 rounded-2xl border bg-slate-950/75 backdrop-blur-xl flex flex-col justify-between group text-left relative overflow-hidden h-full cursor-pointer"
+    >
+      <div className="absolute top-0 left-0 w-full h-[2px] overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+        <div 
+          style={{
+            backgroundImage: `linear-gradient(to right, transparent, ${glowColor}, transparent)`
+          }}
+          className="w-1/2 h-full animate-[scanLine_2.5s_linear_infinite]" 
+        />
+      </div>
+
+      <div
+        style={{
+          background: isHovered 
+            ? `radial-gradient(circle at ${glowX}% ${glowY}%, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0) 50%), radial-gradient(circle at ${glowX}% ${glowY}%, ${glowColor.replace('0.45', '0.15')} 0%, transparent 60%)` 
+            : 'none',
+          transition: 'background 0.2s ease',
+        }}
+        className="absolute inset-0 pointer-events-none z-10"
+      />
+
+      <div 
+        style={{
+          backgroundImage: `linear-gradient(to bottom right, ${glowColor.replace('0.45', '0.04')}, transparent, ${glowColor.replace('0.45', '0.04')})`
+        }}
+        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" 
+      />
+
+      <div className="flex flex-col gap-2 relative z-20" style={{ transform: 'translateZ(30px)', transformStyle: 'preserve-3d' }}>
+        <div className="flex justify-between items-start" style={{ transform: 'translateZ(10px)' }}>
+          <span 
+            style={{
+              color: glowColor.replace('0.45', '1')
+            }}
+            className="text-[10px] font-mono uppercase tracking-widest font-extrabold"
+          >
+            Lab Module
+          </span>
+          <div className="relative w-3 h-3 flex items-center justify-center">
+            <div 
+              style={{ backgroundColor: glowColor.replace('0.45', '0.4') }}
+              className="absolute inset-0 rounded-full animate-ping" 
+            />
+            <div 
+              style={{
+                background: `linear-gradient(to bottom right, #fff, ${glowColor.replace('0.45', '1')})`,
+                boxShadow: `0 0 8px ${glowColor}`
+              }}
+              className="w-1.5 h-1.5 rounded-full group-hover:scale-150 transition-transform" 
+            />
+          </div>
+        </div>
+
+        <h3 className="text-base font-bold text-slate-100 mt-1 group-hover:text-white transition-colors duration-200" style={{ transform: 'translateZ(20px)' }}>
+          {exp.name}
+        </h3>
+        
+        <p className="text-xs text-slate-400 leading-normal font-light" style={{ transform: 'translateZ(15px)' }}>
+          {exp.desc}
+        </p>
+        
+        <div 
+          style={{ transform: 'translateZ(25px)' }}
+          className="bg-black/45 border border-white/5 rounded-xl p-3.5 mt-4 flex flex-col gap-1 group-hover:border-white/10 transition-colors"
+        >
+          <span className="text-[8px] font-mono text-slate-500 uppercase font-bold">Core Equation:</span>
+          <code 
+            style={{ color: glowColor.replace('0.45', '0.9') }}
+            className="text-[11px] font-mono font-bold"
+          >
+            {exp.formula}
+          </code>
+        </div>
+      </div>
+
+      <div className="relative z-20 mt-6" style={{ transform: 'translateZ(40px)' }}>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onLaunch(exp.id);
+          }}
+          style={{
+            boxShadow: isHovered ? `0 8px 20px -6px ${glowColor}` : 'none'
+          }}
+          className="w-full py-2.5 rounded-xl bg-white hover:bg-slate-200 text-slate-900 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md hover:scale-[1.02] active:scale-[0.98]"
+        >
+          <span>Launch Experiment</span>
+          <Zap size={12} fill="currentColor" />
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export default function LandingPage({ view = 'home' }: { view?: 'home' | 'experiments' | 'physicsbot' }) {
@@ -249,13 +699,21 @@ export default function LandingPage({ view = 'home' }: { view?: 'home' | 'experi
 
   if (view === 'experiments') {
     return (
-      <div className="relative min-h-screen pt-28 pb-16 bg-transparent">
+      <div className="relative min-h-screen pt-28 pb-16 bg-[#070b19] overflow-hidden">
+        {/* Animated Cyber Circuit Particle Network Background */}
+        <CyberCircuitBackground />
+
+        {/* Shifting Cybernetic Neon Orbs */}
+        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-[140px] animate-[pulse_6s_ease-in-out_infinite] pointer-events-none" />
+        <div className="absolute top-1/3 -right-40 w-[600px] h-[600px] bg-indigo-500/10 rounded-full blur-[140px] animate-[pulse_8s_ease-in-out_infinite_1.5s] pointer-events-none" />
+        <div className="absolute -bottom-40 left-1/4 w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-[140px] animate-[pulse_10s_ease-in-out_infinite_3s] pointer-events-none" />
+
         {/* Experiments Explorer Section */}
-        <section id="experiments-section" className="relative w-full overflow-hidden">
+        <section id="experiments-section" className="relative w-full overflow-hidden z-10">
             <div className="max-w-7xl mx-auto px-6">
                 <div className="text-center mb-12">
-                  <h2 className="text-4xl md:text-5xl font-display font-bold mb-3 text-slate-900 dark:text-white">Virtual Laboratory Experiments</h2>
-                  <p className="text-slate-500 dark:text-slate-400 max-w-2xl mx-auto text-sm md:text-base">Select any specific experiment to open the Virtual 3D Lab and begin interactive analysis immediately.</p>
+                  <h2 className="text-4xl md:text-5xl font-display font-extrabold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-200 to-slate-400">Virtual Laboratory Experiments</h2>
+                  <p className="text-slate-400 max-w-2xl mx-auto text-sm md:text-base font-light">Select any specific experiment to open the Virtual 3D Lab and begin interactive analysis immediately.</p>
                 </div>
 
                 {/* Category tabs */}
@@ -264,10 +722,10 @@ export default function LandingPage({ view = 'home' }: { view?: 'home' | 'experi
                     <button
                       key={cat.id}
                       onClick={() => setActiveCategory(cat.id)}
-                      className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-all border flex items-center gap-2 cursor-pointer ${
+                      className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-2 cursor-pointer shadow-lg ${
                         activeCategory === cat.id
-                          ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-500/10"
-                          : "bg-white dark:bg-black/30 border-slate-200 dark:border-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5"
+                          ? "bg-blue-600 border-blue-500 text-white shadow-blue-500/20 scale-105"
+                          : "bg-black/40 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
                       }`}
                     >
                       <span>{cat.icon}</span>
@@ -279,42 +737,12 @@ export default function LandingPage({ view = 'home' }: { view?: 'home' | 'experi
                 {/* Experiments grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {PHYSICS_DOMAINS.find(cat => cat.id === activeCategory)?.experiments.map(exp => (
-                    <motion.div
+                    <ExperimentCard
                       key={exp.id}
-                      layoutId={`exp-card-${exp.id}`}
-                      className="p-6 rounded-2xl border border-slate-200/80 dark:border-white/[0.06] bg-white/90 dark:bg-white/[0.03] backdrop-blur-xl flex flex-col justify-between group text-left relative overflow-hidden"
-                      whileHover={{
-                        y: -5,
-                        borderColor: 'rgba(129, 140, 248, 0.35)',
-                        boxShadow: '0 20px 25px -5px rgba(99, 102, 241, 0.08), 0 10px 10px -5px rgba(99, 102, 241, 0.04)'
-                      }}
-                      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                    >
-                      <div className="flex flex-col gap-2">
-                        <div className="flex justify-between items-start">
-                          <span className="text-[10px] font-mono text-blue-500 dark:text-blue-400 uppercase tracking-widest font-bold">Lab Module</span>
-                          <div className="relative w-3 h-3 flex items-center justify-center">
-                            <div className="absolute inset-0 rounded-full bg-emerald-400/30 animate-ping" />
-                            <div className="w-1.5 h-1.5 rounded-full bg-gradient-to-br from-emerald-400 to-cyan-400 shadow-[0_0_6px_rgba(52,211,153,0.5)] group-hover:scale-150 transition-transform" />
-                          </div>
-                        </div>
-                        <h3 className="text-base font-bold text-slate-900 dark:text-white mt-1">{exp.name}</h3>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 leading-normal">{exp.desc}</p>
-                        
-                        <div className="bg-slate-50 dark:bg-black/30 border border-slate-100 dark:border-white/5 rounded-xl p-3 mt-4 flex flex-col gap-1">
-                          <span className="text-[8px] font-mono text-slate-400 uppercase">Core Equation:</span>
-                          <code className="text-[11px] font-mono text-blue-600 dark:text-blue-400 font-bold">{exp.formula}</code>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => handleLaunchExperiment(exp.id)}
-                        className="w-full mt-6 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-white dark:hover:bg-slate-200 text-white dark:text-slate-900 font-semibold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
-                      >
-                        <span>Launch Experiment</span>
-                        <Zap size={12} fill="currentColor" />
-                      </button>
-                    </motion.div>
+                      exp={exp}
+                      categoryColor={PHYSICS_DOMAINS.find(cat => cat.id === activeCategory)?.color || ""}
+                      onLaunch={handleLaunchExperiment}
+                    />
                   ))}
                 </div>
             </div>
@@ -702,6 +1130,10 @@ export default function LandingPage({ view = 'home' }: { view?: 'home' | 'experi
           background: linear-gradient(to right, #3b82f6, #9333ea);
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
+        }
+        @keyframes scanLine {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(200%); }
         }
       `}</style>
     </div>
