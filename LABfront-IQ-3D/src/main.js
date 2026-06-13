@@ -11189,7 +11189,7 @@ function populateLibraryGrid(category) {
       color: "rgba(59, 130, 246, 0.08)",
       borderColor: "rgba(59, 130, 246, 0.25)",
       badgeColor: "#60a5fa",
-      exps: ['ohms', 'kvl', 'kcl', 'rc_rl_rlc', 'series_parallel', 'wheatstone', 'diode_iv', 'voltage_divider', 'planck_led', 'lcr', 'rc', 'arduino_led']
+      exps: ['ohms', 'kvl', 'kcl', 'rc_rl_rlc', 'series_parallel', 'wheatstone', 'diode_iv', 'voltage_divider', 'planck_led', 'lcr', 'rc']
     };
   } else if (category === 'magnetism') {
     catData = {
@@ -11227,29 +11227,52 @@ function populateLibraryGrid(category) {
     if (!exp) return;
     
     const card = document.createElement('div');
-    card.style.cssText = `background:rgba(255,255,255,0.015);border:1px solid rgba(255,255,255,0.04);border-radius:14px;padding:16px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transition:all 0.25s;`;
+    card.style.cssText = `background:rgba(255,255,255,0.015);border:1px solid rgba(255,255,255,0.04);border-radius:14px;padding:16px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transform-style:preserve-3d;transition:transform 0.5s ease, box-shadow 0.5s ease, border-color 0.5s ease, background 0.5s ease;`;
     
-    card.addEventListener('mouseover', () => {
+    card.addEventListener('mousemove', (e) => {
+      const rect = card.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const width = card.clientWidth;
+      const height = card.clientHeight;
+      const xPct = (x / width) - 0.5;
+      const yPct = (y / height) - 0.5;
+      
+      const rotateX = -yPct * 20; 
+      const rotateY = xPct * 20;
+      const glowX = (x / width) * 100;
+      const glowY = (y / height) * 100;
+      
+      card.style.transition = "none";
+      card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+      card.style.background = `radial-gradient(circle at ${glowX}% ${glowY}%, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 50%), radial-gradient(circle at ${glowX}% ${glowY}%, ${catData.color.replace('0.08', '0.15')} 0%, transparent 60%), ${catData.color}`;
       card.style.borderColor = catData.borderColor;
-      card.style.background = catData.color;
-      card.style.transform = "translateY(-3px)";
+      card.style.boxShadow = `0 20px 45px -12px rgba(0, 0, 0, 0.7), 0 0 15px 1px ${catData.borderColor}`;
     });
-    card.addEventListener('mouseout', () => {
-      card.style.borderColor = "rgba(255,255,255,0.04)";
+    
+    card.addEventListener('mouseleave', () => {
+      card.style.transition = "transform 0.5s ease, box-shadow 0.5s ease, border-color 0.5s ease, background 0.5s ease";
+      card.style.transform = "perspective(1000px) rotateX(0deg) rotateY(0deg)";
       card.style.background = "rgba(255,255,255,0.015)";
-      card.style.transform = "none";
+      card.style.borderColor = "rgba(255,255,255,0.04)";
+      card.style.boxShadow = "none";
     });
     
     card.innerHTML = `
-      <div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <div style="transform: translateZ(20px); transform-style: preserve-3d;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;transform: translateZ(10px);">
           <span style="font-size:8px;color:${catData.badgeColor};text-transform:uppercase;font-weight:700;letter-spacing:1px">Module</span>
           <span style="width:5px;height:5px;border-radius:50%;background:${catData.badgeColor}"></span>
         </div>
-        <h3 style="font-size:13px;font-weight:700;margin:0 0 4px 0;color:white;font-family:inherit">${exp.name}</h3>
-        <p style="font-size:10px;color:#64748b;margin:0 0 12px 0;line-height:1.4">${exp.aim}</p>
+        <h3 style="font-size:13px;font-weight:700;margin:0 0 4px 0;color:white;font-family:inherit;transform: translateZ(15px);">${exp.name}</h3>
+        <p style="font-size:10px;color:#64748b;margin:0 0 12px 0;line-height:1.4;transform: translateZ(12px);">${exp.aim}</p>
+        
+        <div style="background:rgba(0,0,0,0.45);border:1px solid rgba(255,255,255,0.05);border-radius:10px;padding:10px;margin-top:10px;font-family:'JetBrains Mono', monospace;transform: translateZ(25px);" class="exp-formula-box">
+          <span style="font-size:7px;color:#64748b;text-transform:uppercase;font-weight:700;display:block;">Core Equation:</span>
+          <code style="font-size:10px;color:${catData.badgeColor};display:block;font-weight:bold;margin-top:2px;">${exp.formulas && exp.formulas.length > 0 ? exp.formulas[0].expr : "N/A"}</code>
+        </div>
       </div>
-      <button style="width:100%;padding:8px;border-radius:8px;border:none;background:#2563eb;color:white;font-weight:700;font-size:10px;cursor:pointer;font-family:inherit">Load Simulation</button>
+      <button style="width:100%;padding:8px;border-radius:8px;border:none;background:#2563eb;color:white;font-weight:700;font-size:10px;cursor:pointer;font-family:inherit;transform: translateZ(35px);margin-top:16px;" class="exp-load-btn">Load Simulation</button>
     `;
     
     card.addEventListener('click', () => {
