@@ -257,6 +257,7 @@ function AdminPanelView({ token, onLogout }: { token: string; onLogout: () => vo
 const [semester, setSemester] = useState('2');
 const [dbStudents, setDbStudents] = useState<{enrollment: string; name: string}[]>([]);
 const [loadingStudents, setLoadingStudents] = useState(false);
+const [expiryMinutes, setExpiryMinutes] = useState(15);
 
   const headers = { 'Content-Type': 'application/json', 'X-Admin-Token': token };
 
@@ -408,7 +409,7 @@ const [loadingStudents, setLoadingStudents] = useState(false);
               <span className={`text-sm font-mono ${isPresent ? 'text-emerald-400' : 'text-slate-300'}`}>{r}</span>
               <button
                 onClick={async () => {
-                  if (isPresent) return;
+                 if (isPresent) { setCheckedInLocal(checkedInLocal.filter((e: string) => e !== r)); return; }
                   await fetch('/api/session/join', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -459,7 +460,21 @@ const [loadingStudents, setLoadingStudents] = useState(false);
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500/50"
               />
             </div>
-          </div>
+          </div><div>
+  <label className="text-xs text-slate-500 tracking-widest uppercase mb-2 block">Session Expiry</label>
+  <select
+    value={expiryMinutes}
+    onChange={(e) => setExpiryMinutes(Number(e.target.value))}
+    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-indigo-500/50"
+  >
+    <option value={10} className="bg-gray-900">10 minutes</option>
+    <option value={15} className="bg-gray-900">15 minutes</option>
+    <option value={20} className="bg-gray-900">20 minutes</option>
+    <option value={30} className="bg-gray-900">30 minutes</option>
+    <option value={45} className="bg-gray-900">45 minutes</option>
+    <option value={60} className="bg-gray-900">60 minutes</option>
+  </select>
+</div>
 
           <div>
   <label className="text-xs text-slate-500 tracking-widest uppercase mb-2 block">Department</label>
@@ -536,6 +551,13 @@ const [loadingStudents, setLoadingStudents] = useState(false);
                   <p className="text-slate-500 text-xs mt-1">
                     Code: <span className="text-indigo-400 font-bold tracking-widest">{s.id}</span>
                     {' · '}{s.checked_in}/{s.group_size} checked in
+                    {s.expiry_at && (
+  <span className={`ml-2 text-xs ${new Date(s.expiry_at) > new Date() ? 'text-yellow-400' : 'text-red-400'}`}>
+    · {new Date(s.expiry_at) > new Date() 
+      ? `Expires in ${Math.max(0, Math.ceil((new Date(s.expiry_at).getTime() - Date.now()) / 60000))} min`
+      : 'EXPIRED'}
+  </span>
+)}
                   </p>
                 </div>
                 <div className="flex gap-2 shrink-0">
