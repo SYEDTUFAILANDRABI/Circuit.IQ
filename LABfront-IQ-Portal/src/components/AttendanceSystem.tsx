@@ -408,7 +408,7 @@ const [loadingStudents, setLoadingStudents] = useState(false);
               <span className={`text-sm font-mono ${isPresent ? 'text-emerald-400' : 'text-slate-300'}`}>{r}</span>
               <button
                 onClick={async () => {
-                  if (isPresent) return;
+                 if (isPresent) { setCheckedInLocal(checkedInLocal.filter((e: string) => e !== r)); return; }
                   await fetch('/api/session/join', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
