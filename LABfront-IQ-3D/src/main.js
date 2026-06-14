@@ -108,6 +108,7 @@ window.addEventListener('error', (event) => {
 let state = {
   activeExperiment: 'ohms', // 'ohms', 'lcr', 'rc', 'arduino_led'
   theme: 'dark',
+  oscPower: true,           // oscilloscope power state
   selectedTool: null,        // 'resistor', 'capacitor', 'inductor', 'source', 'ammeter', 'voltmeter', 'wire', 'eraser', 'led', 'button', 'toggle_switch'
   placementStartHole: null,  // snap index (0-279)
   wiringStart: null,         // snap index (0-279)
@@ -198,6 +199,8 @@ const elements = {
   
   // Floating overlay elements
   oscPanel: document.getElementById('osc-wrap'),
+  oscPowerBtn: document.getElementById('osc-power-btn'),
+  oscPowerIndicator: document.getElementById('osc-power-indicator'),
   graphPanel: document.getElementById('graph-wrap'),
   btnCloseOsc: document.getElementById('osc-close'),
   btnCloseGraph: document.getElementById('graph-close'),
@@ -320,9 +323,15 @@ const experiments = {
   },
   rc_rl_rlc: {
     name: "LCR AC Impedance Analysis",
+<<<<<<< ours
     aim: "Study total impedance and phase angle in LCR series circuits.",
     apparatus: "AC Function Generator, Resistor, Inductor, Capacitor, Oscilloscope.",
     req: ['source', 'resistor', 'inductor', 'capacitor'],
+=======
+    aim: "Study total impedance and phase angle in LCR circuits.",
+    apparatus: "AC Generator, Resistor, Inductor, Capacitor, Ammeter, Voltmeter.",
+    req: ['source', 'resistor', 'inductor', 'capacitor', 'ammeter', 'voltmeter'],
+>>>>>>> theirs
     steps: [
       { id: 1, text: "Place a resistor, inductor, and capacitor in series on the breadboard." },
       { id: 2, text: "Connect the series network to the AC function generator." },
@@ -338,9 +347,15 @@ const experiments = {
   },
   lcr: {
     name: "Series LCR Resonance",
+<<<<<<< ours
     aim: "Determine the resonant frequency of an LCR series circuit.",
     apparatus: "AC Function Generator, Resistor, Inductor, Capacitor, Ammeter.",
     req: ['source', 'resistor', 'inductor', 'capacitor'],
+=======
+    aim: "Determine resonant frequency of LCR series circuit.",
+    apparatus: "AC Generator, Resistor, Inductor, Capacitor, Ammeter, Voltmeter.",
+    req: ['source', 'resistor', 'inductor', 'capacitor', 'ammeter', 'voltmeter'],
+>>>>>>> theirs
     steps: [
       { id: 1, text: "Connect a resistor, inductor, and capacitor in series with the AC power supply." },
       { id: 2, text: "Connect an AC ammeter in series to measure circuit current." },
@@ -353,6 +368,7 @@ const experiments = {
   },
   rc: {
     name: "RC Time Constant",
+<<<<<<< ours
     aim: "Measure the transient capacitor charging rate and verify the RC time constant.",
     apparatus: "DC Power Supply, Resistor, Capacitor, Oscilloscope, Switch.",
     req: ['source', 'resistor', 'capacitor'],
@@ -363,13 +379,30 @@ const experiments = {
       { id: 4, text: "Record voltage values at different time intervals to calculate the experimental time constant." }
     ],
     theory: "<h3>RC Transient Response</h3><p>When a DC voltage is applied to an RC series circuit, the capacitor does not charge instantly. Instead, its voltage increases exponentially: <b>V_C(t) = V_s(1 - e^(-t/τ))</b>.</p><p>The <b>time constant (τ = RC)</b> represents the time required for the capacitor voltage to reach approximately <b>63.2%</b> of its maximum value. During discharge, it drops to 36.8% in one time constant. After 5τ, the capacitor is considered fully charged (~99.3%).</p>",
+=======
+    aim: "Measure transient capacitor charging rate.",
+    apparatus: "DC Supply, ON/OFF Switch, Resistor, Capacitor, Ammeter, Voltmeter, Oscilloscope.",
+    req: ['source', 'toggle_switch', 'resistor', 'capacitor', 'ammeter', 'voltmeter'],
+    steps: [
+      { id: 1, text: "Place DC Source, ON/OFF Switch, Resistor, Capacitor, and Ammeter in series loop." },
+      { id: 2, text: "Connect Voltmeter in parallel across Capacitor." },
+      { id: 3, text: "Toggle Switch ON/OFF to charge/discharge, observing transient curves on scope." }
+    ],
+    theory: "<h3>RC Charging & Discharging</h3><p>Time constant τ = RC defines the rate. Switch toggles between charging and discharging phases.</p>",
+>>>>>>> theirs
     formulas: [{ name: "Time Constant", expr: "τ = R × C" }]
   },
   series_parallel: {
     name: "Series & Parallel Loads",
+<<<<<<< ours
     aim: "Compare equivalent resistances of series and parallel resistor networks.",
     apparatus: "DC Supply, Resistors, Multimeter, Breadboard.",
     req: ['source', 'resistor'],
+=======
+    aim: "Compare equivalent resistors network load values.",
+    apparatus: "Resistors, Multimeters, Power Supply.",
+    req: ['source', 'resistor', 'ammeter', 'voltmeter'],
+>>>>>>> theirs
     steps: [
       { id: 1, text: "Place two resistors on the breadboard." },
       { id: 2, text: "Connect them in series and measure the total resistance using a multimeter." },
@@ -885,6 +918,33 @@ function checkIsParallelCircuit() {
   );
 }
 
+function solveDiodeCircuitLocal(Vs, Rd, V_barrier) {
+  if (Vs <= 0.01) {
+    return { Vd: Vs, I: 0 };
+  }
+  const nVT = 0.052;
+  const Is = 1e-3 / Math.exp(V_barrier / nVT);
+  const R_loop = Math.max(1, Rd);
+  
+  let low = 0.0;
+  let high = Vs / R_loop;
+  
+  for (let iter = 0; iter < 40; iter++) {
+    const mid = (low + high) / 2;
+    const Vd = nVT * Math.log(mid / Is + 1);
+    const Vs_calc = mid * R_loop + Vd;
+    if (Vs_calc < Vs) {
+      low = mid;
+    } else {
+      high = mid;
+    }
+  }
+  
+  const I = low;
+  const Vd = nVT * Math.log(I / Is + 1);
+  return { Vd, I };
+}
+
 // --- LOCAL CIRCUIT SIMULATION & TOPOLOGY ENGINE ---
 function calculateCircuitLocal(params, activeExperiment, buttonPressed) {
   let V = 0;
@@ -944,22 +1004,27 @@ function calculateCircuitLocal(params, activeExperiment, buttonPressed) {
     P = I * I * params.R;
   } else if (activeExperiment === 'rc') {
     V = params.V;
-    Z = params.R;
-    I = V / (params.R || 1);
-    P = V * I;
-    f0 = params.R * (params.C * 1e-6); 
+    const R_val = params.R || 100;
+    const Vs = state.meters.volts || V;
+    const V_cap = state.capVoltage !== undefined ? state.capVoltage : 0.0;
+    Z = R_val;
+    I = state.buttonPressed ? ((Vs - V_cap) / R_val) : -(V_cap / R_val);
+    P = V_cap * I;
+    f0 = R_val * params.C * 1e-4; // tau
   } else if (activeExperiment === 'series_parallel') {
-    V = params.V;
+    const V_source = params.V;
     const R1 = params.R;
     const R2 = params.L; 
     const isParallel = checkIsParallelCircuit();
     if (isParallel) {
       Z = (R1 * R2) / ((R1 + R2) || 1);
+      V = V_source;
     } else {
       Z = R1 + R2; 
+      V = V_source * R1 / ((R1 + R2) || 1);
     }
-    I = V / (Z || 1);
-    P = V * I;
+    I = V_source / (Z || 1);
+    P = V_source * I;
   } else if (activeExperiment === 'wheatstone') {
     V = params.V;
     const R1 = params.R;
@@ -1000,15 +1065,11 @@ function calculateCircuitLocal(params, activeExperiment, buttonPressed) {
     Z = Ns / (Np || 1); 
     P = V * I;
   } else if (activeExperiment === 'diode_iv') {
-    V = params.V; // source voltage
-    const Rd = params.R; // series resistance
-    const V_barrier = 0.7; // Silicon barrier voltage
-    if (V > V_barrier) {
-      I = (V - V_barrier) / Rd;
-      V = V_barrier + I * 2.0; // small internal resistance drop
-    } else {
-      I = V * 1e-6; // leakage current
-    }
+    const Rd = params.R || 100;
+    const Vs = params.V;
+    const solved = solveDiodeCircuitLocal(Vs, Rd, 0.7);
+    V = solved.Vd;
+    I = solved.I;
     Z = Rd;
     P = V * I;
   } else if (activeExperiment === 'voltage_divider') {
@@ -1021,8 +1082,7 @@ function calculateCircuitLocal(params, activeExperiment, buttonPressed) {
     P = Vin * I;
   } else if (activeExperiment === 'planck_led') {
     const Vs = params.V;
-    const Rd = params.R;
-    // Barrier voltages for different colors: Red (1.8V), Yellow (2.0V), Green (2.2V), Blue (2.7V)
+    const Rd = params.R || 200;
     let V_barrier = 2.0; // default Yellow
     let wavelength = 590e-9;
     if (state.params.led_color === 'red') { V_barrier = 1.8; wavelength = 620e-9; }
@@ -1030,13 +1090,9 @@ function calculateCircuitLocal(params, activeExperiment, buttonPressed) {
     else if (state.params.led_color === 'blue') { V_barrier = 2.7; wavelength = 470e-9; }
     else if (state.params.led_color === 'yellow') { V_barrier = 2.0; wavelength = 590e-9; }
     
-    if (Vs > V_barrier) {
-      I = (Vs - V_barrier) / Rd;
-      V = V_barrier + I * 3.0; // actual LED voltage drop
-    } else {
-      I = Vs * 1e-6;
-      V = Vs;
-    }
+    const solved = solveDiodeCircuitLocal(Vs, Rd, V_barrier);
+    V = solved.Vd;
+    I = solved.I;
     Z = V_barrier;
     P = V * I;
     // Calculate h = (e * V_barrier * wavelength) / c
@@ -1272,73 +1328,121 @@ function validateCircuitLocal() {
   }
   
   if (expKey === 'lcr') {
-    if (!source || !resistor || !inductor || !capacitor) {
-      return { status: 'error', message: 'Missing required components. Place Source, Resistor, Inductor, and Capacitor.' };
+    if (!source || !resistor || !inductor || !capacitor || !ammeter || !voltmeter) {
+      return { status: 'error', message: 'Missing required components. Place Source, Resistor, Inductor, Capacitor, Ammeter, and Voltmeter.' };
     }
     
-    const r1 = resistor.snap1, r2 = resistor.snap2;
-    const l1 = inductor.snap1, l2 = inductor.snap2;
-    const c1 = capacitor.snap1, c2 = capacitor.snap2;
+    if (find(resistor.snap1) === find(resistor.snap2)) return { status: 'error', message: 'Resistor is shorted! Both terminals are connected to the same electrical node.' };
+    if (find(inductor.snap1) === find(inductor.snap2)) return { status: 'error', message: 'Inductor is shorted! Both terminals are connected to the same electrical node.' };
+    if (find(capacitor.snap1) === find(capacitor.snap2)) return { status: 'error', message: 'Capacitor is shorted! Both terminals are connected to the same electrical node.' };
+    if (find(ammeter.snap1) === find(ammeter.snap2)) return { status: 'error', message: 'Ammeter is shorted! Both terminals are connected to the same electrical node.' };
+    if (find(voltmeter.snap1) === find(voltmeter.snap2)) return { status: 'error', message: 'Voltmeter is shorted! Both terminals are connected to the same electrical node.' };
     
-    const s_to_r = (find(7 * 14 + 0) === find(r1) || find(7 * 14 + 0) === find(r2));
-    const r_start = find(7 * 14 + 0) === find(r1) ? r1 : r2;
-    const r_end = r_start === r1 ? r2 : r1;
+    const posRail = find(0), negRail = find(1);
+    if (posRail === negRail) return { status: 'error', message: 'Short Circuit Detected! Positive rail (+) is connected directly to Ground (-) rail.' };
     
-    if (!s_to_r) {
-      return { status: 'error', message: 'Connect Source (+) rail to Resistor start.' };
+    const seriesComps = [resistor, inductor, capacitor, ammeter];
+    let currentNode = posRail;
+    const visitedComps = new Set();
+    let stepsLeft = 10;
+    
+    while (currentNode !== negRail && stepsLeft > 0) {
+      stepsLeft--;
+      let foundNext = false;
+      for (const comp of seriesComps) {
+        if (visitedComps.has(comp)) continue;
+        const n1 = find(comp.snap1);
+        const n2 = find(comp.snap2);
+        if (n1 === currentNode) {
+          currentNode = n2;
+          visitedComps.add(comp);
+          foundNext = true;
+          break;
+        } else if (n2 === currentNode) {
+          currentNode = n1;
+          visitedComps.add(comp);
+          foundNext = true;
+          break;
+        }
+      }
+      if (!foundNext) break;
     }
     
-    const r_to_l = (find(r_end) === find(l1) || find(r_end) === find(l2));
-    const l_start = find(r_end) === find(l1) ? l1 : l2;
-    const l_end = l_start === l1 ? l2 : l1;
-    
-    if (!r_to_l) {
-      return { status: 'error', message: 'Connect Resistor end to Inductor start.' };
+    if (currentNode !== negRail || visitedComps.size < 4) {
+      return { status: 'error', message: 'Series LCR circuit is open! Ensure all components (Resistor, Inductor, Capacitor, Ammeter) form a closed series loop.' };
     }
     
-    const l_to_c = (find(l_end) === find(c1) || find(l_end) === find(c2));
-    const c_start = find(l_end) === find(c1) ? c1 : c2;
-    const c_end = c_start === c1 ? c2 : c1;
-    
-    if (!l_to_c) {
-      return { status: 'error', message: 'Connect Inductor end to Capacitor start.' };
-    }
-    
-    const c_to_gnd = (find(c_end) === find(19 * 14 + 1));
-    if (!c_to_gnd) {
-      return { status: 'error', message: 'Connect Capacitor end back to Source (-) rail to close the loop.' };
+    const volt1 = find(voltmeter.snap1);
+    const volt2 = find(voltmeter.snap2);
+    const nodeC1 = find(capacitor.snap1);
+    const nodeC2 = find(capacitor.snap2);
+    const voltmeterParallel = (
+      (volt1 === nodeC1 && volt2 === nodeC2) ||
+      (volt1 === nodeC2 && volt2 === nodeC1)
+    );
+    if (!voltmeterParallel) {
+      return { status: 'error', message: 'Voltmeter must be connected in PARALLEL directly across the Capacitor.' };
     }
     
     return { status: 'success', message: 'Series LCR resonance loop closed and verified!' };
   }
   
   if (expKey === 'rc') {
-    if (!source || !resistor || !capacitor) {
-      return { status: 'error', message: 'Missing components. Place Source, Resistor, and Capacitor.' };
+    const switchComp = comps.find(c => c.type === 'toggle_switch' || c.type === 'button');
+    if (!source || !resistor || !capacitor || !ammeter || !voltmeter || !switchComp) {
+      return { status: 'error', message: 'Missing components. Place Source, ON/OFF Switch, Resistor, Capacitor, Ammeter, and Voltmeter.' };
     }
     
-    const r1 = resistor.snap1, r2 = resistor.snap2;
-    const c1 = capacitor.snap1, c2 = capacitor.snap2;
+    if (find(resistor.snap1) === find(resistor.snap2)) return { status: 'error', message: 'Resistor is shorted! Both terminals are connected to the same electrical node.' };
+    if (find(capacitor.snap1) === find(capacitor.snap2)) return { status: 'error', message: 'Capacitor is shorted! Both terminals are connected to the same electrical node.' };
+    if (find(ammeter.snap1) === find(ammeter.snap2)) return { status: 'error', message: 'Ammeter is shorted! Both terminals are connected to the same electrical node.' };
+    if (find(voltmeter.snap1) === find(voltmeter.snap2)) return { status: 'error', message: 'Voltmeter is shorted! Both terminals are connected to the same electrical node.' };
+    if (find(switchComp.snap1) === find(switchComp.snap2)) return { status: 'error', message: 'Switch is shorted! Both terminals are connected to the same electrical node.' };
     
-    const s_to_r = (find(9 * 14 + 0) === find(r1) || find(9 * 14 + 0) === find(r2));
-    const r_start = find(9 * 14 + 0) === find(r1) ? r1 : r2;
-    const r_end = r_start === r1 ? r2 : r1;
+    const posRail = find(0), negRail = find(1);
+    if (posRail === negRail) return { status: 'error', message: 'Short Circuit Detected! Positive rail (+) is connected directly to Ground (-) rail.' };
     
-    if (!s_to_r) {
-      return { status: 'error', message: 'Connect Source (+) rail to Resistor start.' };
+    const seriesComps = [resistor, capacitor, ammeter, switchComp];
+    let currentNode = posRail;
+    const visitedComps = new Set();
+    let stepsLeft = 10;
+    
+    while (currentNode !== negRail && stepsLeft > 0) {
+      stepsLeft--;
+      let foundNext = false;
+      for (const comp of seriesComps) {
+        if (visitedComps.has(comp)) continue;
+        const n1 = find(comp.snap1);
+        const n2 = find(comp.snap2);
+        if (n1 === currentNode) {
+          currentNode = n2;
+          visitedComps.add(comp);
+          foundNext = true;
+          break;
+        } else if (n2 === currentNode) {
+          currentNode = n1;
+          visitedComps.add(comp);
+          foundNext = true;
+          break;
+        }
+      }
+      if (!foundNext) break;
     }
     
-    const r_to_c = (find(r_end) === find(c1) || find(r_end) === find(c2));
-    const c_start = find(r_end) === find(c1) ? c1 : c2;
-    const c_end = c_start === c1 ? c2 : c1;
-    
-    if (!r_to_c) {
-      return { status: 'error', message: 'Connect Resistor end to Capacitor start.' };
+    if (currentNode !== negRail || visitedComps.size < 4) {
+      return { status: 'error', message: 'RC circuit loop is open! Ensure all components (Switch, Resistor, Capacitor, Ammeter) form a closed series loop.' };
     }
     
-    const c_to_gnd = (find(c_end) === find(19 * 14 + 1));
-    if (!c_to_gnd) {
-      return { status: 'error', message: 'Connect Capacitor end back to Source (-) rail to close the loop.' };
+    const volt1 = find(voltmeter.snap1);
+    const volt2 = find(voltmeter.snap2);
+    const nodeC1 = find(capacitor.snap1);
+    const nodeC2 = find(capacitor.snap2);
+    const voltmeterParallel = (
+      (volt1 === nodeC1 && volt2 === nodeC2) ||
+      (volt1 === nodeC2 && volt2 === nodeC1)
+    );
+    if (!voltmeterParallel) {
+      return { status: 'error', message: 'Voltmeter must be connected in PARALLEL directly across the Capacitor.' };
     }
     
     return { status: 'success', message: 'RC charging loop verified and closed!' };
@@ -1480,53 +1584,172 @@ function validateCircuitLocal() {
   }
 
   if (expKey === 'rc_rl_rlc') {
-    if (!source || !resistor || !inductor || !capacitor) {
-      return { status: 'error', message: 'Missing required components. Place Source, Resistor, Inductor, and Capacitor.' };
+    if (!source || !resistor || !inductor || !capacitor || !ammeter || !voltmeter) {
+      return { status: 'error', message: 'Missing required components. Place Source, Resistor, Inductor, Capacitor, Ammeter, and Voltmeter.' };
     }
-    const r1 = resistor.snap1, r2 = resistor.snap2;
-    const l1 = inductor.snap1, l2 = inductor.snap2;
-    const c1 = capacitor.snap1, c2 = capacitor.snap2;
     
-    const s_to_r = (find(7 * 14 + 0) === find(r1) || find(7 * 14 + 0) === find(r2));
-    const r_start = find(7 * 14 + 0) === find(r1) ? r1 : r2;
-    const r_end = r_start === r1 ? r2 : r1;
+    if (find(resistor.snap1) === find(resistor.snap2)) return { status: 'error', message: 'Resistor is shorted! Both terminals are connected to the same electrical node.' };
+    if (find(inductor.snap1) === find(inductor.snap2)) return { status: 'error', message: 'Inductor is shorted! Both terminals are connected to the same electrical node.' };
+    if (find(capacitor.snap1) === find(capacitor.snap2)) return { status: 'error', message: 'Capacitor is shorted! Both terminals are connected to the same electrical node.' };
+    if (find(ammeter.snap1) === find(ammeter.snap2)) return { status: 'error', message: 'Ammeter is shorted! Both terminals are connected to the same electrical node.' };
+    if (find(voltmeter.snap1) === find(voltmeter.snap2)) return { status: 'error', message: 'Voltmeter is shorted! Both terminals are connected to the same electrical node.' };
     
-    if (!s_to_r) return { status: 'error', message: 'Connect Source (+) rail to Resistor start.' };
+    const posRail = find(0), negRail = find(1);
+    if (posRail === negRail) return { status: 'error', message: 'Short Circuit Detected! Positive rail (+) is connected directly to Ground (-) rail.' };
     
-    const r_to_l = (find(r_end) === find(l1) || find(r_end) === find(l2));
-    const l_start = find(r_end) === find(l1) ? l1 : l2;
-    const l_end = l_start === l1 ? l2 : l1;
+    const seriesComps = [resistor, inductor, capacitor, ammeter];
+    let currentNode = posRail;
+    const visitedComps = new Set();
+    let stepsLeft = 10;
     
-    if (!r_to_l) return { status: 'error', message: 'Connect Resistor end to Inductor start.' };
+    while (currentNode !== negRail && stepsLeft > 0) {
+      stepsLeft--;
+      let foundNext = false;
+      for (const comp of seriesComps) {
+        if (visitedComps.has(comp)) continue;
+        const n1 = find(comp.snap1);
+        const n2 = find(comp.snap2);
+        if (n1 === currentNode) {
+          currentNode = n2;
+          visitedComps.add(comp);
+          foundNext = true;
+          break;
+        } else if (n2 === currentNode) {
+          currentNode = n1;
+          visitedComps.add(comp);
+          foundNext = true;
+          break;
+        }
+      }
+      if (!foundNext) break;
+    }
     
-    const l_to_c = (find(l_end) === find(c1) || find(l_end) === find(c2));
-    const c_start = find(l_end) === find(c1) ? c1 : c2;
-    const c_end = c_start === c1 ? c2 : c1;
+    if (currentNode !== negRail || visitedComps.size < 4) {
+      return { status: 'error', message: 'AC Impedance RLC circuit is open! Ensure all components (Resistor, Inductor, Capacitor, Ammeter) form a closed series loop.' };
+    }
     
-    if (!l_to_c) return { status: 'error', message: 'Connect Inductor end to Capacitor start.' };
-    
-    const c_to_gnd = (find(c_end) === find(19 * 14 + 1));
-    if (!c_to_gnd) return { status: 'error', message: 'Connect Capacitor end back to Ground rail.' };
+    const volt1 = find(voltmeter.snap1);
+    const volt2 = find(voltmeter.snap2);
+    const nodeC1 = find(capacitor.snap1);
+    const nodeC2 = find(capacitor.snap2);
+    const voltmeterParallel = (
+      (volt1 === nodeC1 && volt2 === nodeC2) ||
+      (volt1 === nodeC2 && volt2 === nodeC1)
+    );
+    if (!voltmeterParallel) {
+      return { status: 'error', message: 'Voltmeter must be connected in PARALLEL directly across the Capacitor.' };
+    }
     
     return { status: 'success', message: 'AC Impedance RLC loop closed and verified!' };
   }
 
   if (expKey === 'series_parallel') {
-    if (!source || comps.filter(c => c.type === 'resistor').length < 2) {
-      return { status: 'error', message: 'Missing components. Place Source and 2 Resistors.' };
+    if (!source || comps.filter(c => c.type === 'resistor').length < 2 || !ammeter || !voltmeter) {
+      return { status: 'error', message: 'Missing required components. Place Source, 2 Resistors, Ammeter, and Voltmeter.' };
     }
     const posRail = find(0), negRail = find(1);
-    if (posRail === negRail) return { status: 'error', message: 'Short Circuit Detected!' };
+    if (posRail === negRail) return { status: 'error', message: 'Short Circuit Detected! Positive rail is connected directly to Ground.' };
     
-    let pos_conn = false, neg_conn = false;
-    comps.forEach(c => {
-      if (find(c.snap1) === posRail || find(c.snap2) === posRail) pos_conn = true;
-      if (find(c.snap1) === negRail || find(c.snap2) === negRail) neg_conn = true;
-    });
-    if (pos_conn && neg_conn) {
-      return { status: 'success', message: 'Series & Parallel loads loop closed and verified!' };
+    const resList = comps.filter(c => c.type === 'resistor');
+    const r1 = resList[0];
+    const r2 = resList[1];
+    
+    if (find(r1.snap1) === find(r1.snap2)) return { status: 'error', message: 'Resistor R1 is shorted!' };
+    if (find(r2.snap1) === find(r2.snap2)) return { status: 'error', message: 'Resistor R2 is shorted!' };
+    if (find(ammeter.snap1) === find(ammeter.snap2)) return { status: 'error', message: 'Ammeter is shorted!' };
+    if (find(voltmeter.snap1) === find(voltmeter.snap2)) return { status: 'error', message: 'Voltmeter is shorted!' };
+    
+    const isParallel = checkIsParallelCircuit();
+    const expectedParallel = (state.params.C === 2);
+    
+    if (expectedParallel) {
+      if (!isParallel) {
+        return { status: 'error', message: 'Resistors must be connected in PARALLEL for the Parallel configuration.' };
+      }
+      
+      const common1 = find(r1.snap1);
+      const common2 = find(r1.snap2);
+      
+      let connectedToPos = (common1 === posRail || common2 === posRail);
+      let connectedToNeg = (common1 === negRail || common2 === negRail);
+      
+      const am1 = find(ammeter.snap1);
+      const am2 = find(ammeter.snap2);
+      if ((am1 === posRail && (am2 === common1 || am2 === common2)) ||
+          (am2 === posRail && (am1 === common1 || am1 === common2))) {
+        connectedToPos = true;
+      }
+      if ((am1 === negRail && (am2 === common1 || am2 === common2)) ||
+          (am2 === negRail && (am1 === common1 || am1 === common2))) {
+        connectedToNeg = true;
+      }
+      
+      if (!connectedToPos || !connectedToNeg) {
+        return { status: 'error', message: 'Ensure both parallel resistors are connected to positive and negative rails.' };
+      }
+      
+      const volt1 = find(voltmeter.snap1);
+      const volt2 = find(voltmeter.snap2);
+      const voltmeterParallel = (
+        (volt1 === common1 && volt2 === common2) ||
+        (volt1 === common2 && volt2 === common1)
+      );
+      if (!voltmeterParallel) {
+        return { status: 'error', message: 'Voltmeter must be connected in PARALLEL across the parallel resistors.' };
+      }
+      
+      return { status: 'success', message: 'Parallel Resistors circuit loop verified and closed!' };
+      
+    } else {
+      if (isParallel) {
+        return { status: 'error', message: 'Resistors must be connected in SERIES for the Series configuration.' };
+      }
+      
+      const seriesComps = [r1, r2, ammeter];
+      let currentNode = posRail;
+      const visitedComps = new Set();
+      let stepsLeft = 10;
+      
+      while (currentNode !== negRail && stepsLeft > 0) {
+        stepsLeft--;
+        let foundNext = false;
+        for (const comp of seriesComps) {
+          if (visitedComps.has(comp)) continue;
+          const n1 = find(comp.snap1);
+          const n2 = find(comp.snap2);
+          if (n1 === currentNode) {
+            currentNode = n2;
+            visitedComps.add(comp);
+            foundNext = true;
+            break;
+          } else if (n2 === currentNode) {
+            currentNode = n1;
+            visitedComps.add(comp);
+            foundNext = true;
+            break;
+          }
+        }
+        if (!foundNext) break;
+      }
+      
+      if (currentNode !== negRail || visitedComps.size < 3) {
+        return { status: 'error', message: 'Series circuit is open! Ensure all components (R1, R2, Ammeter) form a closed series loop.' };
+      }
+      
+      const volt1 = find(voltmeter.snap1);
+      const volt2 = find(voltmeter.snap2);
+      const nodeR1_1 = find(r1.snap1);
+      const nodeR1_2 = find(r1.snap2);
+      const voltmeterParallel = (
+        (volt1 === nodeR1_1 && volt2 === nodeR1_2) ||
+        (volt1 === nodeR1_2 && volt2 === nodeR1_1)
+      );
+      if (!voltmeterParallel) {
+        return { status: 'error', message: 'Voltmeter must be connected in PARALLEL across Resistor 1.' };
+      }
+      
+      return { status: 'success', message: 'Series Resistors circuit loop verified and closed!' };
     }
-    return { status: 'error', message: 'Connect network back to positive and negative rails.' };
   }
 
   if (expKey === 'wheatstone') {
@@ -1687,7 +1910,7 @@ function startPollingCalculations() {
     try {
       let data;
       const isBackendCalculated = [
-        'ohms', 'kvl', 'kcl', 'rc_rl_rlc', 'series_parallel', 'wheatstone', 'lcr', 'rc',
+        'ohms', 'kvl', 'kcl', 'rc_rl_rlc', 'series_parallel', 'wheatstone', 'lcr',
         'faraday', 'lenz', 'solenoid', 'transformer', 'ideal_gas', 'boyle', 'charles',
         'specific_heat', 'photoelectric', 'radioactive', 'de_broglie', 'bohr_model'
       ].includes(state.activeExperiment);
@@ -1791,7 +2014,11 @@ function updateUI() {
   } else if (state.activeExperiment === 'rc_rl_rlc') {
     elements.kirchhoffDisplay.innerText = `[OK] AC Impedance Analysis:\n Z = √[R² + (XL−XC)²] = ${state.meters.ohms.toFixed(1)} Ω\n XL = ${state.analysis.XL.toFixed(1)} Ω, XC = ${state.analysis.XC.toFixed(1)} Ω\n Phase φ = ${state.analysis.phi.toFixed(1)}°\n Resonant f₀ = ${state.analysis.f0.toFixed(1)} Hz`;
   } else if (state.activeExperiment === 'kvl') {
+<<<<<<< ours
     const Vs_live = state.params.V;
+=======
+    const Vs = state.meters.volts;
+>>>>>>> theirs
     const R1 = state.params.R;
     const R2 = state.params.L !== undefined ? state.params.L : 100;
     const R_tot = R1 + R2;
@@ -1978,7 +2205,12 @@ function drawObservationTable() {
   let rows = '';
   const expKey = state.activeExperiment;
   
-  if (['ohms', 'kvl', 'kcl', 'series_parallel', 'wheatstone', 'arduino_led', 'diode_iv', 'voltage_divider', 'planck_led'].includes(expKey)) {
+  if (['diode_iv', 'planck_led'].includes(expKey)) {
+    headers = `<th>#</th><th>Vs (V)</th><th>Vd (V)</th><th>Id (mA)</th><th>R (Ω)</th>`;
+    state.dataPoints.forEach(pt => {
+      rows += `<tr><td>${pt.id}</td><td>${(pt.sourceV !== undefined ? pt.sourceV : pt.V).toFixed(2)}</td><td>${pt.V.toFixed(3)}</td><td>${(pt.I * 1000).toFixed(2)}</td><td>${pt.R.toFixed(1)}</td></tr>`;
+    });
+  } else if (['ohms', 'kvl', 'kcl', 'series_parallel', 'wheatstone', 'arduino_led', 'voltage_divider'].includes(expKey)) {
     headers = `<th>#</th><th>Voltage V (V)</th><th>Current I (mA)</th><th>${expKey === 'ohms' ? 'Resistance' : 'Impedance'} (Ω)</th>`;
     state.dataPoints.forEach(pt => {
       rows += `<tr><td>${pt.id}</td><td>${pt.V.toFixed(2)}</td><td>${(pt.I * 1000).toFixed(1)}</td><td>${pt.R.toFixed(1)}</td></tr>`;
@@ -2076,29 +2308,38 @@ function appendAIMessage(sender, text, isUser = false) {
 function updateParameterValue(key, val) {
   let min = 0, max = 100;
   let step = 1;
-  if (key === 'V') {
-    min = state.activeExperiment === 'ohms' ? 0 : 1;
-    max = state.activeExperiment === 'ohms' ? 30 : 24;
-    step = state.activeExperiment === 'ohms' ? 0.1 : 1;
-  } else if (key === 'R') {
-    min = state.activeExperiment === 'ohms' ? 1 : 10;
-    max = state.activeExperiment === 'ohms' ? 1000 : 600;
-    step = state.activeExperiment === 'ohms' ? 0.1 : 1;
-  } else if (key === 'L') {
-    min = 1; max = 500; step = 1;
-  } else if (key === 'C') {
-    min = 1; max = 500; step = 1;
-  } else if (key === 'f') {
-    min = 1; max = 1000; step = 1;
-  } else if (key === 'T') {
-    min = 0; max = 200; step = 1;
+  
+  const expConfig = sliderConfigs[state.activeExperiment];
+  if (expConfig && expConfig[key]) {
+    min = expConfig[key].min;
+    max = expConfig[key].max;
+    step = expConfig[key].step;
+  } else {
+    if (key === 'V') {
+      min = state.activeExperiment === 'ohms' ? 0 : 1;
+      max = state.activeExperiment === 'ohms' ? 30 : 24;
+      step = state.activeExperiment === 'ohms' ? 0.1 : 1;
+    } else if (key === 'R') {
+      min = state.activeExperiment === 'ohms' ? 1 : 10;
+      max = state.activeExperiment === 'ohms' ? 1000 : 600;
+      step = state.activeExperiment === 'ohms' ? 0.1 : 1;
+    } else if (key === 'L') {
+      min = 1; max = 500; step = 1;
+    } else if (key === 'C') {
+      min = 1; max = 500; step = 1;
+    } else if (key === 'f') {
+      min = 1; max = 1000; step = 1;
+    } else if (key === 'T') {
+      min = 0; max = 200; step = 1;
+    }
   }
 
   val = Math.max(min, Math.min(max, val));
   if (step === 0.1) {
     val = Math.round(val * 10) / 10;
   } else {
-    val = Math.round(val);
+    const scale = 1 / step;
+    val = Math.round(val * scale) / scale;
   }
   
   if (state.activeExperiment === 'ohms') {
@@ -2147,6 +2388,12 @@ function updateParameterValue(key, val) {
 
   if (key === 'R') {
     updateResistorColorBands();
+  }
+
+  if (state.activeExperiment === 'series_parallel' && key === 'C') {
+    if (!state.isDatabaseLoading) {
+      autoBuildExperiment();
+    }
   }
 
   updateDynamicTextures();
@@ -2267,7 +2514,8 @@ const sliderConfigs = {
   series_parallel: {
     V: { label: "Source Voltage", min: 0, max: 30, step: 0.1, val: 12, unit: "V" },
     R: { label: "Resistor R1", min: 1, max: 1000, step: 0.1, val: 100, unit: "Ω" },
-    L: { label: "Resistor R2", min: 1, max: 1000, step: 0.1, val: 100, unit: "Ω" }
+    L: { label: "Resistor R2", min: 1, max: 1000, step: 0.1, val: 100, unit: "Ω" },
+    C: { label: "Config (1:Series, 2:Parallel)", min: 1, max: 2, step: 1, val: 1, unit: "" }
   },
   wheatstone: {
     V: { label: "Source Voltage", min: 0, max: 30, step: 0.1, val: 12, unit: "V" },
@@ -2666,10 +2914,17 @@ function initProceduralVisuals(expKey) {
 }
 
 // --- SETUP EXPERIMENT STATE ---
-function setupExperiment(expKey, loadFromDb = false) {
+function setupExperiment(expKey, loadFromDb = false, preserveParams = false) {
   if (expKey === 'led') expKey = 'planck_led';
   state.activeExperiment = expKey;
   state.dataPoints = [];
+  if (expKey === 'rc') {
+    state.capVoltage = 0.0;
+    state.rcHistory = [];
+    state.rcPhaseStartTime = null;
+    state.rcStartVoltage = 0.0;
+    state.rcLastState = null;
+  }
   state.score = 0;
   state.completedSteps.clear();
   state.selectedComponentIdx = -1;
@@ -2734,19 +2989,24 @@ function setupExperiment(expKey, loadFromDb = false) {
       if (labelEl) labelEl.innerText = config[p].label;
       if (unitEl) unitEl.innerText = config[p].unit;
 
+      let valToUse = config[p].val;
+      if (preserveParams && state.params[p] !== undefined) {
+        valToUse = state.params[p];
+      }
+
       if (rangeEl) {
         rangeEl.min = config[p].min;
         rangeEl.max = config[p].max;
         rangeEl.step = config[p].step;
-        rangeEl.value = config[p].val;
+        rangeEl.value = valToUse;
       }
       if (inputEl) {
         inputEl.min = config[p].min;
         inputEl.max = config[p].max;
         inputEl.step = config[p].step;
-        inputEl.value = config[p].val;
+        inputEl.value = valToUse;
       }
-      state.params[p] = config[p].val;
+      state.params[p] = valToUse;
     } else {
       sliderContainer.style.display = 'none';
     }
@@ -3052,6 +3312,21 @@ function drawOscilloscope() {
     requestAnimationFrame(drawOscilloscope);
     return;
   }
+
+  if (state.oscPower === false) {
+    ctx.fillStyle = '#020617'; // very dark slate black screen
+    ctx.fillRect(0, 0, w, h);
+    
+    if (elements.oscFreqLbl) elements.oscFreqLbl.innerText = "— Hz";
+    if (elements.oscPhaseLbl) elements.oscPhaseLbl.innerText = "— °";
+    const vpLbl = document.getElementById('osc-vp');
+    if (vpLbl) vpLbl.innerText = "— V";
+    const periodLbl = document.getElementById('osc-period');
+    if (periodLbl) periodLbl.innerText = "— ms";
+    
+    requestAnimationFrame(drawOscilloscope);
+    return;
+  }
   
   // 1. Draw beautiful radial CRT gradient screen
   const grad = ctx.createRadialGradient(w / 2, h / 2, 10, w / 2, h / 2, Math.max(w, h) / 1.8);
@@ -3130,6 +3405,47 @@ function drawOscilloscope() {
   
   // 4. Draw wave trace
   if (state.isRunning) {
+    if (state.activeExperiment === 'rc') {
+      const R_val = state.params.R || 100;
+      const C_val = state.params.C || 100;
+      const tau = R_val * C_val * 1e-4; // scaled for visibility
+      
+      if (state.rcPhaseStartTime === undefined || state.rcPhaseStartTime === null) {
+        state.rcPhaseStartTime = state.experimentStartTime || Date.now();
+        state.rcStartVoltage = 0.0;
+        state.rcLastState = state.buttonPressed;
+      }
+      
+      if (state.rcLastState !== state.buttonPressed) {
+        state.rcStartVoltage = state.capVoltage || 0.0;
+        state.rcPhaseStartTime = Date.now();
+        state.rcLastState = state.buttonPressed;
+      }
+      
+      const t = (Date.now() - state.rcPhaseStartTime) / 1000;
+      const Vs = state.params.V || 12.0;
+      let V_cap = 0.0;
+      if (state.buttonPressed) {
+        V_cap = Vs - (Vs - state.rcStartVoltage) * Math.exp(-t / tau);
+      } else {
+        V_cap = state.rcStartVoltage * Math.exp(-t / tau);
+      }
+      
+      state.capVoltage = V_cap;
+      
+      // Update ammeter reading
+      if (state.buttonPressed) {
+        state.meters.amps = (Vs - V_cap) / R_val;
+      } else {
+        state.meters.amps = -(V_cap / R_val);
+      }
+      
+      // Push history
+      if (!state.rcHistory) state.rcHistory = [];
+      state.rcHistory.push({ t: Date.now(), v: V_cap });
+      if (state.rcHistory.length > 1000) state.rcHistory.shift();
+    }
+
     const time = Date.now() * 0.005;
     const f = state.params.f;
     
@@ -3178,19 +3494,40 @@ function drawOscilloscope() {
       ctx.stroke();
     }
     else if (state.activeExperiment === 'rc') {
-      // RC Transient wave
       ctx.strokeStyle = '#00ff88';
       ctx.shadowBlur = 6;
       ctx.shadowColor = '#00ff88';
       ctx.beginPath();
-      const period = 200 / scaleTime;
-      for (let x = 0; x < w; x++) {
-        const progress = ((x + time * 60) % period) / period;
-        // height scaled by scaleVolts
-        const y = h - 15 - (h - 40) * (1 - Math.exp(-progress * 4.5)) * (1 / scaleVolts);
-        if (x === 0 || (x + time * 60) % period < 2) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      
+      const history = state.rcHistory || [];
+      if (history.length > 1) {
+        const now = Date.now();
+        // Time window to display on screen (5 seconds, scaled by scaleTime)
+        const timeWindow = 5000 * scaleTime;
+        
+        let first = true;
+        for (let i = 0; i < history.length; i++) {
+          const pt = history[i];
+          const age = now - pt.t;
+          if (age > timeWindow) continue;
+          
+          const x = w - (age / timeWindow) * w;
+          const y = h - 15 - (pt.v / 15) * (h - 30) * (1 / scaleVolts);
+          
+          if (first) {
+            ctx.moveTo(x, y);
+            first = false;
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(0, h - 15);
+        ctx.lineTo(w, h - 15);
+        ctx.stroke();
       }
-      ctx.stroke();
     }
     
     // Reset shadow for UI text drawing
@@ -3272,6 +3609,28 @@ function getGraphConfig(expKey) {
         getX: (pt) => pt.V,
         getY: (pt) => pt.I * 1000,
         showSlopeCard: expKey === 'ohms'
+      };
+      
+    case 'diode_iv':
+      return {
+        xLabel: "Diode Voltage Vd (V)",
+        yLabel: "Diode Current Id (mA)",
+        xMax: 1.0,
+        yMax: 50.0,
+        getX: (pt) => pt.V,
+        getY: (pt) => pt.I * 1000,
+        showSlopeCard: false
+      };
+      
+    case 'planck_led':
+      return {
+        xLabel: "LED Voltage Vd (V)",
+        yLabel: "LED Current Id (mA)",
+        xMax: 3.0,
+        yMax: 30.0,
+        getX: (pt) => pt.V,
+        getY: (pt) => pt.I * 1000,
+        showSlopeCard: false
       };
       
     case 'lcr':
@@ -3416,9 +3775,22 @@ function drawGraph() {
   ctx.strokeRect(paddingLeft, paddingTop, graphWidth, graphHeight);
   
   const config = getGraphConfig(state.activeExperiment);
-  const maxValX = config.xMax;
-  const maxValY = config.yMax;
+  let maxValX = config.xMax;
+  let maxValY = config.yMax;
   const R_theoretical = state.params.R || 100;
+  
+  // Dynamic auto-scaling if data points exceed default limits
+  if (state.dataPoints.length > 0) {
+    state.dataPoints.forEach(pt => {
+      const xVal = config.getX(pt);
+      const yVal = config.getY(pt);
+      if (xVal > maxValX) maxValX = xVal * 1.15;
+      if (yVal > maxValY) maxValY = yVal * 1.15;
+    });
+  }
+
+  const xDecimals = maxValX <= 5 ? 1 : 0;
+  const yDecimals = maxValY <= 5 ? 1 : 0;
   
   // 3. Draw grid, ticks, and numeric labels
   ctx.fillStyle = isLight ? '#475569' : '#64748b';
@@ -3446,7 +3818,7 @@ function drawGraph() {
     ctx.stroke();
     
     // Label
-    ctx.fillText(`${xVal.toFixed(0)}`, xPix, h - paddingBottom + 6);
+    ctx.fillText(`${xVal.toFixed(xDecimals)}`, xPix, h - paddingBottom + 6);
   }
   
   // Horizontal grids (Y axis ticks)
@@ -3471,7 +3843,7 @@ function drawGraph() {
     ctx.stroke();
     
     // Label
-    ctx.fillText(`${yVal.toFixed(0)}`, paddingLeft - 8, yPix);
+    ctx.fillText(`${yVal.toFixed(yDecimals)}`, paddingLeft - 8, yPix);
   }
   
   // 4. Draw rotated Axis Title Labels
@@ -3542,12 +3914,52 @@ function drawGraph() {
     }
   }
   
+  // 5b. Draw theoretical diode I-V exponential curve for diode_iv and planck_led
+  if (['diode_iv', 'planck_led'].includes(state.activeExperiment)) {
+    const nVT = 0.052;
+    const V_barrier = state.activeExperiment === 'planck_led' ?
+      ({ red: 1.8, green: 2.2, blue: 2.7, yellow: 2.0 }[state.params.led_color] || 2.0) : 0.7;
+    const Is = 1e-3 / Math.exp(V_barrier / nVT);
+    
+    ctx.strokeStyle = '#00d084';
+    ctx.shadowBlur = 6;
+    ctx.shadowColor = '#00d084';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    
+    let started = false;
+    const steps = 200;
+    for (let i = 0; i <= steps; i++) {
+      const Vd = (i / steps) * maxValX;
+      const I_theory = Is * (Math.exp(Vd / nVT) - 1); // Shockley equation
+      const I_mA = I_theory * 1000;
+      
+      // Clamp to visible area
+      if (I_mA > maxValY * 1.5) break;
+      
+      const xPix = paddingLeft + (Vd / maxValX) * graphWidth;
+      const yPix = h - paddingBottom - (I_mA / maxValY) * graphHeight;
+      
+      if (!started) {
+        ctx.moveTo(xPix, yPix);
+        started = true;
+      } else {
+        ctx.lineTo(xPix, yPix);
+      }
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.shadowBlur = 0;
+  }
+  
   // 6. Draw connection line and data points
   if (state.dataPoints.length > 0) {
     ctx.strokeStyle = 'rgba(168, 85, 247, 0.4)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    state.dataPoints.forEach((pt, idx) => {
+    const sortedPoints = [...state.dataPoints].sort((a, b) => config.getX(a) - config.getX(b));
+    sortedPoints.forEach((pt, idx) => {
       const xVal = config.getX(pt);
       const yVal = config.getY(pt);
       const xPix = paddingLeft + (xVal / maxValX) * graphWidth;
@@ -3556,7 +3968,7 @@ function drawGraph() {
       if (idx === 0) ctx.moveTo(xPix, yPix);
       else ctx.lineTo(xPix, yPix);
     });
-    if (state.dataPoints.length > 1) {
+    if (sortedPoints.length > 1) {
       ctx.stroke();
     }
     
@@ -4249,24 +4661,33 @@ function downloadGraphHD() {
   ctx.lineWidth = 4;
   ctx.strokeRect(paddingLeft, paddingTop, graphWidth, graphHeight);
   
-  let maxV = 24;
-  let maxI = 0.5;
+  const config = getGraphConfig(state.activeExperiment);
+  let maxValX = config.xMax;
+  let maxValY = config.yMax;
   const R_theoretical = state.params.R || 100;
-  
-  if (state.activeExperiment === 'ohms') {
-    maxV = 30;
-    maxI = 30 / R_theoretical;
+
+  // Dynamic auto-scaling if data points exceed default limits
+  if (state.dataPoints.length > 0) {
+    state.dataPoints.forEach(pt => {
+      const xVal = config.getX(pt);
+      const yVal = config.getY(pt);
+      if (xVal > maxValX) maxValX = xVal * 1.15;
+      if (yVal > maxValY) maxValY = yVal * 1.15;
+    });
   }
+
+  const xDecimals = maxValX <= 5 ? 1 : 0;
+  const yDecimals = maxValY <= 5 ? 1 : 0;
   
   // 3. Grid, ticks, and numeric labels
   ctx.fillStyle = '#94a3b8';
   ctx.font = '28px monospace';
   
-  // Vertical grids (Voltage axis ticks)
+  // Vertical grids (X axis ticks)
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   for (let i = 0; i <= 5; i++) {
-    const vVal = (i / 5) * maxV;
+    const xVal = (i / 5) * maxValX;
     const xPix = paddingLeft + (i / 5) * graphWidth;
     
     // Grid line
@@ -4286,14 +4707,14 @@ function downloadGraphHD() {
     ctx.stroke();
     
     // Label
-    ctx.fillText(`${vVal.toFixed(0)}`, xPix, h - paddingBottom + 18);
+    ctx.fillText(`${xVal.toFixed(xDecimals)}`, xPix, h - paddingBottom + 18);
   }
   
-  // Horizontal grids (Current axis ticks)
+  // Horizontal grids (Y axis ticks)
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
   for (let i = 0; i <= 5; i++) {
-    const iVal = (i / 5) * maxI;
+    const yVal = (i / 5) * maxValY;
     const yPix = h - paddingBottom - (i / 5) * graphHeight;
     
     // Grid line
@@ -4312,9 +4733,8 @@ function downloadGraphHD() {
     ctx.lineTo(paddingLeft, yPix);
     ctx.stroke();
     
-    // Label in mA
-    const iVal_mA = iVal * 1000;
-    ctx.fillText(`${iVal_mA.toFixed(0)}`, paddingLeft - 22, yPix);
+    // Label
+    ctx.fillText(`${yVal.toFixed(yDecimals)}`, paddingLeft - 22, yPix);
   }
   
   // 4. Axis Title Labels
@@ -4322,20 +4742,16 @@ function downloadGraphHD() {
   ctx.font = 'bold 32px monospace';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'bottom';
-  ctx.fillText("Voltage V (V)", paddingLeft + graphWidth / 2, h - 25);
+  ctx.fillText(config.xLabel, paddingLeft + graphWidth / 2, h - 25);
   
   ctx.save();
   ctx.translate(45, paddingTop + graphHeight / 2);
   ctx.rotate(-Math.PI / 2);
-  ctx.fillText("Current I (mA)", 0, 0);
+  ctx.fillText(config.yLabel, 0, 0);
   ctx.restore();
   
   // 5. Best-fit line
-  let slopeDisp = "—";
-  let R_calc_disp = "—";
-  let error_disp = "—";
-  
-  if (state.activeExperiment === 'ohms' && state.dataPoints.length >= 2) {
+  if (config.showSlopeCard && state.dataPoints.length >= 2) {
     const N = state.dataPoints.length;
     let sumV = 0, sumI = 0, sumVI = 0, sumV2 = 0;
     state.dataPoints.forEach(pt => {
@@ -4349,13 +4765,9 @@ function downloadGraphHD() {
       const m = (N * sumVI - sumV * sumI) / denom; // slope in A/V
       const c = (sumI - m * sumV) / N; // intercept
       
-      const m_mA = m * 1000; // slope in mA/V
-      const R_calc = 1 / m; // resistance in Ohms
+      const m_mA = m * 1000;
+      const R_calc = 1 / m;
       const error = Math.abs(R_calc - R_theoretical) / R_theoretical * 100;
-      
-      slopeDisp = `${m_mA.toFixed(3)} mA/V`;
-      R_calc_disp = `${R_calc.toFixed(1)} Ω`;
-      error_disp = `${error.toFixed(2)}%`;
       
       // Draw best-fit line with neon green glow
       ctx.strokeStyle = '#00d084';
@@ -4367,13 +4779,13 @@ function downloadGraphHD() {
       
       const vStart = 0;
       const iStart = m * vStart + c;
-      const xStart = paddingLeft + (vStart / maxV) * graphWidth;
-      const yStart = h - paddingBottom - (iStart / maxI) * graphHeight;
+      const xStart = paddingLeft + (vStart / maxValX) * graphWidth;
+      const yStart = h - paddingBottom - ((iStart * 1000) / maxValY) * graphHeight;
       
-      const vEnd = maxV;
+      const vEnd = maxValX;
       const iEnd = m * vEnd + c;
-      const xEnd = paddingLeft + (vEnd / maxV) * graphWidth;
-      const yEnd = h - paddingBottom - (iEnd / maxI) * graphHeight;
+      const xEnd = paddingLeft + (vEnd / maxValX) * graphWidth;
+      const yEnd = h - paddingBottom - ((iEnd * 1000) / maxValY) * graphHeight;
       
       ctx.moveTo(xStart, yStart);
       ctx.lineTo(xEnd, yEnd);
@@ -4388,33 +4800,27 @@ function downloadGraphHD() {
     ctx.strokeStyle = 'rgba(168, 85, 247, 0.5)';
     ctx.lineWidth = 5;
     ctx.beginPath();
-    state.dataPoints.forEach((pt, idx) => {
-      let xPix, yPix;
-      if (state.activeExperiment === 'ohms') {
-        xPix = paddingLeft + (pt.V / maxV) * graphWidth;
-        yPix = h - paddingBottom - (pt.I / maxI) * graphHeight;
-      } else {
-        xPix = paddingLeft + (pt.I / maxI) * graphWidth;
-        yPix = h - paddingBottom - (pt.V / maxV) * graphHeight;
-      }
+    
+    const sortedPoints = [...state.dataPoints].sort((a, b) => config.getX(a) - config.getX(b));
+    sortedPoints.forEach((pt, idx) => {
+      const xVal = config.getX(pt);
+      const yVal = config.getY(pt);
+      const xPix = paddingLeft + (xVal / maxValX) * graphWidth;
+      const yPix = h - paddingBottom - (yVal / maxValY) * graphHeight;
       
       if (idx === 0) ctx.moveTo(xPix, yPix);
       else ctx.lineTo(xPix, yPix);
     });
-    if (state.dataPoints.length > 1) {
+    if (sortedPoints.length > 1) {
       ctx.stroke();
     }
     
     // Draw glowing circles
     state.dataPoints.forEach(pt => {
-      let xPix, yPix;
-      if (state.activeExperiment === 'ohms') {
-        xPix = paddingLeft + (pt.V / maxV) * graphWidth;
-        yPix = h - paddingBottom - (pt.I / maxI) * graphHeight;
-      } else {
-        xPix = paddingLeft + (pt.I / maxI) * graphWidth;
-        yPix = h - paddingBottom - (pt.V / maxV) * graphHeight;
-      }
+      const xVal = config.getX(pt);
+      const yVal = config.getY(pt);
+      const xPix = paddingLeft + (xVal / maxValX) * graphWidth;
+      const yPix = h - paddingBottom - (yVal / maxValY) * graphHeight;
       
       // Neon violet halo
       ctx.fillStyle = '#a855f7';
@@ -4434,27 +4840,43 @@ function downloadGraphHD() {
   }
   
   // 7. Render HD Stats Card Overlay (top-right)
-  if (state.activeExperiment === 'ohms' && state.dataPoints.length >= 2) {
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
-    ctx.strokeStyle = 'rgba(0, 208, 132, 0.5)';
-    ctx.lineWidth = 3;
-    
-    const cardW = 400;
-    const cardH = 160;
-    const cardX = w - paddingRight - cardW - 20;
-    const cardY = paddingTop + 20;
-    
-    ctx.fillRect(cardX, cardY, cardW, cardH);
-    ctx.strokeRect(cardX, cardY, cardW, cardH);
-    
-    ctx.fillStyle = '#f8fafc';
-    ctx.font = '28px monospace';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
-    
-    ctx.fillText(`Slope: ${slopeDisp}`, cardX + 20, cardY + 20);
-    ctx.fillText(`R(slope): ${R_calc_disp}`, cardX + 20, cardY + 60);
-    ctx.fillText(`Error: ${error_disp}`, cardX + 20, cardY + 100);
+  if (config.showSlopeCard && state.dataPoints.length >= 2) {
+    const N = state.dataPoints.length;
+    let sumV = 0, sumI = 0, sumVI = 0, sumV2 = 0;
+    state.dataPoints.forEach(pt => {
+      sumV += pt.V;
+      sumI += pt.I;
+      sumVI += pt.V * pt.I;
+      sumV2 += pt.V * pt.V;
+    });
+    const denom = (N * sumV2 - sumV * sumV);
+    if (denom !== 0) {
+      const m = (N * sumVI - sumV * sumI) / denom;
+      const m_mA = m * 1000;
+      const R_calc = 1 / m;
+      const error = Math.abs(R_calc - R_theoretical) / R_theoretical * 100;
+      
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+      ctx.strokeStyle = 'rgba(0, 208, 132, 0.5)';
+      ctx.lineWidth = 3;
+      
+      const cardW = 400;
+      const cardH = 160;
+      const cardX = w - paddingRight - cardW - 20;
+      const cardY = paddingTop + 20;
+      
+      ctx.fillRect(cardX, cardY, cardW, cardH);
+      ctx.strokeRect(cardX, cardY, cardW, cardH);
+      
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = '28px monospace';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      
+      ctx.fillText(`Slope: ${m_mA.toFixed(3)} mA/V`, cardX + 20, cardY + 20);
+      ctx.fillText(`R(slope): ${R_calc.toFixed(1)} Ω`, cardX + 20, cardY + 60);
+      ctx.fillText(`Error: ${error.toFixed(2)}%`, cardX + 20, cardY + 100);
+    }
   }
   
   // Title at the top center of graph
@@ -4463,9 +4885,10 @@ function downloadGraphHD() {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
   ctx.fillText(`EXPERIMENT CHART: ${experiments[state.activeExperiment].name.toUpperCase()}`, w / 2, 25);
-
+  
   downloadCanvasAsImage(canvas, `circuit_iq_hd_graph_${state.activeExperiment}.png`);
 }
+
 
 function downloadOscilloscopeHD() {
   const canvas = document.createElement('canvas');
@@ -4744,6 +5167,27 @@ function initInteraction() {
     elements.oscPanel.style.display = elements.oscPanel.style.display === 'flex' ? 'none' : 'flex';
     elements.btnOscToggle.classList.toggle('active');
   });
+
+  if (elements.oscPowerBtn) {
+    elements.oscPowerBtn.addEventListener('click', () => {
+      state.oscPower = !state.oscPower;
+      if (state.oscPower) {
+        elements.oscPowerBtn.style.color = '#00ff88';
+        if (elements.oscPowerIndicator) {
+          elements.oscPowerIndicator.style.background = '#00ff88';
+          elements.oscPowerIndicator.style.animation = 'blink 1s infinite';
+        }
+        appendAIMessage("Circuit IQ · AI Mentor", "Oscilloscope powered ON.");
+      } else {
+        elements.oscPowerBtn.style.color = '#ef4444';
+        if (elements.oscPowerIndicator) {
+          elements.oscPowerIndicator.style.background = '#4b5563';
+          elements.oscPowerIndicator.style.animation = 'none';
+        }
+        appendAIMessage("Circuit IQ · AI Mentor", "Oscilloscope powered OFF.");
+      }
+    });
+  }
   
   elements.btnCloseOsc.addEventListener('click', () => {
     elements.oscPanel.style.display = 'none';
@@ -4768,10 +5212,17 @@ function initInteraction() {
     const currentI = state.meters.amps;
     const currentR = state.meters.ohms;
     
-    if (['ohms', 'kvl', 'kcl', 'series_parallel', 'wheatstone', 'arduino_led', 'diode_iv', 'voltage_divider', 'planck_led'].includes(state.activeExperiment)) {
+    if (['ohms', 'kvl', 'kcl', 'series_parallel', 'wheatstone', 'arduino_led', 'voltage_divider'].includes(state.activeExperiment)) {
       duplicate = state.dataPoints.some(pt => Math.abs(pt.V - currentV) < 0.05);
       if (duplicate) {
         appendAIMessage("Circuit IQ · AI Mentor", `A reading for ${currentV.toFixed(2)} V has already been recorded. Please vary the Voltage to record a new data point.`);
+        return;
+      }
+    } else if (['diode_iv', 'planck_led'].includes(state.activeExperiment)) {
+      const currentSourceV = state.params.V;
+      duplicate = state.dataPoints.some(pt => Math.abs((pt.sourceV !== undefined ? pt.sourceV : pt.V) - currentSourceV) < 0.1);
+      if (duplicate) {
+        appendAIMessage("Circuit IQ · AI Mentor", `A reading for source voltage ${currentSourceV.toFixed(1)} V has already been recorded. Please vary the Source Voltage to record a new data point.`);
         return;
       }
     } else if (['lcr', 'rc_rl_rlc'].includes(state.activeExperiment)) {
@@ -4822,6 +5273,7 @@ function initInteraction() {
       f: state.params.f,
       C: state.params.C,
       P: state.meters.power,
+      sourceV: state.params.V,
       time: state.experimentStartTime ? (Date.now() - state.experimentStartTime) / 1000 : 0
     };
     state.dataPoints.push(pt);
@@ -5515,7 +5967,7 @@ async function startSimulation() {
 }
 
 function autoBuildExperiment() {
-  setupExperiment(state.activeExperiment, false);
+  setupExperiment(state.activeExperiment, false, true);
   const expKey = state.activeExperiment;
   if (expKey === 'ohms') {
     placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
@@ -5585,37 +6037,73 @@ function autoBuildExperiment() {
     placeComponent3D('resistor', 7 * 14 + 4, 11 * 14 + 4);
     placeComponent3D('inductor', 11 * 14 + 5, 15 * 14 + 5);
     placeComponent3D('capacitor', 15 * 14 + 6, 19 * 14 + 6);
+    placeComponent3D('ammeter', 19 * 14 + 9, 24 * 14 + 9);
+    placeComponent3D('voltmeter', 15 * 14 + 11, 19 * 14 + 11);
     create3DWire(7 * 14 + 0, 7 * 14 + 4);
     create3DWire(11 * 14 + 4, 11 * 14 + 5);
     create3DWire(15 * 14 + 5, 15 * 14 + 6);
-    create3DWire(19 * 14 + 6, 19 * 14 + 1);
+    create3DWire(19 * 14 + 6, 19 * 14 + 9);
+    create3DWire(24 * 14 + 9, 24 * 14 + 1);
+    create3DWire(15 * 14 + 11, 15 * 14 + 6);
+    create3DWire(19 * 14 + 11, 19 * 14 + 6);
   } else if (expKey === 'lcr') {
     placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
     placeComponent3D('resistor', 7 * 14 + 4, 11 * 14 + 4);
     placeComponent3D('inductor', 11 * 14 + 5, 15 * 14 + 5);
     placeComponent3D('capacitor', 15 * 14 + 6, 19 * 14 + 6);
+    placeComponent3D('ammeter', 19 * 14 + 9, 24 * 14 + 9);
+    placeComponent3D('voltmeter', 15 * 14 + 11, 19 * 14 + 11);
     create3DWire(7 * 14 + 0, 7 * 14 + 4);
     create3DWire(11 * 14 + 4, 11 * 14 + 5);
     create3DWire(15 * 14 + 5, 15 * 14 + 6);
-    create3DWire(19 * 14 + 6, 19 * 14 + 1);
+    create3DWire(19 * 14 + 6, 19 * 14 + 9);
+    create3DWire(24 * 14 + 9, 24 * 14 + 1);
+    create3DWire(15 * 14 + 11, 15 * 14 + 6);
+    create3DWire(19 * 14 + 11, 19 * 14 + 6);
   } else if (expKey === 'rc') {
     placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
-    placeComponent3D('resistor', 9 * 14 + 4, 14 * 14 + 4);
-    placeComponent3D('capacitor', 14 * 14 + 5, 19 * 14 + 5);
-    create3DWire(9 * 14 + 0, 9 * 14 + 4);
-    create3DWire(14 * 14 + 4, 14 * 14 + 5);
-    create3DWire(19 * 14 + 5, 19 * 14 + 1);
+    placeComponent3D('toggle_switch', 5 * 14 + 5, 9 * 14 + 5);  // Col 6 Row D to Col 10 Row D
+    placeComponent3D('resistor', 9 * 14 + 6, 14 * 14 + 6);     // Col 10 Row E to Col 15 Row E
+    placeComponent3D('capacitor', 14 * 14 + 7, 19 * 14 + 7);   // Col 15 Row F to Col 20 Row F
+    placeComponent3D('ammeter', 19 * 14 + 10, 24 * 14 + 10);   // Col 20 Row I to Col 25 Row I
+    placeComponent3D('voltmeter', 14 * 14 + 11, 19 * 14 + 11);  // Col 15 Row J to Col 20 Row J
+    
+    create3DWire(5 * 14 + 0, 5 * 14 + 5);                      // Source (+) Col 6 to Switch terminal 1
+    create3DWire(14 * 14 + 6, 14 * 14 + 7);                    // Resistor terminal 2 to Capacitor terminal 1 (across ravine)
+    create3DWire(19 * 14 + 7, 19 * 14 + 10);                   // Capacitor terminal 2 to Ammeter terminal 1 (across rows)
+    create3DWire(24 * 14 + 10, 24 * 14 + 1);                   // Ammeter terminal 2 to Source (-) Col 25
+    
+    create3DWire(14 * 14 + 11, 14 * 14 + 7);                   // Voltmeter (+) to Capacitor terminal 1
+    create3DWire(19 * 14 + 11, 19 * 14 + 7);                   // Voltmeter (-) to Capacitor terminal 2
   } else if (expKey === 'series_parallel') {
     placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
-    placeComponent3D('resistor', 7 * 14 + 4, 11 * 14 + 4);
-    placeComponent3D('resistor', 11 * 14 + 4, 15 * 14 + 4);
-    placeComponent3D('ammeter', 15 * 14 + 7, 20 * 14 + 7);       // Ammeter in series measuring loop current (row H)
-    placeComponent3D('voltmeter', 7 * 14 + 9, 11 * 14 + 9);      // Voltmeter in parallel across Resistor 1 (row J)
-    create3DWire(7 * 14 + 0, 7 * 14 + 4);                        // Source (+) to Resistor 1 start
-    create3DWire(15 * 14 + 4, 15 * 14 + 7);                      // Resistor 2 end to Ammeter start (cross ravine)
-    create3DWire(20 * 14 + 7, 20 * 14 + 1);                      // Ammeter end to Source (-)
-    create3DWire(7 * 14 + 4, 7 * 14 + 9);                        // Resistor 1 start to Voltmeter start (cross ravine)
-    create3DWire(11 * 14 + 4, 11 * 14 + 9);                      // Resistor 1 end to Voltmeter end (cross ravine)
+    if (state.params.C === 2) {
+      // Parallel configuration
+      placeComponent3D('ammeter', 3 * 14 + 7, 6 * 14 + 7);       // Ammeter Col 4 Row H to Col 7 Row H
+      placeComponent3D('resistor', 8 * 14 + 3, 12 * 14 + 3);     // R1 Col 9 Row C to Col 13 Row C
+      placeComponent3D('resistor', 8 * 14 + 5, 12 * 14 + 5);     // R2 Col 9 Row F to Col 13 Row F
+      placeComponent3D('voltmeter', 8 * 14 + 9, 12 * 14 + 9);    // Voltmeter Col 9 Row J to Col 13 Row J
+      
+      create3DWire(6 * 14 + 0, 3 * 14 + 7);                      // Source (+) Col 7 to Ammeter start
+      create3DWire(6 * 14 + 7, 8 * 14 + 3);                      // Ammeter end Col 7 Row H to R1 start Col 9 Row C
+      create3DWire(8 * 14 + 3, 8 * 14 + 5);                      // Junction 1: R1 start to R2 start
+      create3DWire(12 * 14 + 3, 12 * 14 + 5);                    // Junction 2: R1 end to R2 end
+      create3DWire(12 * 14 + 5, 6 * 14 + 1);                     // Junction 2 back to Source (-) Col 7
+      
+      create3DWire(8 * 14 + 9, 8 * 14 + 5);                      // Voltmeter (+) to R2 start (Junction 1)
+      create3DWire(12 * 14 + 9, 12 * 14 + 5);                    // Voltmeter (-) to R2 end (Junction 2)
+    } else {
+      // Series configuration (original layout)
+      placeComponent3D('resistor', 7 * 14 + 4, 11 * 14 + 4);
+      placeComponent3D('resistor', 11 * 14 + 4, 15 * 14 + 4);
+      placeComponent3D('ammeter', 15 * 14 + 7, 20 * 14 + 7);       // Ammeter in series measuring loop current (row H)
+      placeComponent3D('voltmeter', 7 * 14 + 9, 11 * 14 + 9);      // Voltmeter in parallel across Resistor 1 (row J)
+      create3DWire(7 * 14 + 0, 7 * 14 + 4);                        // Source (+) to Resistor 1 start
+      create3DWire(15 * 14 + 4, 15 * 14 + 7);                      // Resistor 2 end to Ammeter start (cross ravine)
+      create3DWire(20 * 14 + 7, 20 * 14 + 1);                      // Ammeter end to Source (-)
+      create3DWire(7 * 14 + 4, 7 * 14 + 9);                        // Resistor 1 start to Voltmeter start (cross ravine)
+      create3DWire(11 * 14 + 4, 11 * 14 + 9);                      // Resistor 1 end to Voltmeter end (cross ravine)
+    }
   } else if (expKey === 'wheatstone') {
     placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
     placeComponent3D('resistor', 6 * 14 + 3, 10 * 14 + 3);  // R1
@@ -6076,6 +6564,7 @@ function updateTargetHighlights() {
         const am1 = ammeter.snap1, am2 = ammeter.snap2;
         const volt1 = voltmeter.snap1, volt2 = voltmeter.snap2;
 
+<<<<<<< ours
         const s_to_r1 = (uf.find(7 * 14 + 0) === uf.find(r1_1) || uf.find(7 * 14 + 0) === uf.find(r1_2));
         if (!s_to_r1) {
           targetHighlightRing1 = addRing(7 * 14 + 0, true);
@@ -6219,6 +6708,45 @@ function updateTargetHighlights() {
               return;
             }
           }
+=======
+        const volt1_node = uf.find(volt1);
+        const volt2_node = uf.find(volt2);
+        const r1_1_node = uf.find(r1_1), r1_2_node = uf.find(r1_2);
+        const r2_1_node = uf.find(r2_1), r2_2_node = uf.find(r2_2);
+        const posRail = uf.find(0);
+        const negRail = uf.find(1);
+
+        const isParallelR1 = (volt1_node === r1_1_node && volt2_node === r1_2_node) || (volt1_node === r1_2_node && volt2_node === r1_1_node);
+        const isParallelR2 = (volt1_node === r2_1_node && volt2_node === r2_2_node) || (volt1_node === r2_2_node && volt2_node === r2_1_node);
+        const isParallelSource = (volt1_node === posRail && volt2_node === negRail) || (volt1_node === negRail && volt2_node === posRail);
+
+        if (!isParallelR1 && !isParallelR2 && !isParallelSource) {
+          if (volt1_node === r2_1_node || volt1_node === r2_2_node) {
+            targetHighlightRing1 = addRing(volt2, true);
+            targetHighlightRing2 = addRing(volt1_node === r2_1_node ? r2_2 : r2_1, true);
+          } else if (volt2_node === r2_1_node || volt2_node === r2_2_node) {
+            targetHighlightRing1 = addRing(volt1, true);
+            targetHighlightRing2 = addRing(volt2_node === r2_1_node ? r2_2 : r2_1, true);
+          } else if (volt1_node === posRail || volt1_node === negRail) {
+            targetHighlightRing1 = addRing(volt2, true);
+            targetHighlightRing2 = addRing(volt1_node === posRail ? 17 * 14 + 1 : 7 * 14 + 0, true);
+          } else if (volt2_node === posRail || volt2_node === negRail) {
+            targetHighlightRing1 = addRing(volt1, true);
+            targetHighlightRing2 = addRing(volt2_node === posRail ? 17 * 14 + 1 : 7 * 14 + 0, true);
+          } else {
+            const volt1_connected = (volt1_node === r1_1_node || volt1_node === r1_2_node);
+            if (!volt1_connected) {
+              targetHighlightRing1 = addRing(volt1, true);
+              targetHighlightRing2 = addRing(r1_1, true);
+            } else {
+              const volt1_conn_to = (volt1_node === r1_1_node) ? r1_1 : r1_2;
+              const volt2_target = (volt1_conn_to === r1_1) ? r1_2 : r1_1;
+              targetHighlightRing1 = addRing(volt2, true);
+              targetHighlightRing2 = addRing(volt2_target, true);
+            }
+          }
+          return;
+>>>>>>> theirs
         }
       }
     }
@@ -6226,9 +6754,10 @@ function updateTargetHighlights() {
   else if (state.activeExperiment === 'kcl') {
     const source = findComp('source');
     const resistors = comps.filter(c => c.type === 'resistor');
+    const ammeter = findComp('ammeter');
     
-    const resistor1 = resistors.find(r => r.snap1 === 8 * 14 + 3 || r.snap2 === 8 * 14 + 3);
-    const resistor2 = resistors.find(r => r.snap1 === 8 * 14 + 5 || r.snap2 === 8 * 14 + 5);
+    const resistor1 = resistors[0];
+    const resistor2 = resistors[1];
 
     if (!source) {
       if (!state.selectedTool || state.selectedTool === 'source') {
@@ -6245,86 +6774,109 @@ function updateTargetHighlights() {
         targetHighlightRing1 = addRing(8 * 14 + 5);
         targetHighlightRing2 = addRing(12 * 14 + 5);
       }
+    } else if (!ammeter) {
+      if (!state.selectedTool || state.selectedTool === 'ammeter') {
+        targetHighlightRing1 = addRing(3 * 14 + 7);
+        targetHighlightRing2 = addRing(6 * 14 + 7);
+      }
     } else {
       if (!state.selectedTool || state.selectedTool === 'wire') {
         const r1_1 = resistor1.snap1, r1_2 = resistor1.snap2;
         const r2_1 = resistor2.snap1, r2_2 = resistor2.snap2;
+        const am1 = ammeter.snap1, am2 = ammeter.snap2;
+        const r1_1_node = uf.find(r1_1), r1_2_node = uf.find(r1_2);
+        const r2_1_node = uf.find(r2_1), r2_2_node = uf.find(r2_2);
+        const am1_node = uf.find(am1), am2_node = uf.find(am2);
 
-        const ammeter = findComp('ammeter');
-        let s_to_r1 = false;
-        let r1_start = null;
-        
         const posRail = uf.find(6 * 14 + 0);
-        const r1_1_node = uf.find(r1_1);
-        const r1_2_node = uf.find(r1_2);
-        
-        if (r1_1_node === posRail) {
-          s_to_r1 = true;
-          r1_start = r1_1;
-        } else if (r1_2_node === posRail) {
-          s_to_r1 = true;
-          r1_start = r1_2;
-        } else if (ammeter) {
-          const am1_node = uf.find(ammeter.snap1);
-          const am2_node = uf.find(ammeter.snap2);
-          if (am1_node === posRail && am2_node === r1_1_node) {
-            s_to_r1 = true;
-            r1_start = r1_1;
-          } else if (am1_node === posRail && am2_node === r1_2_node) {
-            s_to_r1 = true;
-            r1_start = r1_2;
-          } else if (am2_node === posRail && am1_node === r1_1_node) {
-            s_to_r1 = true;
-            r1_start = r1_1;
-          } else if (am2_node === posRail && am1_node === r1_2_node) {
-            s_to_r1 = true;
-            r1_start = r1_2;
-          }
-        }
-        
-        if (!s_to_r1) {
-          targetHighlightRing1 = addRing(6 * 14 + 0, true);
-          targetHighlightRing2 = addRing(r1_1, true);
-          return;
-        }
-
-        if (!r1_start) {
-          r1_start = (uf.find(6 * 14 + 0) === uf.find(r1_1)) ? r1_1 : r1_2;
-        }
-        const r1_end = (r1_start === r1_1) ? r1_2 : r1_1;
-
-        const branch_in = (uf.find(r1_start) === uf.find(r2_1) || uf.find(r1_start) === uf.find(r2_2));
-        if (!branch_in) {
-          targetHighlightRing1 = addRing(r1_start, true);
-          targetHighlightRing2 = addRing(r2_1, true);
-          return;
-        }
-
-        const r2_end = (uf.find(r1_start) === uf.find(r2_1)) ? r2_2 : r2_1;
-
-        const branch_out = (uf.find(r1_end) === uf.find(r2_end));
-        if (!branch_out) {
-          targetHighlightRing1 = addRing(r1_end, true);
-          targetHighlightRing2 = addRing(r2_end, true);
-          return;
-        }
-
         const negRail = uf.find(6 * 14 + 1);
-        const r2_end_node = uf.find(r2_end);
-        let to_gnd = (r2_end_node === negRail);
-        
-        if (!to_gnd && ammeter) {
-          const am1_node = uf.find(ammeter.snap1);
-          const am2_node = uf.find(ammeter.snap2);
-          if ((am1_node === negRail && am2_node === r2_end_node) || (am2_node === negRail && am1_node === r2_end_node)) {
-            to_gnd = true;
-          }
-        }
 
-        if (!to_gnd) {
-          targetHighlightRing1 = addRing(r2_end, true);
-          targetHighlightRing2 = addRing(6 * 14 + 1, true);
-          return;
+        const isLowSide = (am1_node === negRail || am2_node === negRail);
+
+        if (isLowSide) {
+          const pos_to_r1 = (r1_1_node === posRail || r1_2_node === posRail);
+          if (!pos_to_r1) {
+            targetHighlightRing1 = addRing(6 * 14 + 0, true);
+            targetHighlightRing2 = addRing(r1_1, true);
+            return;
+          }
+          const r1_start = (r1_1_node === posRail) ? r1_1 : r1_2;
+          const r1_end = (r1_start === r1_1) ? r1_2 : r1_1;
+
+          const branch_in = (uf.find(r1_start) === r2_1_node || uf.find(r1_start) === r2_2_node);
+          if (!branch_in) {
+            targetHighlightRing1 = addRing(r1_start, true);
+            targetHighlightRing2 = addRing(r2_1, true);
+            return;
+          }
+          const r2_end = (uf.find(r1_start) === r2_1_node) ? r2_2 : r2_1;
+
+          const branch_out = (uf.find(r1_end) === uf.find(r2_end));
+          if (!branch_out) {
+            targetHighlightRing1 = addRing(r1_end, true);
+            targetHighlightRing2 = addRing(r2_end, true);
+            return;
+          }
+
+          const am_free = (am1_node === negRail) ? am2 : am1;
+          const r1_end_node = uf.find(r1_end);
+          const parallel_to_am = (r1_end_node === uf.find(am_free));
+          if (!parallel_to_am) {
+            targetHighlightRing1 = addRing(r1_end, true);
+            targetHighlightRing2 = addRing(am_free, true);
+            return;
+          }
+        } else {
+          let s_to_r1 = false;
+          let r1_start = null;
+
+          if ((am1_node === posRail && am2_node === r1_1_node) || (am2_node === posRail && am1_node === r1_1_node)) {
+            s_to_r1 = true;
+            r1_start = r1_1;
+          } else if ((am1_node === posRail && am2_node === r1_2_node) || (am2_node === posRail && am1_node === r1_2_node)) {
+            s_to_r1 = true;
+            r1_start = r1_2;
+          }
+
+          if (!s_to_r1) {
+            if (am1_node !== posRail && am2_node !== posRail) {
+              targetHighlightRing1 = addRing(6 * 14 + 0, true);
+              targetHighlightRing2 = addRing(am1, true);
+            } else {
+              const am_free = (am1_node === posRail) ? am2 : am1;
+              targetHighlightRing1 = addRing(am_free, true);
+              targetHighlightRing2 = addRing(r1_1, true);
+            }
+            return;
+          }
+
+          if (!r1_start) {
+            r1_start = (uf.find(6 * 14 + 0) === r1_1_node) ? r1_1 : r1_2;
+          }
+          const r1_end = (r1_start === r1_1) ? r1_2 : r1_1;
+
+          const branch_in = (uf.find(r1_start) === r2_1_node || uf.find(r1_start) === r2_2_node);
+          if (!branch_in) {
+            targetHighlightRing1 = addRing(r1_start, true);
+            targetHighlightRing2 = addRing(r2_1, true);
+            return;
+          }
+          const r2_end = (uf.find(r1_start) === r2_1_node) ? r2_2 : r2_1;
+
+          const branch_out = (uf.find(r1_end) === uf.find(r2_end));
+          if (!branch_out) {
+            targetHighlightRing1 = addRing(r1_end, true);
+            targetHighlightRing2 = addRing(r2_end, true);
+            return;
+          }
+
+          const r2_end_node = uf.find(r2_end);
+          const to_gnd = (r2_end_node === negRail);
+          if (!to_gnd) {
+            targetHighlightRing1 = addRing(r2_end, true);
+            targetHighlightRing2 = addRing(6 * 14 + 1, true);
+            return;
+          }
         }
       }
     }
@@ -6526,6 +7078,7 @@ function updateTargetHighlights() {
   } 
   else if (state.activeExperiment === 'rc') {
     const source = findComp('source');
+    const switchComp = findComp('toggle_switch') || findComp('button');
     const resistor = findComp('resistor');
     const capacitor = findComp('capacitor');
 
@@ -6534,29 +7087,45 @@ function updateTargetHighlights() {
         targetHighlightRing1 = addRing(1 * 14 + 0);
         targetHighlightRing2 = addRing(1 * 14 + 1);
       }
+    } else if (!switchComp) {
+      if (!state.selectedTool || state.selectedTool === 'toggle_switch' || state.selectedTool === 'button') {
+        targetHighlightRing1 = addRing(5 * 14 + 5);
+        targetHighlightRing2 = addRing(9 * 14 + 5);
+      }
     } else if (!resistor) {
       if (!state.selectedTool || state.selectedTool === 'resistor') {
-        targetHighlightRing1 = addRing(9 * 14 + 4);
-        targetHighlightRing2 = addRing(14 * 14 + 4);
+        targetHighlightRing1 = addRing(9 * 14 + 6);
+        targetHighlightRing2 = addRing(14 * 14 + 6);
       }
     } else if (!capacitor) {
       if (!state.selectedTool || state.selectedTool === 'capacitor') {
-        targetHighlightRing1 = addRing(14 * 14 + 5);
-        targetHighlightRing2 = addRing(19 * 14 + 5);
+        targetHighlightRing1 = addRing(14 * 14 + 7);
+        targetHighlightRing2 = addRing(19 * 14 + 7);
       }
     } else {
       if (!state.selectedTool || state.selectedTool === 'wire') {
+        const sw1 = switchComp.snap1, sw2 = switchComp.snap2;
         const r1 = resistor.snap1, r2 = resistor.snap2;
         const c1 = capacitor.snap1, c2 = capacitor.snap2;
 
-        const s_to_r = (uf.find(9 * 14 + 0) === uf.find(r1) || uf.find(9 * 14 + 0) === uf.find(r2));
-        if (!s_to_r) {
-          targetHighlightRing1 = addRing(9 * 14 + 0, true);
+        const s_to_sw = (uf.find(5 * 14 + 0) === uf.find(sw1) || uf.find(5 * 14 + 0) === uf.find(sw2));
+        if (!s_to_sw) {
+          targetHighlightRing1 = addRing(5 * 14 + 0, true);
+          targetHighlightRing2 = addRing(sw1, true);
+          return;
+        }
+
+        const sw_conn_term = (uf.find(sw1) === uf.find(5 * 14 + 0)) ? sw1 : sw2;
+        const sw_free_term = (sw_conn_term === sw1) ? sw2 : sw1;
+
+        const sw_to_r = (uf.find(sw_free_term) === uf.find(r1) || uf.find(sw_free_term) === uf.find(r2));
+        if (!sw_to_r) {
+          targetHighlightRing1 = addRing(sw_free_term, true);
           targetHighlightRing2 = addRing(r1, true);
           return;
         }
 
-        const r_conn_term = (uf.find(r1) === uf.find(9 * 14 + 0)) ? r1 : r2;
+        const r_conn_term = (uf.find(r1) === uf.find(sw_free_term)) ? r1 : r2;
         const r_free_term = (r_conn_term === r1) ? r2 : r1;
 
         const r_to_c = (uf.find(r_free_term) === uf.find(c1) || uf.find(r_free_term) === uf.find(c2));
@@ -6569,10 +7138,10 @@ function updateTargetHighlights() {
         const c_conn_term = (uf.find(c1) === uf.find(r_free_term)) ? c1 : c2;
         const c_free_term = (c_conn_term === c1) ? c2 : c1;
 
-        const c_to_gnd = (uf.find(c_free_term) === uf.find(19 * 14 + 1));
+        const c_to_gnd = (uf.find(c_free_term) === uf.find(24 * 14 + 1));
         if (!c_to_gnd) {
           targetHighlightRing1 = addRing(c_free_term, true);
-          targetHighlightRing2 = addRing(19 * 14 + 1, true);
+          targetHighlightRing2 = addRing(24 * 14 + 1, true);
           return;
         }
       }
@@ -6969,38 +7538,43 @@ function getAIMentorMessage() {
   }
   
   if (state.activeExperiment === 'rc') {
+    const switchComp = findComp('toggle_switch') || findComp('button');
     if (!source) {
       return "<b>Step 1: Place DC Source</b><br>Select <b>DC Power Source</b> <i class='fa-solid fa-plug'></i> and click glowing green Top Rails slots (Col 2, Row +/-).";
     }
+    if (!switchComp) {
+      return "<b>Step 2: Place Switch</b><br>Select <b>ON/OFF Switch</b> and place horizontally between Col 6, Row D and Col 10, Row D.";
+    }
     if (!resistor) {
-      return "<b>Step 2: Place Resistor</b><br>Select <b>Ceramic Resistor</b> <i class='fa-solid fa-wave-square'></i> and place horizontally between Col 10, Row C and Col 15, Row C.";
+      return "<b>Step 3: Place Resistor</b><br>Select <b>Ceramic Resistor</b> <i class='fa-solid fa-wave-square'></i> and place horizontally between Col 10, Row E and Col 15, Row E.";
     }
     if (!capacitor) {
-      return "<b>Step 3: Place Capacitor</b><br>Select <b>Electrolytic Capacitor</b> <i class='fa-solid fa-grip-lines-vertical'></i> and place horizontally between Col 15, Row D and Col 20, Row D.";
+      return "<b>Step 4: Place Capacitor</b><br>Select <b>Electrolytic Capacitor</b> <i class='fa-solid fa-grip-lines-vertical'></i> and place horizontally between Col 15, Row F and Col 20, Row F.";
     }
     
     const uf = runUnionFind();
+    const sw1 = switchComp.snap1, sw2 = switchComp.snap2;
     const r1 = resistor.snap1, r2 = resistor.snap2;
     const c1 = capacitor.snap1, c2 = capacitor.snap2;
     
-    const s_to_r = (uf.find(9 * 14 + 0) === uf.find(r1));
-    if (!s_to_r) {
-      return `<b>Step 4: Wire (+) Rail to Resistor</b><br>Wire **Top (+) Rail (Col 10)** to **Resistor start** (${getSocketLabelShort(r1)}).`;
+    const s_to_sw = (uf.find(5 * 14 + 0) === uf.find(sw1));
+    if (!s_to_sw) {
+      return `<b>Step 5: Wire (+) Rail to Switch</b><br>Wire **Top (+) Rail (Col 6)** to **Switch start** (${getSocketLabelShort(sw1)}).`;
     }
     const r_to_c = (uf.find(r2) === uf.find(c1));
     if (!r_to_c) {
-      return `<b>Step 4: Wire Resistor to Capacitor</b><br>Wire **Resistor end** (${getSocketLabelShort(r2)}) to **Capacitor start** (${getSocketLabelShort(c1)}).`;
+      return `<b>Step 5: Wire Resistor to Capacitor</b><br>Wire **Resistor end** (${getSocketLabelShort(r2)}) to **Capacitor start** (${getSocketLabelShort(c1)}) (across the ravine).`;
     }
-    const c_to_gnd = (uf.find(c2) === uf.find(19 * 14 + 1));
+    const c_to_gnd = (uf.find(c2) === uf.find(24 * 14 + 1));
     if (!c_to_gnd) {
-      return `<b>Step 4: Wire Capacitor to (-) Rail</b><br>Wire **Capacitor end** (${getSocketLabelShort(c2)}) to **Top (-) Rail (Col 20)**.`;
+      return `<b>Step 5: Wire Ammeter to (-) Rail</b><br>Wire **Ammeter end** (Col 25, Row I) to **Top (-) Rail (Col 25)**.`;
     }
     
     if (!state.isRunning) {
-      return "<b>Step 5: Initialize Circuit</b><br>Wiring complete! Click <b>INITIALIZE</b> in the top bar to start charging.";
+      return "<b>Step 6: Initialize Circuit</b><br>Wiring complete! Click <b>INITIALIZE</b> in the top bar to start the simulation.";
     }
     
-    return "<b>Step 6: Observe Charge</b><br>Watch the curve on the oscilloscope. Adjust R or C to change time constant τ = RC.";
+    return "<b>Step 7: Observe Charging & Discharging</b><br>Toggle the 3D switch component on the breadboard ON and OFF to charge/discharge the capacitor, watching the live waveforms scroll on the oscilloscope.";
   }
   
   if (state.activeExperiment === 'arduino_led') {
@@ -7554,6 +8128,161 @@ function getAIMentorMessage() {
     return "<b>Step 2: Electron Transitions</b><br>Set initial and final orbits. Trigger excitation/emission and observe the spectral lines.";
   }
   
+  if (state.activeExperiment === 'kvl') {
+    const resistors = comps.filter(c => c.type === 'resistor');
+    const r1 = resistors[0];
+    const r2 = resistors[1];
+
+    if (!source) return "<b>Step 1: Place DC Source</b><br>Select <b>DC Power Source</b> <i class='fa-solid fa-plug'></i> and click glowing green Top Rails slots (Col 2, Row +/-).";
+    if (!r1) return "<b>Step 2: Place Resistor R1</b><br>Select <b>Ceramic Resistor</b> and place horizontally between Col 8, Row D and Col 12, Row D.";
+    if (!r2) return "<b>Step 3: Place Resistor R2</b><br>Select <b>Ceramic Resistor</b> and place horizontally between Col 14, Row D and Col 18, Row D.";
+    if (!ammeter) return "<b>Step 4: Place Ammeter</b><br>Select <b>Ammeter (Series)</b> and place horizontally between Col 12, Row H and Col 14, Row H.";
+    if (!voltmeter) return "<b>Step 5: Place Voltmeter</b><br>Select <b>Voltmeter (Parallel)</b> and place horizontally between Col 8, Row B and Col 12, Row B.";
+
+    const uf = runUnionFind();
+    const r1_1 = r1.snap1, r1_2 = r1.snap2;
+    const r2_1 = r2.snap1, r2_2 = r2.snap2;
+    const am1 = ammeter.snap1, am2 = ammeter.snap2;
+    const volt1 = voltmeter.snap1, volt2 = voltmeter.snap2;
+
+    const s_to_r1 = (uf.find(7 * 14 + 0) === uf.find(r1_1) || uf.find(7 * 14 + 0) === uf.find(r1_2));
+    if (!s_to_r1) return `<b>Step 6: Wire (+) Rail to Resistor 1</b><br>Wire **Top (+) Rail (Col 8)** to **Resistor 1 start** (${getSocketLabelShort(r1_1)}).`;
+
+    const r1_free = (uf.find(7 * 14 + 0) === uf.find(r1_1)) ? r1_2 : r1_1;
+    const r1_to_am = (uf.find(r1_free) === uf.find(am1) || uf.find(r1_free) === uf.find(am2));
+    if (!r1_to_am) return `<b>Step 6: Wire Resistor 1 to Ammeter</b><br>Wire **Resistor 1 end** (${getSocketLabelShort(r1_free)}) to **Ammeter start** (${getSocketLabelShort(am1)}).`;
+
+    const am_free = (uf.find(r1_free) === uf.find(am1)) ? am2 : am1;
+    const am_to_r2 = (uf.find(am_free) === uf.find(r2_1) || uf.find(am_free) === uf.find(r2_2));
+    if (!am_to_r2) return `<b>Step 6: Wire Ammeter to Resistor 2</b><br>Wire **Ammeter end** (${getSocketLabelShort(am_free)}) to **Resistor 2 start** (${getSocketLabelShort(r2_1)}).`;
+
+    const r2_free = (uf.find(am_free) === uf.find(r2_1)) ? r2_2 : r2_1;
+    const r2_to_gnd = (uf.find(r2_free) === uf.find(17 * 14 + 1));
+    if (!r2_to_gnd) return `<b>Step 6: Wire Resistor 2 to (-) Rail</b><br>Wire **Resistor 2 end** (${getSocketLabelShort(r2_free)}) to **Top (-) Rail (Col 18)**.`;
+
+    const volt1_node = uf.find(volt1);
+    const volt2_node = uf.find(volt2);
+    const r1_1_node = uf.find(r1_1), r1_2_node = uf.find(r1_2);
+    const r2_1_node = uf.find(r2_1), r2_2_node = uf.find(r2_2);
+    const posRail = uf.find(0);
+    const negRail = uf.find(1);
+
+    const isParallelR1 = (volt1_node === r1_1_node && volt2_node === r1_2_node) || (volt1_node === r1_2_node && volt2_node === r1_1_node);
+    const isParallelR2 = (volt1_node === r2_1_node && volt2_node === r2_2_node) || (volt1_node === r2_2_node && volt2_node === r2_1_node);
+    const isParallelSource = (volt1_node === posRail && volt2_node === negRail) || (volt1_node === negRail && volt2_node === posRail);
+
+    if (!isParallelR1 && !isParallelR2 && !isParallelSource) {
+      if (volt1_node === r2_1_node || volt1_node === r2_2_node || volt2_node === r2_1_node || volt2_node === r2_2_node) {
+        return `<b>Step 6: Complete Voltmeter across Resistor 2</b><br>Wire the remaining Voltmeter terminal to the other end of **Resistor 2**.`;
+      }
+      if (volt1_node === posRail || volt1_node === negRail || volt2_node === posRail || volt2_node === negRail) {
+        return `<b>Step 6: Complete Voltmeter across DC Source</b><br>Wire the remaining Voltmeter terminal to the opposite power rail.`;
+      }
+      return `<b>Step 6: Wire Voltmeter in Parallel</b><br>Wire **Voltmeter** terminals across **Resistor 1** (${getSocketLabelShort(r1_1)} and ${getSocketLabelShort(r1_2)}) or Resistor 2.`;
+    }
+
+    if (!state.isRunning) return "<b>Step 7: Initialize Circuit</b><br>Wiring complete! Click <b>INITIALIZE</b> in the top bar to power the loop.";
+    
+    return "<b>Complete!</b><br>Kirchhoff's Voltage Law loop verified! Observe that Vs = V1 + V2.";
+  }
+
+  if (state.activeExperiment === 'kcl') {
+    const resistors = comps.filter(c => c.type === 'resistor');
+    const r1 = resistors[0];
+    const r2 = resistors[1];
+
+    if (!source) return "<b>Step 1: Place DC Source</b><br>Select <b>DC Power Source</b> <i class='fa-solid fa-plug'></i> and click glowing green Top Rails slots (Col 2, Row +/-).";
+    if (!r1) return "<b>Step 2: Place Resistor R1</b><br>Select <b>Ceramic Resistor</b> and place horizontally between Col 9, Row C and Col 13, Row C.";
+    if (!r2) return "<b>Step 3: Place Resistor R2</b><br>Select <b>Ceramic Resistor</b> and place horizontally between Col 9, Row F and Col 13, Row F.";
+    if (!ammeter) return "<b>Step 4: Place Ammeter</b><br>Select <b>Ammeter (Series)</b> and place horizontally between Col 4, Row H and Col 7, Row H.";
+
+    const uf = runUnionFind();
+    const r1_1 = r1.snap1, r1_2 = r1.snap2;
+    const r2_1 = r2.snap1, r2_2 = r2.snap2;
+    const am1 = ammeter.snap1, am2 = ammeter.snap2;
+
+    const posRail = uf.find(6 * 14 + 0);
+    const negRail = uf.find(6 * 14 + 1);
+    const r1_1_node = uf.find(r1_1);
+    const r1_2_node = uf.find(r1_2);
+    const r2_1_node = uf.find(r2_1);
+    const r2_2_node = uf.find(r2_2);
+    const am1_node = uf.find(am1);
+    const am2_node = uf.find(am2);
+
+    const isLowSide = (am1_node === negRail || am2_node === negRail);
+
+    if (isLowSide) {
+      const pos_to_r1 = (r1_1_node === posRail || r1_2_node === posRail);
+      if (!pos_to_r1) {
+        return `<b>Step 5: Wire (+) Rail to Resistor 1</b><br>Wire **Top (+) Rail (Col 7)** to **Resistor 1 start** (${getSocketLabelShort(r1_1)}).`;
+      }
+      const r1_start = (r1_1_node === posRail) ? r1_1 : r1_2;
+      const r1_end = (r1_start === r1_1) ? r1_2 : r1_1;
+
+      const branch_in = (uf.find(r1_start) === r2_1_node || uf.find(r1_start) === r2_2_node);
+      if (!branch_in) {
+        return `<b>Step 5: Connect Resistor 1 and Resistor 2 input</b><br>Wire **Resistor 1 start** (${getSocketLabelShort(r1_start)}) to **Resistor 2 start** (${getSocketLabelShort(r2_1)}).`;
+      }
+      const r2_end = (uf.find(r1_start) === r2_1_node) ? r2_2 : r2_1;
+
+      const branch_out = (uf.find(r1_end) === uf.find(r2_end));
+      if (!branch_out) {
+        return `<b>Step 5: Connect Resistor 1 and Resistor 2 output</b><br>Wire **Resistor 1 end** (${getSocketLabelShort(r1_end)}) to **Resistor 2 end** (${getSocketLabelShort(r2_end)}).`;
+      }
+
+      const am_free = (am1_node === negRail) ? am2 : am1;
+      const r1_end_node = uf.find(r1_end);
+      const parallel_to_am = (r1_end_node === uf.find(am_free));
+      if (!parallel_to_am) {
+        return `<b>Step 5: Connect Resistor output to Ammeter</b><br>Wire **Resistor end** (${getSocketLabelShort(r1_end)}) to **Ammeter** (${getSocketLabelShort(am_free)}).`;
+      }
+    } else {
+      let s_to_r1 = false;
+      let r1_start = null;
+
+      if ((am1_node === posRail && am2_node === r1_1_node) || (am2_node === posRail && am1_node === r1_1_node)) {
+        s_to_r1 = true;
+        r1_start = r1_1;
+      } else if ((am1_node === posRail && am2_node === r1_2_node) || (am2_node === posRail && am1_node === r1_2_node)) {
+        s_to_r1 = true;
+        r1_start = r1_2;
+      }
+
+      if (!s_to_r1) {
+        if (am1_node !== posRail && am2_node !== posRail) {
+          return `<b>Step 5: Wire (+) Rail to Ammeter</b><br>Wire **Top (+) Rail (Col 7)** to **Ammeter start** (${getSocketLabelShort(am1)}).`;
+        }
+        const am_free = (am1_node === posRail) ? am2 : am1;
+        return `<b>Step 5: Wire Ammeter to Resistor 1</b><br>Wire **Ammeter end** (${getSocketLabelShort(am_free)}) to **Resistor 1 start** (${getSocketLabelShort(r1_1)}).`;
+      }
+
+      if (!r1_start) {
+        r1_start = (uf.find(6 * 14 + 0) === r1_1_node) ? r1_1 : r1_2;
+      }
+      const r1_end = (r1_start === r1_1) ? r1_2 : r1_1;
+
+      const branch_in = (uf.find(r1_start) === r2_1_node || uf.find(r1_start) === r2_2_node);
+      if (!branch_in) {
+        return `<b>Step 5: Connect Resistor 1 and Resistor 2 input</b><br>Wire **Resistor 1 start** (${getSocketLabelShort(r1_start)}) to **Resistor 2 start** (${getSocketLabelShort(r2_1)}).`;
+      }
+      const r2_end = (uf.find(r1_start) === r2_1_node) ? r2_2 : r2_1;
+
+      const branch_out = (uf.find(r1_end) === uf.find(r2_end));
+      if (!branch_out) {
+        return `<b>Step 5: Connect Resistor 1 and Resistor 2 output</b><br>Wire **Resistor 1 end** (${getSocketLabelShort(r1_end)}) to **Resistor 2 end** (${getSocketLabelShort(r2_end)}).`;
+      }
+
+      const r2_end_node = uf.find(r2_end);
+      const to_gnd = (r2_end_node === negRail);
+      if (!to_gnd) {
+        return `<b>Step 5: Wire Resistor output to (-) Rail</b><br>Wire **Resistor 2 end** (${getSocketLabelShort(r2_end)}) to **Top (-) Rail (Col 7)**.`;
+      }
+    }
+
+    return "System online. Select an experiment to begin.";
+  }
+
   return "System online. Select an experiment to begin.";
 }
 
@@ -9620,7 +10349,7 @@ async function triggerSingleCalculation() {
   if (!state.isRunning) return;
   try {
     let data;
-    if (state.activeExperiment !== 'arduino_led') {
+    if (!['arduino_led', 'diode_iv', 'planck_led', 'rc'].includes(state.activeExperiment)) {
       try {
         const response = await fetch('/api/calculate', {
           method: 'POST',
@@ -9704,9 +10433,23 @@ function getVoltmeterReading() {
   const posRail = find(0);
   const negRail = find(1);
   
+  let posNode = posRail;
+  let negNode = negRail;
+  
+  // Propagate potential across ammeter (treated as zero-resistance wire)
+  const ammeter = state.placedComponents.find(c => c.type === 'ammeter');
+  if (ammeter) {
+    const am1 = find(ammeter.snap1);
+    const am2 = find(ammeter.snap2);
+    if (am1 === posRail) { posNode = am2; }
+    else if (am2 === posRail) { posNode = am1; }
+    if (am1 === negRail) { negNode = am2; }
+    else if (am2 === negRail) { negNode = am1; }
+  }
+  
   const potentials = {};
-  potentials[posRail] = state.meters.volts;
-  potentials[negRail] = 0.0;
+  potentials[posNode] = state.meters.volts;
+  potentials[negNode] = 0.0;
   
   if (state.activeExperiment === 'ohms') {
     const resistor = state.placedComponents.find(c => c.type === 'resistor');
@@ -9717,7 +10460,7 @@ function getVoltmeterReading() {
         return state.meters.volts;
       }
     }
-  } else if (state.activeExperiment === 'kvl' || state.activeExperiment === 'series_parallel') {
+  } else if (state.activeExperiment === 'kvl' || (state.activeExperiment === 'series_parallel' && !checkIsParallelCircuit())) {
     const resistors = state.placedComponents.filter(c => c.type === 'resistor');
     if (resistors.length >= 2) {
       const r1 = resistors[0];
@@ -9732,22 +10475,22 @@ function getVoltmeterReading() {
       const R2_val = state.activeExperiment === 'kvl' ? state.params.L : (state.params.L || 100);
       
       let juncNode = null;
-      let r1ConnectedToPos = (r1_1 === posRail || r1_2 === posRail);
-      let r2ConnectedToNeg = (r2_1 === negRail || r2_2 === negRail);
+      let r1ConnectedToPos = (r1_1 === posNode || r1_2 === posNode);
+      let r2ConnectedToNeg = (r2_1 === negNode || r2_2 === negNode);
       
       if (r1ConnectedToPos && r2ConnectedToNeg) {
-        const r1_other = (r1_1 === posRail) ? r1_2 : r1_1;
-        const r2_other = (r2_1 === negRail) ? r2_2 : r2_1;
+        const r1_other = (r1_1 === posNode) ? r1_2 : r1_1;
+        const r2_other = (r2_1 === negNode) ? r2_2 : r2_1;
         if (find(r1_other) === find(r2_other)) {
           juncNode = find(r1_other);
           potentials[juncNode] = state.meters.volts * R2_val / (R1_val + R2_val);
         }
       } else {
-        let r2ConnectedToPos = (r2_1 === posRail || r2_2 === posRail);
-        let r1ConnectedToNeg = (r1_1 === negRail || r1_2 === negRail);
+        let r2ConnectedToPos = (r2_1 === posNode || r2_2 === posNode);
+        let r1ConnectedToNeg = (r1_1 === negNode || r1_2 === negNode);
         if (r2ConnectedToPos && r1ConnectedToNeg) {
-          const r2_other = (r2_1 === posRail) ? r2_2 : r2_1;
-          const r1_other = (r1_1 === negRail) ? r1_2 : r1_1;
+          const r2_other = (r2_1 === posNode) ? r2_2 : r2_1;
+          const r1_other = (r1_1 === negNode) ? r1_2 : r1_1;
           if (find(r2_other) === find(r1_other)) {
             juncNode = find(r2_other);
             potentials[juncNode] = state.meters.volts * R1_val / (R1_val + R2_val);
@@ -9755,10 +10498,96 @@ function getVoltmeterReading() {
         }
       }
     }
+  } else if (state.activeExperiment === 'rc') {
+    const resistor = state.placedComponents.find(c => c.type === 'resistor');
+    const capacitor = state.placedComponents.find(c => c.type === 'capacitor');
+    if (resistor && capacitor) {
+      const r1_1 = find(resistor.snap1);
+      const r1_2 = find(resistor.snap2);
+      
+      let r_pos = (r1_1 === posNode || r1_2 === posNode) ? (r1_1 === posNode ? r1_1 : r1_2) : r1_1;
+      let r_other = (r_pos === r1_1) ? r1_2 : r1_1;
+      
+      let juncNode = r_other;
+      
+      potentials[juncNode] = state.capVoltage !== undefined ? state.capVoltage : 0.0;
+    }
+  } else if (state.activeExperiment === 'lcr' || state.activeExperiment === 'rc_rl_rlc') {
+    const resistor = state.placedComponents.find(c => c.type === 'resistor');
+    const inductor = state.placedComponents.find(c => c.type === 'inductor');
+    const capacitor = state.placedComponents.find(c => c.type === 'capacitor');
+    
+    if (resistor && inductor && capacitor) {
+      const r1_1 = find(resistor.snap1);
+      const r1_2 = find(resistor.snap2);
+      const l1_1 = find(inductor.snap1);
+      const l1_2 = find(inductor.snap2);
+      const c1_1 = find(capacitor.snap1);
+      const c1_2 = find(capacitor.snap2);
+      
+      let r_pos = (r1_1 === posNode || r1_2 === posNode) ? (r1_1 === posNode ? r1_1 : r1_2) : r1_1;
+      let r_other = (r_pos === r1_1) ? r1_2 : r1_1;
+      
+      let l_start = (l1_1 === r_other || l1_2 === r_other) ? (l1_1 === r_other ? l1_1 : l1_2) : l1_1;
+      let l_other = (l_start === l1_1) ? l1_2 : l1_1;
+      
+      let c_start = (c1_1 === l_other || c1_2 === l_other) ? (c1_1 === l_other ? c1_1 : c1_2) : c1_1;
+      let c_other = (c_start === c1_1) ? c1_2 : c1_1;
+      
+      const nodeRL = r_other;
+      const nodeLC = l_other;
+      
+      const R_val = state.params.R || 100;
+      const L_henrys = (state.params.L || 50) * 1e-3;
+      const C_farads = (state.params.C || 100) * 1e-6;
+      const omega = 2 * Math.PI * (state.params.f || 50);
+      const XL = omega * L_henrys;
+      const XC = 1 / (omega * C_farads || 1);
+      const Z = Math.sqrt(R_val * R_val + (XL - XC) * (XL - XC));
+      const Vs = state.meters.volts;
+      
+      const I_real = Vs * R_val / (Z * Z || 1);
+      const I_imag = -Vs * (XL - XC) / (Z * Z || 1);
+      
+      const A1 = Vs - I_real * R_val;
+      const B1 = -I_imag * R_val;
+      
+      const A2 = A1 + I_imag * XL;
+      const B2 = B1 - I_real * XL;
+      
+      const complexPotentials = {};
+      complexPotentials[posNode] = { real: Vs, imag: 0.0 };
+      complexPotentials[negNode] = { real: 0.0, imag: 0.0 };
+      complexPotentials[nodeRL] = { real: A1, imag: B1 };
+      complexPotentials[nodeLC] = { real: A2, imag: B2 };
+      
+      const getComplexVal = (node) => {
+        if (complexPotentials[node] !== undefined) return complexPotentials[node];
+        if (node === posNode) return { real: Vs, imag: 0.0 };
+        return { real: 0.0, imag: 0.0 };
+      };
+      
+      const cp1 = getComplexVal(v1);
+      const cp2 = getComplexVal(v2);
+      
+      return Math.sqrt(Math.pow(cp1.real - cp2.real, 2) + Math.pow(cp1.imag - cp2.imag, 2));
+    }
+  } else if (['diode_iv', 'planck_led'].includes(state.activeExperiment)) {
+    // For diode experiments, the voltmeter is across the diode.
+    // state.meters.volts already holds Vd (the diode forward voltage from the solver).
+    // The diode anode is at Vd potential, cathode is at 0V (GND side).
+    const diode = state.placedComponents.find(c => c.type === 'diode' || c.type === 'led');
+    if (diode) {
+      const d1 = find(diode.snap1);
+      const d2 = find(diode.snap2);
+      // Diode anode node gets Vd potential, cathode gets 0V
+      potentials[d1] = state.meters.volts; // Vd at anode
+      potentials[d2] = 0.0;               // 0V at cathode (GND side through ammeter)
+    }
   }
   
-  const V1 = potentials[v1] !== undefined ? potentials[v1] : (v1 === posRail ? state.meters.volts : 0.0);
-  const V2 = potentials[v2] !== undefined ? potentials[v2] : (v2 === posRail ? state.meters.volts : 0.0);
+  const V1 = potentials[v1] !== undefined ? potentials[v1] : (v1 === posNode ? state.meters.volts : 0.0);
+  const V2 = potentials[v2] !== undefined ? potentials[v2] : (v2 === posNode ? state.meters.volts : 0.0);
   
   return Math.abs(V1 - V2);
 }
