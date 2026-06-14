@@ -6673,7 +6673,6 @@ function updateTargetHighlights() {
             }
           }
         }
-        }
       }
     }
   }
