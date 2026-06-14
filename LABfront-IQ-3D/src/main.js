@@ -107,6 +107,7 @@ window.addEventListener('error', (event) => {
 // --- STATE MANAGEMENT ---
 let state = {
   activeExperiment: 'ohms', // 'ohms', 'lcr', 'rc', 'arduino_led'
+  theme: 'dark',
   selectedTool: null,        // 'resistor', 'capacitor', 'inductor', 'source', 'ammeter', 'voltmeter', 'wire', 'eraser', 'led', 'button', 'toggle_switch'
   placementStartHole: null,  // snap index (0-279)
   wiringStart: null,         // snap index (0-279)
@@ -3395,8 +3396,9 @@ function drawGraph() {
   
   if (w <= 0 || h <= 0) return;
   
-  // 1. Draw beautiful slate blue-black background
-  ctx.fillStyle = '#060a16';
+  // 1. Draw beautiful background based on theme
+  const isLight = state.theme === 'light';
+  ctx.fillStyle = isLight ? '#ffffff' : '#060a16';
   ctx.fillRect(0, 0, w, h);
   
   // Layout paddings
@@ -3409,7 +3411,7 @@ function drawGraph() {
   const graphHeight = h - paddingTop - paddingBottom;
   
   // 2. Draw border
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+  ctx.strokeStyle = isLight ? 'rgba(15, 23, 42, 0.12)' : 'rgba(255, 255, 255, 0.08)';
   ctx.lineWidth = 1;
   ctx.strokeRect(paddingLeft, paddingTop, graphWidth, graphHeight);
   
@@ -3419,7 +3421,7 @@ function drawGraph() {
   const R_theoretical = state.params.R || 100;
   
   // 3. Draw grid, ticks, and numeric labels
-  ctx.fillStyle = '#64748b';
+  ctx.fillStyle = isLight ? '#475569' : '#64748b';
   ctx.font = '8px monospace';
   
   // Vertical grids (X axis ticks)
@@ -3430,14 +3432,14 @@ function drawGraph() {
     const xPix = paddingLeft + (i / 5) * graphWidth;
     
     // Grid line
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+    ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.04)';
     ctx.beginPath();
     ctx.moveTo(xPix, paddingTop);
     ctx.lineTo(xPix, h - paddingBottom);
     ctx.stroke();
     
     // Tick mark
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.2)';
     ctx.beginPath();
     ctx.moveTo(xPix, h - paddingBottom);
     ctx.lineTo(xPix, h - paddingBottom + 4);
@@ -3455,14 +3457,14 @@ function drawGraph() {
     const yPix = h - paddingBottom - (i / 5) * graphHeight;
     
     // Grid line
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+    ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.04)';
     ctx.beginPath();
     ctx.moveTo(paddingLeft, yPix);
     ctx.lineTo(w - paddingRight, yPix);
     ctx.stroke();
     
     // Tick mark
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+    ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.2)';
     ctx.beginPath();
     ctx.moveTo(paddingLeft - 4, yPix);
     ctx.lineTo(paddingLeft, yPix);
@@ -3473,7 +3475,7 @@ function drawGraph() {
   }
   
   // 4. Draw rotated Axis Title Labels
-  ctx.fillStyle = '#94a3b8';
+  ctx.fillStyle = isLight ? '#0f172a' : '#94a3b8';
   ctx.font = '8px monospace';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'bottom';
@@ -5857,8 +5859,48 @@ function isTargetToolMatch(tool) {
 function updateGuideLabels() {
   const label1 = document.getElementById('guide-label-1');
   const label2 = document.getElementById('guide-label-2');
-  if (label1) label1.classList.add('hidden');
-  if (label2) label2.classList.add('hidden');
+  if (!label1 || !label2) return;
+
+  const canvasArea = document.getElementById('canvas-area');
+  if (!canvasArea || !camera || !scene) {
+    label1.classList.add('hidden');
+    label2.classList.add('hidden');
+    return;
+  }
+
+  const width = canvasArea.clientWidth;
+  const height = canvasArea.clientHeight;
+
+  const updateLabel = (label, ring, text) => {
+    if (!ring || !ring.parent) {
+      label.classList.add('hidden');
+      return;
+    }
+
+    const tempV = new THREE.Vector3();
+    ring.getWorldPosition(tempV);
+    
+    // Project 3D coordinate to NDC space
+    tempV.project(camera);
+
+    // If point is behind the camera plane, hide it
+    if (tempV.z > 1) {
+      label.classList.add('hidden');
+      return;
+    }
+
+    // Convert NDC coordinates (-1 to +1) to parent canvas pixels
+    const x = (tempV.x * 0.5 + 0.5) * width;
+    const y = (-(tempV.y * 0.5) + 0.5) * height;
+
+    label.innerText = text;
+    label.style.left = `${x}px`;
+    label.style.top = `${y}px`;
+    label.classList.remove('hidden');
+  };
+
+  updateLabel(label1, targetHighlightRing1, 'A');
+  updateLabel(label2, targetHighlightRing2, 'B');
 }
 
 function updateTargetHighlights() {
@@ -8307,6 +8349,36 @@ function switchBreadboard(type) {
   rebuildBreadboard3D(type);
 }
 
+function setTheme(theme) {
+  state.theme = theme;
+  const themeIcon = document.getElementById('theme-toggle-icon');
+  if (theme === 'light') {
+    document.documentElement.classList.add('light-theme');
+    document.body.classList.add('light-theme');
+    if (themeIcon) {
+      themeIcon.className = 'fa-solid fa-moon';
+    }
+    if (scene) {
+      scene.background.setHex(0xf1f5f9);
+      if (scene.fog) {
+        scene.fog.color.setHex(0xf1f5f9);
+      }
+    }
+  } else {
+    document.documentElement.classList.remove('light-theme');
+    document.body.classList.remove('light-theme');
+    if (themeIcon) {
+      themeIcon.className = 'fa-solid fa-sun';
+    }
+    if (scene) {
+      scene.background.setHex(0x070a13);
+      if (scene.fog) {
+        scene.fog.color.setHex(0x070a13);
+      }
+    }
+  }
+}
+
 function initThreeJS() {
   try {
     const parent = document.getElementById('canvas-3d-parent');
@@ -8314,8 +8386,9 @@ function initThreeJS() {
     const h = parent.clientHeight || 450;
     
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x070a13);
-    scene.fog = new THREE.FogExp2(0x070a13, 0.04);
+    const bgCol = state.theme === 'light' ? 0xf1f5f9 : 0x070a13;
+    scene.background = new THREE.Color(bgCol);
+    scene.fog = new THREE.FogExp2(bgCol, 0.04);
     
     camera = new THREE.PerspectiveCamera(40, w / h, 0.1, 100);
     camera.position.set(0, 7.5, 9);
@@ -12330,7 +12403,8 @@ function populateLibraryGrid(category) {
     if (!exp) return;
     
     const card = document.createElement('div');
-    card.style.cssText = `background:rgba(255,255,255,0.015);border:1px solid rgba(255,255,255,0.04);border-radius:14px;padding:16px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transform-style:preserve-3d;transition:transform 0.5s ease, box-shadow 0.5s ease, border-color 0.5s ease, background 0.5s ease;`;
+    const isLightInitial = state.theme === 'light';
+    card.style.cssText = `background:${isLightInitial ? 'var(--panel)' : 'rgba(255,255,255,0.015)'};border:1px solid ${isLightInitial ? 'var(--border)' : 'rgba(255,255,255,0.04)'};border-radius:14px;padding:16px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer;transform-style:preserve-3d;transition:transform 0.5s ease, box-shadow 0.5s ease, border-color 0.5s ease, background 0.5s ease;`;
     
     card.addEventListener('mousemove', (e) => {
       const rect = card.getBoundingClientRect();
@@ -12346,18 +12420,24 @@ function populateLibraryGrid(category) {
       const glowX = (x / width) * 100;
       const glowY = (y / height) * 100;
       
+      const isLight = state.theme === 'light';
+      const glowColor = isLight ? 'rgba(0, 0, 0, 0.03)' : 'rgba(255, 255, 255, 0.08)';
+      
       card.style.transition = "none";
       card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
-      card.style.background = `radial-gradient(circle at ${glowX}% ${glowY}%, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0) 50%), radial-gradient(circle at ${glowX}% ${glowY}%, ${catData.color.replace('0.08', '0.15')} 0%, transparent 60%), ${catData.color}`;
+      card.style.background = `radial-gradient(circle at ${glowX}% ${glowY}%, ${glowColor} 0%, transparent 50%), radial-gradient(circle at ${glowX}% ${glowY}%, ${catData.color.replace('0.08', '0.15')} 0%, transparent 60%), ${isLight ? 'var(--panel)' : catData.color}`;
       card.style.borderColor = catData.borderColor;
-      card.style.boxShadow = `0 20px 45px -12px rgba(0, 0, 0, 0.7), 0 0 15px 1px ${catData.borderColor}`;
+      card.style.boxShadow = isLight 
+        ? `0 15px 30px -10px rgba(0, 0, 0, 0.1), 0 0 12px 1px ${catData.borderColor}`
+        : `0 20px 45px -12px rgba(0, 0, 0, 0.7), 0 0 15px 1px ${catData.borderColor}`;
     });
     
     card.addEventListener('mouseleave', () => {
+      const isLight = state.theme === 'light';
       card.style.transition = "transform 0.5s ease, box-shadow 0.5s ease, border-color 0.5s ease, background 0.5s ease";
       card.style.transform = "perspective(1000px) rotateX(0deg) rotateY(0deg)";
-      card.style.background = "rgba(255,255,255,0.015)";
-      card.style.borderColor = "rgba(255,255,255,0.04)";
+      card.style.background = isLight ? "var(--panel)" : "rgba(255,255,255,0.015)";
+      card.style.borderColor = isLight ? "var(--border)" : "rgba(255,255,255,0.04)";
       card.style.boxShadow = "none";
     });
     
@@ -12827,6 +12907,10 @@ function initAll() {
   // Read target experiment from URL parameters
   const urlParams = new URLSearchParams(window.location.search);
   const initialExp = urlParams.get('exp') || 'ohms';
+  const initialTheme = urlParams.get('theme') || 'dark';
+  
+  state.theme = initialTheme;
+  setTheme(initialTheme);
   
   drawOscilloscope();
   
@@ -12834,6 +12918,31 @@ function initAll() {
     initThreeJS();
     setupExperiment(initialExp, true);
   }, 100);
+
+  // Listen to message events for theme toggle
+  window.addEventListener('message', (event) => {
+    if (event.data && typeof event.data === 'object') {
+      if (event.data.type === 'theme-change') {
+        setTheme(event.data.theme);
+      }
+    }
+  });
+
+  // Set up local theme toggle button click listener
+  const themeToggleBtn = document.getElementById('btn-theme-toggle');
+  if (themeToggleBtn) {
+    themeToggleBtn.addEventListener('click', () => {
+      const targetTheme = state.theme === 'light' ? 'dark' : 'light';
+      setTheme(targetTheme);
+      try {
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ type: 'theme-change', theme: targetTheme }, '*');
+        }
+      } catch (e) {
+        console.warn("Failed to post theme-change message:", e);
+      }
+    });
+  }
 
   // Setup Experiments Library modal event handlers
   const libraryModal = document.getElementById('modal-library');

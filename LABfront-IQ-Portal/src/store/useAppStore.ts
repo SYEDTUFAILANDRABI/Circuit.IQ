@@ -22,7 +22,7 @@ export const useAppStore = create<LabState>((set) => ({
   setLabOpen: (open) => set({ isLabOpen: open }),
   physicsBotOpen: false,
   setPhysicsBotOpen: (open) => set({ physicsBotOpen: open }),
-  theme: 'light',
+  theme: 'dark',
   toggleTheme: () => set((state) => ({ theme: state.theme === 'light' ? 'dark' : 'light' })),
   highFidelityMode: true,
   setHighFidelityMode: (enabled) => set({ highFidelityMode: enabled }),

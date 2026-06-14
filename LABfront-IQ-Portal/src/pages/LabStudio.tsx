@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAppStore } from '../store/useAppStore';
 import { Zap, Cpu, Sliders, Lightbulb, Activity, Gauge } from 'lucide-react';
@@ -6,9 +6,11 @@ import { Zap, Cpu, Sliders, Lightbulb, Activity, Gauge } from 'lucide-react';
 export default function LabStudio() {
   const setLabOpen = useAppStore((state) => state.setLabOpen);
   const currentExperiment = useAppStore((state) => state.currentExperiment);
+  const theme = useAppStore((state) => state.theme);
   const [progress, setProgress] = useState(0);
   const [isLoaded, setIsLoaded] = useState(false);
   const [shouldLoadIframe, setShouldLoadIframe] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     // Delay iframe load by 600ms to guarantee homepage canvases unmount and free WebGL contexts first
@@ -30,6 +32,11 @@ export default function LabStudio() {
           setTimeout(() => {
             setIsLoaded(true);
           }, 800); // Allow time to see the 100% calibration state
+        } else if (event.data.type === 'theme-change') {
+          const newTheme = event.data.theme;
+          if (useAppStore.getState().theme !== newTheme) {
+            useAppStore.setState({ theme: newTheme });
+          }
         }
       }
     };
@@ -37,6 +44,13 @@ export default function LabStudio() {
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
   }, [setLabOpen]);
+
+  // Sync theme changes to the iframe
+  useEffect(() => {
+    if (iframeRef.current && iframeRef.current.contentWindow) {
+      iframeRef.current.contentWindow.postMessage({ type: 'theme-change', theme }, '*');
+    }
+  }, [theme, shouldLoadIframe]);
 
   // Determine subtext based on progress
   const getLoaderSubtext = () => {
@@ -52,7 +66,8 @@ export default function LabStudio() {
       {/* 3D Lab Iframe */}
       {shouldLoadIframe ? (
         <iframe 
-          src={currentExperiment ? `/lab.html?exp=${currentExperiment}` : "/lab.html"} 
+          ref={iframeRef}
+          src={currentExperiment ? `/lab.html?exp=${currentExperiment}&theme=${theme}` : `/lab.html?theme=${theme}`} 
           className="w-full h-full border-none outline-none bg-[#070a13]"
           title="Circuit.IQ Virtual Lab"
           sandbox="allow-scripts allow-same-origin allow-downloads allow-popups allow-forms"

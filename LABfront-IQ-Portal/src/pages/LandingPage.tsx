@@ -250,11 +250,12 @@ function CyberCircuitBackground() {
     window.addEventListener('mousemove', handleMouseMove);
 
     const animate = () => {
-      ctx.fillStyle = 'rgba(7, 11, 25, 0.25)';
+      const currentTheme = useAppStore.getState().theme;
+      ctx.fillStyle = currentTheme === 'light' ? 'rgba(248, 250, 252, 0.25)' : 'rgba(7, 11, 25, 0.25)';
       ctx.fillRect(0, 0, width, height);
 
       // Draw subtle warped circuit grid wires
-      ctx.strokeStyle = 'rgba(30, 41, 59, 0.12)';
+      ctx.strokeStyle = currentTheme === 'light' ? 'rgba(15, 23, 42, 0.04)' : 'rgba(30, 41, 59, 0.12)';
       ctx.lineWidth = 1;
       ctx.beginPath();
       for (let x = 0; x < width; x += 32) {
@@ -391,7 +392,7 @@ function CyberCircuitBackground() {
       sparks = activeSparks;
       ctx.restore();
 
-      ctx.fillStyle = 'rgba(148, 163, 184, 0.15)';
+      ctx.fillStyle = currentTheme === 'light' ? 'rgba(15, 23, 42, 0.12)' : 'rgba(148, 163, 184, 0.15)';
       nodes.forEach(node => {
         ctx.beginPath();
         ctx.arc(node.x, node.y, 1.5, 0, Math.PI * 2);
@@ -414,6 +415,7 @@ function CyberCircuitBackground() {
 }
 
 function ExperimentCard({ exp, categoryColor, onLaunch }: { exp: ExperimentItem; categoryColor: string; onLaunch: (id: string) => void }) {
+  const theme = useAppStore((state) => state.theme);
   const cardRef = useRef<HTMLDivElement>(null);
   const [coords, setCoords] = useState({ x: 0, y: 0 });
   const [isHovered, setIsHovered] = useState(false);
@@ -466,13 +468,19 @@ function ExperimentCard({ exp, categoryColor, onLaunch }: { exp: ExperimentItem;
       style={{
         transform: `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`,
         transformStyle: 'preserve-3d',
-        transition: isHovered ? 'none' : 'transform 0.5s ease, box-shadow 0.5s ease, border-color 0.5s ease',
+        transition: isHovered ? 'none' : 'transform 0.5s ease, box-shadow 0.5s ease, border-color 0.5s ease, background-color 0.3s ease',
         boxShadow: isHovered 
-          ? `0 30px 60px -15px rgba(0, 0, 0, 0.6), 0 0 25px 3px ${glowColor.replace('0.45', '0.25')}` 
-          : '0 10px 30px -15px rgba(0, 0, 0, 0.5)',
-        borderColor: isHovered ? glowColor : 'rgba(255, 255, 255, 0.05)',
+          ? (theme === 'light' 
+              ? `0 20px 40px -15px rgba(0, 0, 0, 0.12), 0 0 25px 3px ${glowColor.replace('0.45', '0.15')}` 
+              : `0 30px 60px -15px rgba(0, 0, 0, 0.6), 0 0 25px 3px ${glowColor.replace('0.45', '0.25')}`) 
+          : (theme === 'light' 
+              ? '0 8px 24px -12px rgba(0, 0, 0, 0.08)' 
+              : '0 10px 30px -15px rgba(0, 0, 0, 0.5)'),
+        borderColor: isHovered 
+          ? glowColor 
+          : (theme === 'light' ? 'rgba(15, 23, 42, 0.08)' : 'rgba(255, 255, 255, 0.05)'),
       }}
-      className="p-6 rounded-2xl border bg-slate-950/75 backdrop-blur-xl flex flex-col justify-between group text-left relative overflow-hidden h-full cursor-pointer"
+      className="p-6 rounded-2xl border bg-white/85 dark:bg-slate-950/75 backdrop-blur-xl flex flex-col justify-between group text-left relative overflow-hidden h-full cursor-pointer transition-colors duration-300"
     >
       <div className="absolute top-0 left-0 w-full h-[2px] overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
         <div 
@@ -525,17 +533,17 @@ function ExperimentCard({ exp, categoryColor, onLaunch }: { exp: ExperimentItem;
           </div>
         </div>
 
-        <h3 className="text-base font-bold text-slate-100 mt-1 group-hover:text-white transition-colors duration-200" style={{ transform: 'translateZ(20px)' }}>
+        <h3 className="text-base font-bold text-slate-800 dark:text-slate-100 mt-1 group-hover:text-slate-950 dark:group-hover:text-white transition-colors duration-200" style={{ transform: 'translateZ(20px)' }}>
           {exp.name}
         </h3>
         
-        <p className="text-xs text-slate-400 leading-normal font-light" style={{ transform: 'translateZ(15px)' }}>
+        <p className="text-xs text-slate-600 dark:text-slate-400 leading-normal font-light" style={{ transform: 'translateZ(15px)' }}>
           {exp.desc}
         </p>
         
         <div 
           style={{ transform: 'translateZ(25px)' }}
-          className="bg-black/45 border border-white/5 rounded-xl p-3.5 mt-4 flex flex-col gap-1 group-hover:border-white/10 transition-colors"
+          className="bg-slate-50 dark:bg-black/45 border border-slate-100 dark:border-white/5 rounded-xl p-3.5 mt-4 flex flex-col gap-1 group-hover:border-slate-200 dark:group-hover:border-white/10 transition-colors"
         >
           <span className="text-[8px] font-mono text-slate-500 uppercase font-bold">Core Equation:</span>
           <code 
@@ -556,7 +564,7 @@ function ExperimentCard({ exp, categoryColor, onLaunch }: { exp: ExperimentItem;
           style={{
             boxShadow: isHovered ? `0 8px 20px -6px ${glowColor}` : 'none'
           }}
-          className="w-full py-2.5 rounded-xl bg-white hover:bg-slate-200 text-slate-900 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md hover:scale-[1.02] active:scale-[0.98]"
+          className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:hover:bg-slate-200 dark:text-slate-900 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md hover:scale-[1.02] active:scale-[0.98] transition-colors"
         >
           <span>Launch Experiment</span>
           <Zap size={12} fill="currentColor" />
@@ -699,21 +707,21 @@ export default function LandingPage({ view = 'home' }: { view?: 'home' | 'experi
 
   if (view === 'experiments') {
     return (
-      <div className="relative min-h-screen pt-28 pb-16 bg-[#070b19] overflow-hidden">
+      <div className="relative min-h-screen pt-28 pb-16 bg-slate-50 dark:bg-[#070b19] transition-colors duration-300 overflow-hidden">
         {/* Animated Cyber Circuit Particle Network Background */}
         <CyberCircuitBackground />
 
         {/* Shifting Cybernetic Neon Orbs */}
-        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-[140px] animate-[pulse_6s_ease-in-out_infinite] pointer-events-none" />
-        <div className="absolute top-1/3 -right-40 w-[600px] h-[600px] bg-indigo-500/10 rounded-full blur-[140px] animate-[pulse_8s_ease-in-out_infinite_1.5s] pointer-events-none" />
-        <div className="absolute -bottom-40 left-1/4 w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-[140px] animate-[pulse_10s_ease-in-out_infinite_3s] pointer-events-none" />
+        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] bg-blue-500/5 dark:bg-blue-500/10 rounded-full blur-[140px] animate-[pulse_6s_ease-in-out_infinite] pointer-events-none" />
+        <div className="absolute top-1/3 -right-40 w-[600px] h-[600px] bg-indigo-500/5 dark:bg-indigo-500/10 rounded-full blur-[140px] animate-[pulse_8s_ease-in-out_infinite_1.5s] pointer-events-none" />
+        <div className="absolute -bottom-40 left-1/4 w-[500px] h-[500px] bg-emerald-500/5 dark:bg-emerald-500/10 rounded-full blur-[140px] animate-[pulse_10s_ease-in-out_infinite_3s] pointer-events-none" />
 
         {/* Experiments Explorer Section */}
         <section id="experiments-section" className="relative w-full overflow-hidden z-10">
             <div className="max-w-7xl mx-auto px-6">
                 <div className="text-center mb-12">
-                  <h2 className="text-4xl md:text-5xl font-display font-extrabold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-200 to-slate-400">Virtual Laboratory Experiments</h2>
-                  <p className="text-slate-400 max-w-2xl mx-auto text-sm md:text-base font-light">Select any specific experiment to open the Virtual 3D Lab and begin interactive analysis immediately.</p>
+                  <h2 className="text-4xl md:text-5xl font-display font-extrabold mb-3 text-slate-900 dark:text-transparent dark:bg-clip-text dark:bg-gradient-to-r dark:from-white dark:via-slate-200 dark:to-slate-400">Virtual Laboratory Experiments</h2>
+                  <p className="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto text-sm md:text-base font-light">Select any specific experiment to open the Virtual 3D Lab and begin interactive analysis immediately.</p>
                 </div>
 
                 {/* Category tabs */}
@@ -725,7 +733,7 @@ export default function LandingPage({ view = 'home' }: { view?: 'home' | 'experi
                       className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all border flex items-center gap-2 cursor-pointer shadow-lg ${
                         activeCategory === cat.id
                           ? "bg-blue-600 border-blue-500 text-white shadow-blue-500/20 scale-105"
-                          : "bg-black/40 border-white/5 text-slate-400 hover:bg-white/5 hover:text-white"
+                          : "bg-white dark:bg-black/40 border-slate-200 dark:border-white/5 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-slate-900 dark:hover:text-white"
                       }`}
                     >
                       <span>{cat.icon}</span>
