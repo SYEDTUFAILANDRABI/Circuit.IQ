@@ -184,6 +184,7 @@ const elements = {
   btnStop: document.getElementById('btn-stop'),
   btnReload: document.getElementById('btn-reload'),
   btnCloseLab: document.getElementById('btn-close-lab'),
+  btnSaveProgress: document.getElementById('btn-save-progress'),
   
   stepsContainer: document.getElementById('step-list'),
   protocolProgress: document.getElementById('progress-bar'),
@@ -2851,7 +2852,7 @@ function setupExperiment(expKey, loadFromDb = false) {
   updateDiagram(expKey);
 
   if (loadFromDb) {
-    loadCircuitFromBackend(expKey);
+    checkAndPromptRestore(expKey);
   }
 }
 
@@ -4906,6 +4907,12 @@ function initInteraction() {
     autoBuildExperiment();
     appendAIMessage("Circuit IQ · AI Mentor", "Auto-build complete! Circuit components and wires placed correctly.");
   });
+  
+  if (elements.btnSaveProgress) {
+    elements.btnSaveProgress.addEventListener('click', () => {
+      saveCircuitToBackend(true);
+    });
+  }
   
   if (elements.btnCloseLab) {
     elements.btnCloseLab.addEventListener('click', () => {
@@ -11666,6 +11673,34 @@ function broadcastCircuitState() {
   }
 }
 
+function showToastNotification(message, type = 'success') {
+  const wrap = document.getElementById('notif-wrap');
+  if (!wrap) return;
+  
+  const notif = document.createElement('div');
+  notif.className = `notif ${type}`;
+  
+  let icon = 'fa-circle-check';
+  if (type === 'error') icon = 'fa-circle-exclamation';
+  if (type === 'info') icon = 'fa-circle-info';
+  
+  notif.innerHTML = `<i class="fa-solid ${icon}"></i><span>${message}</span>`;
+  wrap.appendChild(notif);
+  
+  // Trigger animation
+  setTimeout(() => {
+    notif.classList.add('show');
+  }, 10);
+  
+  // Remove after 3 seconds
+  setTimeout(() => {
+    notif.classList.remove('show');
+    setTimeout(() => {
+      notif.remove();
+    }, 300);
+  }, 3000);
+}
+
 function debouncedSaveCircuit() {
   if (state.isDatabaseLoading) return;
   
@@ -11682,7 +11717,7 @@ function debouncedSaveCircuit() {
   broadcastCircuitState();
 }
 
-async function saveCircuitToBackend() {
+async function saveCircuitToBackend(isManual = false) {
   if (state.isDatabaseLoading) return;
   try {
     const payload = {
@@ -11699,7 +11734,8 @@ async function saveCircuitToBackend() {
         wires: state.wires.map(w => ({
           fromHole: w.fromHole,
           toHole: w.toHole
-        }))
+        })),
+        dataPoints: state.dataPoints
       },
       params: state.params
     };
@@ -11718,15 +11754,207 @@ async function saveCircuitToBackend() {
         elements.saveText.innerText = "DB: SAVED";
         elements.saveDot.style.background = "#10b981"; // Green indicator
       }
+      if (isManual) {
+        showToastNotification("Progress saved successfully!", "success");
+      }
     } else {
       throw new Error(`HTTP ${response.status}`);
     }
   } catch (e) {
-    console.error("[DB Error] Failed to auto-save circuit diagram:", e);
+    console.error("[DB Error] Failed to save circuit diagram:", e);
     if (elements.saveDot && elements.saveText) {
       elements.saveText.innerText = "DB: OFFLINE";
       elements.saveDot.style.background = "#f43f5e"; // Red indicator
     }
+    if (isManual) {
+      showToastNotification("Failed to save progress. Server offline.", "error");
+    }
+  }
+}
+
+async function checkAndPromptRestore(expKey) {
+  if (elements.saveDot && elements.saveText) {
+    elements.saveText.innerText = "DB: CHECKING...";
+    elements.saveDot.style.background = "#3b82f6"; // Blue indicator
+  }
+  
+  try {
+    const response = await fetch(`/api/db/load-circuit?experiment_type=${expKey}&user_id=a1b2c3d4-e5f6-7890-abcd-ef1234567890`);
+    if (!response.ok) {
+      if (elements.saveDot && elements.saveText) {
+        elements.saveText.innerText = "DB: READY";
+        elements.saveDot.style.background = "var(--accent)";
+      }
+      return;
+    }
+    
+    const data = await response.json();
+    if (data.status === 'success' && data.circuit && data.circuit.circuit_data) {
+      const cdata = data.circuit.circuit_data;
+      
+      const hasPlacedComponents = cdata.placedComponents && cdata.placedComponents.length > 0;
+      const hasWires = cdata.wires && cdata.wires.length > 0;
+      const hasDataPoints = cdata.dataPoints && cdata.dataPoints.length > 0;
+      
+      if (hasPlacedComponents || hasWires || hasDataPoints) {
+        const modal = document.getElementById('modal-load-confirm');
+        const expNameEl = document.getElementById('confirm-exp-name');
+        
+        if (modal) {
+          if (expNameEl) {
+            const exp = experiments[expKey];
+            expNameEl.innerText = exp ? exp.name : expKey;
+          }
+          modal.style.display = 'flex';
+          
+          const btnRestore = document.getElementById('btn-confirm-restore');
+          const btnNew = document.getElementById('btn-confirm-new');
+          
+          const cleanupModal = () => {
+            modal.style.display = 'none';
+            const newRestore = btnRestore.cloneNode(true);
+            const newNew = btnNew.cloneNode(true);
+            btnRestore.parentNode.replaceChild(newRestore, btnRestore);
+            btnNew.parentNode.replaceChild(newNew, btnNew);
+          };
+          
+          btnRestore.onclick = () => {
+            cleanupModal();
+            applyCircuitData(cdata);
+          };
+          
+          btnNew.onclick = () => {
+            cleanupModal();
+            clearSavedProgress(expKey);
+          };
+        } else {
+          applyCircuitData(cdata);
+        }
+      } else {
+        if (elements.saveDot && elements.saveText) {
+          elements.saveText.innerText = "DB: READY";
+          elements.saveDot.style.background = "var(--accent)";
+        }
+      }
+    } else {
+      if (elements.saveDot && elements.saveText) {
+        elements.saveText.innerText = "DB: READY";
+        elements.saveDot.style.background = "var(--accent)";
+      }
+    }
+  } catch (e) {
+    console.error("[DB Error] Failed check and prompt restore:", e);
+    if (elements.saveDot && elements.saveText) {
+      elements.saveText.innerText = "DB: OFFLINE";
+      elements.saveDot.style.background = "#f43f5e";
+    }
+  }
+}
+
+function applyCircuitData(cdata) {
+  state.isDatabaseLoading = true;
+  if (elements.saveDot && elements.saveText) {
+    elements.saveText.innerText = "DB: RESTORING...";
+    elements.saveDot.style.background = "#3b82f6";
+  }
+  
+  try {
+    // 1. Rebuild component meshes
+    if (cdata.placedComponents && cdata.placedComponents.length > 0) {
+      cdata.placedComponents.forEach(c => {
+        placeComponent3D(c.type, c.snap1, c.snap2);
+      });
+    }
+    
+    // 2. Rebuild wires
+    if (cdata.wires && cdata.wires.length > 0) {
+      cdata.wires.forEach(w => {
+        create3DWire(w.fromHole, w.toHole, false);
+      });
+    }
+    
+    // 3. Restore parameter knobs
+    if (cdata.params) {
+      Object.keys(cdata.params).forEach(key => {
+        updateParameterValue(key, cdata.params[key]);
+      });
+    }
+    
+    // 4. Restore recorded data points (readings)
+    if (cdata.dataPoints) {
+      state.dataPoints = cdata.dataPoints;
+      drawObservationTable();
+      drawGraph();
+      
+      if (state.dataPoints.length > 0) {
+        const conclusion = generateExperimentConclusion(state.activeExperiment, state.dataPoints);
+        elements.conclusionText.innerHTML = `<b>Conclusion:</b><br>${conclusion}`;
+      }
+    } else {
+      state.dataPoints = [];
+      drawObservationTable();
+      drawGraph();
+    }
+    
+    if (elements.saveDot && elements.saveText) {
+      elements.saveText.innerText = "DB: LOADED";
+      elements.saveDot.style.background = "#10b981"; // Green indicator
+    }
+    appendAIMessage("Circuit IQ · AI Mentor", "Loaded your previously saved circuit layout and observations from database.");
+  } catch (e) {
+    console.error("[DB Error] Failed to apply loaded circuit:", e);
+    if (elements.saveDot && elements.saveText) {
+      elements.saveText.innerText = "DB: OFFLINE";
+      elements.saveDot.style.background = "#f43f5e";
+    }
+  } finally {
+    state.isDatabaseLoading = false;
+  }
+}
+
+async function clearSavedProgress(expKey) {
+  try {
+    const payload = {
+      user_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      experiment_type: expKey,
+      name: `Experiment: ${expKey}`,
+      description: `Cleared layout for fresh start`,
+      circuit_data: {
+        placedComponents: [],
+        wires: [],
+        dataPoints: []
+      },
+      params: {
+        V: 12,
+        R: 100,
+        L: 50,
+        C: 100,
+        f: 50,
+        T: 25,
+        led_color: 'red'
+      }
+    };
+
+    await fetch('/api/db/save-circuit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+    
+    if (elements.saveDot && elements.saveText) {
+      elements.saveText.innerText = "DB: READY";
+      elements.saveDot.style.background = "var(--accent)";
+    }
+    
+    state.dataPoints = [];
+    drawObservationTable();
+    drawGraph();
+    elements.conclusionText.innerHTML = "";
+    updateAIMentor();
+  } catch (e) {
+    console.error("[DB Error] Failed to clear progress:", e);
   }
 }
 
@@ -11772,11 +12000,27 @@ async function loadCircuitFromBackend(expKey) {
         });
       }
       
+      // 4. Restore recorded data points (readings)
+      if (cdata.dataPoints) {
+        state.dataPoints = cdata.dataPoints;
+        drawObservationTable();
+        drawGraph();
+        
+        if (state.dataPoints.length > 0) {
+          const conclusion = generateExperimentConclusion(state.activeExperiment, state.dataPoints);
+          elements.conclusionText.innerHTML = `<b>Conclusion:</b><br>${conclusion}`;
+        }
+      } else {
+        state.dataPoints = [];
+        drawObservationTable();
+        drawGraph();
+      }
+      
       if (elements.saveDot && elements.saveText) {
         elements.saveText.innerText = "DB: LOADED";
         elements.saveDot.style.background = "#10b981"; // Green indicator
       }
-      appendAIMessage("Circuit IQ · AI Mentor", "Loaded your previously saved circuit layout from database.");
+      appendAIMessage("Circuit IQ · AI Mentor", "Loaded your previously saved circuit layout and observations from database.");
     } else {
       if (elements.saveDot && elements.saveText) {
         elements.saveText.innerText = "DB: READY";

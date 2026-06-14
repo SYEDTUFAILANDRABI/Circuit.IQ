@@ -160,6 +160,7 @@ def save_circuit(experiment_type, user_id, name, description, circuit_data, para
     circuit_data_full = {
         "placedComponents": circuit_data.get("placedComponents", []),
         "wires": circuit_data.get("wires", []),
+        "dataPoints": circuit_data.get("dataPoints", []),
         "params": params,
         "experiment_type": experiment_type
     }
