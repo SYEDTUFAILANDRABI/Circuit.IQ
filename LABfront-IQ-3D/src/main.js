@@ -6069,37 +6069,113 @@ function updateTargetHighlights() {
         const negRail = uf.find(1);
 
         if (state.kvlMeasurements.Vs === null) {
-          if (uf.find(volt1) !== posRail) {
+          const v1Node = uf.find(volt1);
+          const v2Node = uf.find(volt2);
+          
+          if (v1Node !== posRail && v2Node !== posRail && v1Node !== negRail && v2Node !== negRail) {
             targetHighlightRing1 = addRing(7 * 14 + 3, true);
             targetHighlightRing2 = addRing(7 * 14 + 0, true);
             return;
           }
-          if (uf.find(volt2) !== negRail) {
-            targetHighlightRing1 = addRing(11 * 14 + 3, true);
-            targetHighlightRing2 = addRing(11 * 14 + 1, true);
-            return;
+          
+          if (v1Node === posRail) {
+            if (v2Node !== negRail) {
+              targetHighlightRing1 = addRing(11 * 14 + 3, true);
+              targetHighlightRing2 = addRing(11 * 14 + 1, true);
+              return;
+            }
+          } else if (v2Node === posRail) {
+            if (v1Node !== negRail) {
+              targetHighlightRing1 = addRing(7 * 14 + 3, true);
+              targetHighlightRing2 = addRing(11 * 14 + 1, true);
+              return;
+            }
+          } else if (v1Node === negRail) {
+            if (v2Node !== posRail) {
+              targetHighlightRing1 = addRing(11 * 14 + 3, true);
+              targetHighlightRing2 = addRing(7 * 14 + 0, true);
+              return;
+            }
+          } else if (v2Node === negRail) {
+            if (v1Node !== posRail) {
+              targetHighlightRing1 = addRing(7 * 14 + 3, true);
+              targetHighlightRing2 = addRing(7 * 14 + 0, true);
+              return;
+            }
           }
         } else if (state.kvlMeasurements.VR1 === null) {
-          if (uf.find(volt1) !== uf.find(r1_1) && uf.find(volt1) !== uf.find(r1_2)) {
+          const v1Node = uf.find(volt1);
+          const v2Node = uf.find(volt2);
+          const r1_1Node = uf.find(r1_1);
+          const r1_2Node = uf.find(r1_2);
+          
+          if (v1Node !== r1_1Node && v2Node !== r1_1Node && v1Node !== r1_2Node && v2Node !== r1_2Node) {
             targetHighlightRing1 = addRing(7 * 14 + 3, true);
             targetHighlightRing2 = addRing(7 * 14 + 4, true);
             return;
           }
-          if (uf.find(volt2) !== uf.find(r1_1) && uf.find(volt2) !== uf.find(r1_2)) {
-            targetHighlightRing1 = addRing(11 * 14 + 3, true);
-            targetHighlightRing2 = addRing(11 * 14 + 4, true);
-            return;
+          
+          if (v1Node === r1_1Node) {
+            if (v2Node !== r1_2Node) {
+              targetHighlightRing1 = addRing(11 * 14 + 3, true);
+              targetHighlightRing2 = addRing(11 * 14 + 4, true);
+              return;
+            }
+          } else if (v2Node === r1_1Node) {
+            if (v1Node !== r1_2Node) {
+              targetHighlightRing1 = addRing(7 * 14 + 3, true);
+              targetHighlightRing2 = addRing(11 * 14 + 4, true);
+              return;
+            }
+          } else if (v1Node === r1_2Node) {
+            if (v2Node !== r1_1Node) {
+              targetHighlightRing1 = addRing(11 * 14 + 3, true);
+              targetHighlightRing2 = addRing(7 * 14 + 4, true);
+              return;
+            }
+          } else if (v2Node === r1_2Node) {
+            if (v1Node !== r1_1Node) {
+              targetHighlightRing1 = addRing(7 * 14 + 3, true);
+              targetHighlightRing2 = addRing(7 * 14 + 4, true);
+              return;
+            }
           }
         } else if (state.kvlMeasurements.VR2 === null) {
-          if (uf.find(volt1) !== uf.find(r2_1) && uf.find(volt1) !== uf.find(r2_2)) {
+          const v1Node = uf.find(volt1);
+          const v2Node = uf.find(volt2);
+          const r2_1Node = uf.find(r2_1);
+          const r2_2Node = uf.find(r2_2);
+          
+          if (v1Node !== r2_1Node && v2Node !== r2_1Node && v1Node !== r2_2Node && v2Node !== r2_2Node) {
             targetHighlightRing1 = addRing(7 * 14 + 3, true);
             targetHighlightRing2 = addRing(13 * 14 + 6, true);
             return;
           }
-          if (uf.find(volt2) !== uf.find(r2_1) && uf.find(volt2) !== uf.find(r2_2)) {
-            targetHighlightRing1 = addRing(11 * 14 + 3, true);
-            targetHighlightRing2 = addRing(17 * 14 + 6, true);
-            return;
+          
+          if (v1Node === r2_1Node) {
+            if (v2Node !== r2_2Node) {
+              targetHighlightRing1 = addRing(11 * 14 + 3, true);
+              targetHighlightRing2 = addRing(17 * 14 + 6, true);
+              return;
+            }
+          } else if (v2Node === r2_1Node) {
+            if (v1Node !== r2_2Node) {
+              targetHighlightRing1 = addRing(7 * 14 + 3, true);
+              targetHighlightRing2 = addRing(17 * 14 + 6, true);
+              return;
+            }
+          } else if (v1Node === r2_2Node) {
+            if (v2Node !== r2_1Node) {
+              targetHighlightRing1 = addRing(11 * 14 + 3, true);
+              targetHighlightRing2 = addRing(13 * 14 + 6, true);
+              return;
+            }
+          } else if (v2Node === r2_2Node) {
+            if (v1Node !== r2_1Node) {
+              targetHighlightRing1 = addRing(7 * 14 + 3, true);
+              targetHighlightRing2 = addRing(13 * 14 + 6, true);
+              return;
+            }
           }
         }
       }
