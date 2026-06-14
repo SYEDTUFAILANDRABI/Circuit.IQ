@@ -115,11 +115,53 @@ def _build_context_message(question: str, experiment: str, circuit_state: dict) 
     )
 
 
+def _get_fallback_answer(question: str, experiment: str, circuit_state: dict) -> str:
+    """Provides a smart fallback response when Gemini is not configured or fails."""
+    q_lower = question.lower()
+    
+    # 1. Check general keywords first (regardless of active experiment context)
+    if 'ohm' in q_lower or 'resistor' in q_lower or 'voltage' in q_lower:
+        if "formula" in q_lower or "equation" in q_lower:
+            return "In Ohm's Law, the core formula is V = I × R (Voltage = Current × Resistance)."
+        if "connect" in q_lower or "wire" in q_lower or "how to" in q_lower:
+            return "To set up an Ohm's Law circuit, connect the positive terminal of a DC source to a resistor, and the other resistor terminal back to the negative terminal."
+        return "Ohm's Law states that current (I) is directly proportional to voltage (V) and inversely proportional to resistance (R): I = V / R."
+        
+    elif 'lcr' in q_lower or 'resonance' in q_lower:
+        if "formula" in q_lower or "equation" in q_lower:
+            return "The resonant frequency for a series LCR circuit is f₀ = 1 / (2π√(LC)). Total impedance is Z = √[R² + (XL - XC)²]."
+        return "In a series LCR circuit, resonance occurs when inductive reactance equals capacitive reactance (XL = XC), minimizing total impedance to R."
+        
+    elif 'rc' in q_lower or 'time constant' in q_lower or 'tau' in q_lower or 'capacitor' in q_lower:
+        if "time constant" in q_lower or "tau" in q_lower:
+            return "The RC time constant is τ = R × C. It represents the time needed for a capacitor to charge to 63.2% of its maximum voltage."
+        if "phase" in q_lower:
+            return "In an RC AC circuit, current leads the voltage by phase angle φ = -arctan(1 / (2πfCR))."
+        return "An RC circuit contains a resistor and a capacitor. It displays transient charging/discharging curves governed by the time constant τ = RC."
+
+    # 2. Fallback to experiment-specific defaults if no keyword matches
+    if experiment == "ohms":
+        return "You are in the Ohm's Law experiment. Try asking about the formula (V = I × R) or how to connect the components."
+    elif experiment == "lcr":
+        return "You are in the Series LCR Resonance experiment. Try asking about resonant frequency f₀ or impedance calculations."
+    elif experiment == "rc":
+        return "You are in the RC Time Constant experiment. Try asking about the time constant τ = RC or phase shift."
+
+    if "help" in q_lower:
+        return "To perform the experiment, select Ohm's Law, LCR, or RC, place the required components, wire them in a loop, and click 'Initialize System'."
+        
+    return (
+        "Welcome to CircuitIQ Physics Tutor! You can ask me about physics concepts, "
+        "formulas, and wiring guides for Ohm's Law, LCR resonance, or RC time constants. "
+        "Try typing a question about formulas or how to connect components!"
+    )
+
+
 @physicsbot_bp.route("/physicsbot/ask", methods=["POST"])
 def ask():
     """
     Accepts a student question + circuit context and returns a Gemini AI answer.
-    Falls back to a helpful static message if the API key is missing.
+    Falls back to a helpful static message if the API key is missing or invalid.
     """
     try:
         data = request.get_json(force=True)
@@ -135,34 +177,34 @@ def ask():
 
         # ── Fallback mode: no API key configured ──────────────────────────────
         if not api_key:
-            fallback = (
-                "PhysicsBot AI is not configured yet. "
-                "Ask your team lead to add the GEMINI_API_KEY to the .env file. "
-                "In the meantime, check the Theory tab for experiment guidance!"
-            )
-            return jsonify({"answer": fallback}), 200
+            return jsonify({"answer": _get_fallback_answer(question, experiment, circuit_state)}), 200
 
         # ── Live mode: call Gemini ─────────────────────────────────────────────
-        import google.generativeai as genai
+        try:
+            import google.generativeai as genai
 
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash",
-            system_instruction=SYSTEM_PROMPT,
-        )
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel(
+                model_name="gemini-1.5-flash",
+                system_instruction=SYSTEM_PROMPT,
+            )
 
-        user_message = _build_context_message(question, experiment, circuit_state)
+            user_message = _build_context_message(question, experiment, circuit_state)
 
-        response = model.generate_content(
-            user_message,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.4,
-                max_output_tokens=200,   # ~120 words comfortably
-            ),
-        )
+            response = model.generate_content(
+                user_message,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.4,
+                    max_output_tokens=200,   # ~120 words comfortably
+                ),
+            )
 
-        answer = response.text.strip()
-        return jsonify({"answer": answer}), 200
+            answer = response.text.strip()
+            return jsonify({"answer": answer}), 200
+        except Exception as api_err:
+            print(f"[PhysicsBot API Error] Live mode failed: {api_err}")
+            # Fallback to smart offline answer instead of crashing/erroring
+            return jsonify({"answer": _get_fallback_answer(question, experiment, circuit_state)}), 200
 
     except Exception as exc:
         # Never crash the lab — return a friendly error
@@ -172,12 +214,51 @@ def ask():
         }), 500
 
 
+def _get_landing_fallback(question: str) -> dict:
+    """Helper to return structured fallback tutoring info."""
+    q_lower = question.lower()
+    explanation = "Welcome to the Circuit.IQ Physics Tutor! You can ask me about various physics concepts like Ohm's Law, LCR resonance, Snell's law, projectiles, or gas laws. Choose any simulation to begin experimenting!"
+    formulas = [{"name": "Mass-Energy", "expr": "E = m c²"}]
+    recommended_exp = None
+
+    if 'ohm' in q_lower or 'resistor' in q_lower or 'voltage' in q_lower:
+        explanation = "Ohm's Law governs electrical currents in resistive paths. Under constant temperature, current is directly proportional to voltage and inversely proportional to resistance."
+        formulas = [{"name": "Ohm's Law", "expr": "V = I × R"}]
+        recommended_exp = "ohms"
+    elif 'lcr' in q_lower or 'resonance' in q_lower:
+        explanation = "In series LCR resonance, inductive and capacitive reactances cancel out. Total impedance drops to equal the resistance R, generating maximum current flow."
+        formulas = [{"name": "Resonance", "expr": "f₀ = 1 / (2π√(LC))"}]
+        recommended_exp = "rc_rl_rlc"
+    elif 'pendulum' in q_lower or 'gravity' in q_lower:
+        explanation = "A simple pendulum swings in simple harmonic motion. Its period depends on length L and gravity g, not the bob mass."
+        formulas = [{"name": "Period", "expr": "T = 2π √(L / g)"}]
+        recommended_exp = "pendulum"
+    elif 'snell' in q_lower or 'refraction' in q_lower:
+        explanation = "Light bends when entering a new refractive medium. Snell's law relates the sine ratio of incident and refractive angles."
+        formulas = [{"name": "Snell's Law", "expr": "n₁ sin(θ₁) = n₂ sin(θ₂)"}]
+        recommended_exp = "snell"
+    elif 'gas' in q_lower or 'boyle' in q_lower or 'charles' in q_lower:
+        explanation = "Gases follow PV = nRT. Boyle's law describes inverse P-V pressure-volume states, and Charles's law describes linear volume-temperature expansion."
+        formulas = [{"name": "Ideal Gas", "expr": "P V = n R T"}]
+        recommended_exp = "ideal_gas"
+    elif 'photoelectric' in q_lower or 'photon' in q_lower:
+        explanation = "Photoelectric emission occurs when incident photon energy exceeds the metal work function Φ, ejecting electrons at speed proportional to stopping voltage."
+        formulas = [{"name": "Einstein's Photoelectric", "expr": "Kmax = h ν - Φ"}]
+        recommended_exp = "photoelectric"
+
+    return {
+        "explanation": explanation,
+        "formulas": formulas,
+        "recommendedExp": recommended_exp
+    }
+
+
 @physicsbot_bp.route("/physics-bot", methods=["POST"])
 def physics_bot():
     """
     Accepts a general physics question and returns a structured AI explanation,
     relevant formulas, and recommended experiment.
-    Falls back to keyword-based structured response if API key is missing.
+    Falls back to keyword-based structured response if API key is missing or invalid.
     """
     try:
         data = request.get_json(force=True)
@@ -190,70 +271,40 @@ def physics_bot():
 
         # ── Fallback mode: no API key configured ──────────────────────────────
         if not api_key:
-            q_lower = question.lower()
-            explanation = "PhysicsBot AI is not configured yet. Ask your team lead to add the GEMINI_API_KEY to the .env file. In the meantime, you can explore the experiments in the catalog!"
-            formulas = [{"name": "Mass-Energy", "expr": "E = m c²"}]
-            recommended_exp = None
-
-            if 'ohm' in q_lower or 'resistor' in q_lower or 'voltage' in q_lower:
-                explanation = "Ohm's Law governs electrical currents in resistive paths. Under constant temperature, current is directly proportional to voltage and inversely proportional to resistance."
-                formulas = [{"name": "Ohm's Law", "expr": "V = I × R"}]
-                recommended_exp = "ohms"
-            elif 'lcr' in q_lower or 'resonance' in q_lower:
-                explanation = "In series LCR resonance, inductive and capacitive reactances cancel out. Total impedance drops to equal the resistance R, generating maximum current flow."
-                formulas = [{"name": "Resonance", "expr": "f₀ = 1 / (2π√(LC))"}]
-                recommended_exp = "rc_rl_rlc"
-            elif 'pendulum' in q_lower or 'gravity' in q_lower:
-                explanation = "A simple pendulum swings in simple harmonic motion. Its period depends on length L and gravity g, not the bob mass."
-                formulas = [{"name": "Period", "expr": "T = 2π √(L / g)"}]
-                recommended_exp = "pendulum"
-            elif 'snell' in q_lower or 'refraction' in q_lower:
-                explanation = "Light bends when entering a new refractive medium. Snell's law relates the sine ratio of incident and refractive angles."
-                formulas = [{"name": "Snell's Law", "expr": "n₁ sin(θ₁) = n₂ sin(θ₂)"}]
-                recommended_exp = "snell"
-            elif 'gas' in q_lower or 'boyle' in q_lower or 'charles' in q_lower:
-                explanation = "Gases follow PV = nRT. Boyle's law describes inverse P-V pressure-volume states, and Charles's law describes linear volume-temperature expansion."
-                formulas = [{"name": "Ideal Gas", "expr": "P V = n R T"}]
-                recommended_exp = "ideal_gas"
-            elif 'photoelectric' in q_lower or 'photon' in q_lower:
-                explanation = "Photoelectric emission occurs when incident photon energy exceeds the metal work function Φ, ejecting electrons at speed proportional to stopping voltage."
-                formulas = [{"name": "Einstein's Photoelectric", "expr": "Kmax = h ν - Φ"}]
-                recommended_exp = "photoelectric"
-
-            return jsonify({
-                "explanation": explanation,
-                "formulas": formulas,
-                "recommendedExp": recommended_exp
-            }), 200
+            return jsonify(_get_landing_fallback(question)), 200
 
         # ── Live mode: call Gemini ─────────────────────────────────────────────
-        import google.generativeai as genai
-
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(
-            model_name="gemini-2.5-flash",
-            system_instruction=LANDING_SYSTEM_PROMPT,
-        )
-
-        response = model.generate_content(
-            question,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.4,
-                response_mime_type="application/json",
-            ),
-        )
-
-        result_text = response.text.strip()
         try:
-            result_json = json.loads(result_text)
-            return jsonify(result_json), 200
-        except Exception:
-            # If Gemini didn't return valid JSON despite system prompt/config, fallback to direct text wrapping
-            return jsonify({
-                "explanation": result_text,
-                "formulas": [],
-                "recommendedExp": None
-            }), 200
+            import google.generativeai as genai
+
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel(
+                model_name="gemini-1.5-flash",
+                system_instruction=LANDING_SYSTEM_PROMPT,
+            )
+
+            response = model.generate_content(
+                question,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.4,
+                    response_mime_type="application/json",
+                ),
+            )
+
+            result_text = response.text.strip()
+            try:
+                result_json = json.loads(result_text)
+                return jsonify(result_json), 200
+            except Exception:
+                # If Gemini didn't return valid JSON despite system prompt/config, fallback to direct text wrapping
+                return jsonify({
+                    "explanation": result_text,
+                    "formulas": [],
+                    "recommendedExp": None
+                }), 200
+        except Exception as api_err:
+            print(f"[PhysicsBot API Error] Landing page live mode failed: {api_err}")
+            return jsonify(_get_landing_fallback(question)), 200
 
     except Exception as exc:
         return jsonify({
