@@ -142,6 +142,26 @@ sequenceDiagram
 
 ---
 
+## 🚀 Virtual Lab Optimization & KVL Refinement
+
+A series of core architectural and visual optimizations have been integrated to elevate the simulation to professional standards:
+
+### 1. Smart Snapping & Expected Tool Matching
+- **Expected Tool Lock**: A helper `getCurrentExpectedTool()` analyzes the active experiment state and dynamically limits drag-and-drop or click placements to only match the expected component/wire type for the active step.
+- **Ghost Preview Snapping**: In `dragover` events, if a valid expected tool is hovered, the simulator automatically overrides position snapping coordinates with target snap coordinates (`snap1`/`snap2`), causing the semi-transparent ghost mesh to snap instantly into place.
+- **Guide Label Hiding**: Unnecessary and cluttered HTML overlays on the board (`WIRE START` and `WIRE END` text tags) are hidden to maintain a clean visual workspace.
+
+### 2. Upgraded Eraser Wire Collision
+- The eraser tool now evaluates intersections not just with the core thin wire tubes, but also with wire terminal pins and plastic sleeves. Clicking any part of a wire will instantly delete it, resolving the previous precision click issues.
+
+### 3. Professional KVL Experiment Refinement
+- **Sequential Measurements**: Real-time probing of KVL voltages tracks the student's progress as they measure $V_s$ (Source rails), $V_1$ (Resistor 1), and $V_2$ (Resistor 2).
+- **Live Math Telemetry**: Built-in math parsing checks the loop voltage drop calculation ($V_s - V_1 - V_2 = 0$) and displays formulas, active probe states, current, and equivalent resistance inside a dedicated, real-time telemetry card.
+- **Orientation-Agnostic Guiding Highlights**: The visual target highlights dynamically adjust depending on which probe the student connects first. Connecting either probe to one target will automatically guide the remaining free probe to the other counterpart terminal, supporting any polarity/connection order natively.
+
+---
+
+
 ## 👥 Live Attendance & Security System
 
 Circuit.IQ includes a professional, classroom-grade attendance and presence verification system designed to help professors monitor group lab sessions and prevent unattended simulations.

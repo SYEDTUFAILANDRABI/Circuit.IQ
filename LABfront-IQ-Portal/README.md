@@ -185,9 +185,55 @@ Or build everything at once from project root:
 python build_all.py
 ```
 
+
+---
+
+## 🔌 Connection & Component Interaction Flow
+
+The frontend portal works in close coordination with the embedded 3D simulation iframe:
+
+```mermaid
+graph TD
+    subgraph Portal [React Web Portal]
+        LS[LabStudio.tsx]
+        US[useAppStore.ts]
+        AS[AttendanceSystem.tsx]
+    end
+
+    subgraph Iframe [3D Lab Simulator]
+        LH[lab.html]
+        MJ[main.js]
+    end
+
+    LS -- Loads with exp parameter --> LH
+    LH -- Scripts execute --> MJ
+    AS -- Webcam presence events --> US
+    US -- Trigger lock/pause overlay --> LS
+    MJ -- postMessage to Parent --> LS
+```
+
+### 1. Unified State Flow (Zustand & iframe)
+- When the student triggers an experiment in the catalog, `useAppStore` updates the `currentExperiment` value and opens the simulator modal layout inside `LabStudio.tsx`.
+- `LabStudio.tsx` loads the static shell `/lab.html?exp=<key>`. Inside the iframe, `main.js` reads the query string and loads the configuration parameters and step-tracker guidelines for that specific experiment.
+
+### 2. Parameter Sync & Physics Engine Communication
+- Adjusting sliders (voltage, resistance, frequency) on the right panel registers changes to `state.params` inside the simulator.
+- The simulator makes asynchronous `POST` requests to `/api/calculate` with parameters. The backend physics engine resolves the math (current, power, phase shift, etc.) and returns the values.
+- These computed values update the virtual multimeter dials, dual-channel oscilloscope canvas, and the V-I plot graph in real-time.
+
+### 3. Student Progress Auto-Saving & Restoration
+- Every time a component is dropped onto the breadboard or a wire connection is completed/deleted, a debounced call is sent to `/api/db/save-circuit` to backup the layout JSON.
+- If a student leaves the page and returns, the simulator queries `/api/db/load-circuit`. Upon finding a previous save, the portal prompts the user to restore their progress or start fresh.
+
+### 4. Webcam Attendance & Presence Safety Safeguard
+- The webcam uses TensorFlow.js to scan the area in front of the browser.
+- If the number of detected students drops below the expected group threshold, `AttendanceSystem.tsx` calls `onLabPause()` which sets `isLabOpen = false` or triggers a modal lock screen.
+- This posts a `paused` state to `/api/session/<id>/presence` and signals the iframe to halt the active simulation clock.
+
 ---
 
 ## ❓ Common Problems
+
 
 | Problem | Fix |
 |---------|-----|
