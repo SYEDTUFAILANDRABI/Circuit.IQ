@@ -94,7 +94,41 @@ def cleanup(signum, frame):
 signal.signal(signal.SIGINT, cleanup)
 signal.signal(signal.SIGTERM, cleanup)
 
+def kill_processes_on_ports(ports):
+    """Detects and terminates any lingering processes listening on specified ports."""
+    import re
+    for port in ports:
+        try:
+            if os.name == 'nt':
+                # Windows: Find processes using netstat
+                out = subprocess.check_output("netstat -ano", shell=True, text=True)
+                pids = set()
+                for line in out.splitlines():
+                    if f":{port}" in line and "LISTENING" in line:
+                        parts = line.strip().split()
+                        if len(parts) >= 5:
+                            pid = parts[-1]
+                            pids.add(int(pid))
+                for pid in pids:
+                    # Don't kill our own process hierarchy if somehow listed
+                    if pid != os.getpid():
+                        print(f"[System] Cleaning up dangling process {pid} on port {port}...")
+                        subprocess.run(['taskkill', '/F', '/T', '/PID', str(pid)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            else:
+                # Unix/macOS: Find processes using lsof
+                out = subprocess.check_output(f"lsof -t -i:{port}", shell=True, text=True)
+                pids = [int(p) for p in out.strip().split() if p.isdigit()]
+                for pid in pids:
+                    if pid != os.getpid():
+                        print(f"[System] Cleaning up dangling process {pid} on port {port}...")
+                        os.kill(pid, signal.SIGKILL)
+        except Exception:
+            pass
+
 def main():
+    # Clean up any leftover processes on ports 3000 and 5000 before starting
+    kill_processes_on_ports([3000, 5000])
+
     print("====================================================================")
     print("   🚀 Starting Unified Circuit.IQ Development Environment 🚀")
     print("====================================================================")
