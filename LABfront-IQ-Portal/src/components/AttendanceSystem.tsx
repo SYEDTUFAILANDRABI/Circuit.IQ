@@ -809,7 +809,7 @@ const count = predictions.length;
             body: JSON.stringify({ people_count: count }),
           });
         } catch {}
-      }, 1500);
+      }, 400);
 
     } catch (e: any) {
       setCamError(e.name === 'NotAllowedError' ? 'Camera permission denied. Please allow camera access.' : 'Could not access camera.');
