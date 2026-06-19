@@ -249,16 +249,12 @@ class PhysicsEngine:
 
         # Verify Voltmeter connection if placed and required
         if 'voltmeter' in required_types:
-            volt_idx = -1
-            for i, c in enumerate(placed_components):
+            for volt_idx, c in enumerate(placed_components):
                 if c['type'] == 'voltmeter':
-                    volt_idx = i
-                    break
-            if volt_idx != -1:
-                # Voltmeter should have both terminals connected to the active circuit
-                v_term0_connected = len([w for w in wires if w[0] == (volt_idx, 0) or w[1] == (volt_idx, 0)]) > 0
-                v_term1_connected = len([w for w in wires if w[0] == (volt_idx, 1) or w[1] == (volt_idx, 1)]) > 0
-                if not (v_term0_connected and v_term1_connected):
-                    return False, "Voltmeter is placed but not fully connected in parallel."
+                    # Voltmeter should have both terminals connected to the active circuit
+                    v_term0_connected = len([w for w in wires if w[0] == (volt_idx, 0) or w[1] == (volt_idx, 0)]) > 0
+                    v_term1_connected = len([w for w in wires if w[0] == (volt_idx, 1) or w[1] == (volt_idx, 1)]) > 0
+                    if not (v_term0_connected and v_term1_connected):
+                        return False, "Voltmeter is placed but not fully connected in parallel."
 
         return True, "Circuit verification successful! System ready."
