@@ -277,7 +277,7 @@ const experiments = {
     name: "Ohm's Law Verification",
     aim: "Verify the relation between V, I, and R in a DC circuit.",
     apparatus: "DC Power Supply (0-30V), Resistor (100Ω), Ammeter, Voltmeter, Breadboard, connecting wires.",
-    req: ['source', 'resistor'],
+    req: ['source', 'resistor', 'ammeter', 'voltmeter'],
     steps: [
       { id: 1, text: "Place the 100Ω ceramic resistor horizontally across the breadboard terminal strips." },
       { id: 2, text: "Connect the positive terminal of the DC Power Supply to the start pin of the resistor." },
@@ -295,7 +295,7 @@ const experiments = {
     name: "Kirchhoff's Voltage Law",
     aim: "Verify that the algebraic sum of voltages in a closed series loop is zero.",
     apparatus: "DC Power Supply, Resistors (100Ω, 200Ω), Voltmeters, Breadboard, Wires.",
-    req: ['source', 'resistor'],
+    req: ['source', 'resistor', 'ammeter', 'voltmeter'],
     steps: [
       { id: 1, text: "Build the DC series circuit on the breadboard (Source, R1, R2, and Ammeter in series)." },
       { id: 2, text: "Turn on the power supply to check the circuit loop current." },
@@ -311,7 +311,7 @@ const experiments = {
     name: "Kirchhoff's Current Law",
     aim: "Verify that the total current entering a junction equals the sum of currents leaving it.",
     apparatus: "DC Power Supply, Resistors (100Ω, 200Ω), Ammeters, Breadboard, Wires.",
-    req: ['source', 'resistor'],
+    req: ['source', 'resistor', 'ammeter'],
     steps: [
       { id: 1, text: "Connect the entrance leads of two parallel resistors to a single junction node on the breadboard." },
       { id: 2, text: "Connect the exit leads of both resistors back to the negative ground rail." },
@@ -344,7 +344,7 @@ const experiments = {
     name: "Series LCR Resonance",
     aim: "Determine the resonant frequency of an LCR series circuit.",
     apparatus: "AC Function Generator, Resistor, Inductor, Capacitor, Ammeter.",
-    req: ['source', 'resistor', 'inductor', 'capacitor'],
+    req: ['source', 'resistor', 'inductor', 'capacitor', 'ammeter'],
     steps: [
       { id: 1, text: "Connect a resistor, inductor, and capacitor in series with the AC power supply." },
       { id: 2, text: "Connect an AC ammeter in series to measure circuit current." },
@@ -3603,8 +3603,28 @@ function getGraphConfig(expKey) {
   
   switch(expKey) {
     case 'ohms':
-    case 'kvl':
+      return {
+        xLabel: "Current I (mA)",
+        yLabel: "Voltage V (V)",
+        xMax: 300,
+        yMax: 30,
+        getX: (pt) => pt.I * 1000,
+        getY: (pt) => pt.V,
+        showSlopeCard: true
+      };
+      
     case 'kcl':
+      return {
+        xLabel: "Measurement Point",
+        yLabel: "Current I (mA)",
+        xMax: 10,
+        yMax: 300,
+        getX: (pt) => pt.id,
+        getY: (pt) => pt.I * 1000,
+        showSlopeCard: false
+      };
+      
+    case 'kvl':
     case 'series_parallel':
     case 'wheatstone':
     case 'arduino_led':
@@ -3615,7 +3635,7 @@ function getGraphConfig(expKey) {
         yMax: 300,
         getX: (pt) => pt.V,
         getY: (pt) => pt.I * 1000,
-        showSlopeCard: expKey === 'ohms'
+        showSlopeCard: false
       };
       
     case 'diode_iv':
@@ -3779,7 +3799,7 @@ function drawGraph() {
   
   // Layout paddings
   const paddingLeft = 45;
-  const paddingRight = 15;
+  const paddingRight = state.activeExperiment === 'rc_rl_rlc' ? 45 : 15;
   const paddingTop = 20;
   const paddingBottom = 30;
   
@@ -3813,54 +3833,133 @@ function drawGraph() {
   ctx.fillStyle = isLight ? '#475569' : '#64748b';
   ctx.font = '8px monospace';
   
-  // Vertical grids (X axis ticks)
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
-  for (let i = 0; i <= 5; i++) {
-    const xVal = (i / 5) * maxValX;
-    const xPix = paddingLeft + (i / 5) * graphWidth;
+  if (state.activeExperiment === 'rc_rl_rlc') {
+    // 3a. Draw Logarithmic grid for X axis (10Hz to 1000Hz)
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    const decades = [10, 100, 1000];
+    decades.forEach(dec => {
+      const xPct = (Math.log10(dec) - 1) / 2;
+      const xPix = paddingLeft + xPct * graphWidth;
+      
+      // Grid line
+      ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.08)' : 'rgba(255, 255, 255, 0.08)';
+      ctx.beginPath();
+      ctx.moveTo(xPix, paddingTop);
+      ctx.lineTo(xPix, h - paddingBottom);
+      ctx.stroke();
+      
+      // Tick mark
+      ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.25)' : 'rgba(255, 255, 255, 0.3)';
+      ctx.beginPath();
+      ctx.moveTo(xPix, h - paddingBottom);
+      ctx.lineTo(xPix, h - paddingBottom + 4);
+      ctx.stroke();
+      
+      // Label
+      ctx.fillText(`${dec} Hz`, xPix, h - paddingBottom + 6);
+    });
     
-    // Grid line
-    ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.04)';
-    ctx.beginPath();
-    ctx.moveTo(xPix, paddingTop);
-    ctx.lineTo(xPix, h - paddingBottom);
-    ctx.stroke();
+    // Draw minor ticks
+    for (let f = 10; f <= 1000; f += (f < 100 ? 10 : 100)) {
+      if (decades.includes(f)) continue;
+      const xPct = (Math.log10(f) - 1) / 2;
+      const xPix = paddingLeft + xPct * graphWidth;
+      
+      ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.03)' : 'rgba(255, 255, 255, 0.03)';
+      ctx.beginPath();
+      ctx.moveTo(xPix, paddingTop);
+      ctx.lineTo(xPix, h - paddingBottom);
+      ctx.stroke();
+    }
+
+    // 3b. Draw Left Y-axis (Impedance Z: 0 to 1000 Ω)
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for (let i = 0; i <= 5; i++) {
+      const zVal = (i / 5) * 1000;
+      const yPix = h - paddingBottom - (i / 5) * graphHeight;
+      
+      ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.04)';
+      ctx.beginPath();
+      ctx.moveTo(paddingLeft, yPix);
+      ctx.lineTo(w - paddingRight, yPix);
+      ctx.stroke();
+      
+      ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.2)';
+      ctx.beginPath();
+      ctx.moveTo(paddingLeft - 4, yPix);
+      ctx.lineTo(paddingLeft, yPix);
+      ctx.stroke();
+      
+      ctx.fillText(`${zVal.toFixed(0)}`, paddingLeft - 8, yPix);
+    }
     
-    // Tick mark
-    ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.2)';
-    ctx.beginPath();
-    ctx.moveTo(xPix, h - paddingBottom);
-    ctx.lineTo(xPix, h - paddingBottom + 4);
-    ctx.stroke();
+    // 3c. Draw Right Y-axis (Phase Angle phi: -90 to +90 deg)
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    for (let i = 0; i <= 4; i++) {
+      const phiVal = -90 + i * 45;
+      const yPix = h - paddingBottom - (i / 4) * graphHeight;
+      
+      ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.2)';
+      ctx.beginPath();
+      ctx.moveTo(w - paddingRight, yPix);
+      ctx.lineTo(w - paddingRight + 4, yPix);
+      ctx.stroke();
+      
+      ctx.fillText(`${phiVal > 0 ? '+' : ''}${phiVal}°`, w - paddingRight + 8, yPix);
+    }
+  } else {
+    // Vertical grids (X axis ticks)
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    for (let i = 0; i <= 5; i++) {
+      const xVal = (i / 5) * maxValX;
+      const xPix = paddingLeft + (i / 5) * graphWidth;
+      
+      // Grid line
+      ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.04)';
+      ctx.beginPath();
+      ctx.moveTo(xPix, paddingTop);
+      ctx.lineTo(xPix, h - paddingBottom);
+      ctx.stroke();
+      
+      // Tick mark
+      ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.2)';
+      ctx.beginPath();
+      ctx.moveTo(xPix, h - paddingBottom);
+      ctx.lineTo(xPix, h - paddingBottom + 4);
+      ctx.stroke();
+      
+      // Label
+      ctx.fillText(`${xVal.toFixed(xDecimals)}`, xPix, h - paddingBottom + 6);
+    }
     
-    // Label
-    ctx.fillText(`${xVal.toFixed(xDecimals)}`, xPix, h - paddingBottom + 6);
-  }
-  
-  // Horizontal grids (Y axis ticks)
-  ctx.textAlign = 'right';
-  ctx.textBaseline = 'middle';
-  for (let i = 0; i <= 5; i++) {
-    const yVal = (i / 5) * maxValY;
-    const yPix = h - paddingBottom - (i / 5) * graphHeight;
-    
-    // Grid line
-    ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.04)';
-    ctx.beginPath();
-    ctx.moveTo(paddingLeft, yPix);
-    ctx.lineTo(w - paddingRight, yPix);
-    ctx.stroke();
-    
-    // Tick mark
-    ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.2)';
-    ctx.beginPath();
-    ctx.moveTo(paddingLeft - 4, yPix);
-    ctx.lineTo(paddingLeft, yPix);
-    ctx.stroke();
-    
-    // Label
-    ctx.fillText(`${yVal.toFixed(yDecimals)}`, paddingLeft - 8, yPix);
+    // Horizontal grids (Y axis ticks)
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    for (let i = 0; i <= 5; i++) {
+      const yVal = (i / 5) * maxValY;
+      const yPix = h - paddingBottom - (i / 5) * graphHeight;
+      
+      // Grid line
+      ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.04)';
+      ctx.beginPath();
+      ctx.moveTo(paddingLeft, yPix);
+      ctx.lineTo(w - paddingRight, yPix);
+      ctx.stroke();
+      
+      // Tick mark
+      ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.15)' : 'rgba(255, 255, 255, 0.2)';
+      ctx.beginPath();
+      ctx.moveTo(paddingLeft - 4, yPix);
+      ctx.lineTo(paddingLeft, yPix);
+      ctx.stroke();
+      
+      // Label
+      ctx.fillText(`${yVal.toFixed(yDecimals)}`, paddingLeft - 8, yPix);
+    }
   }
   
   // 4. Draw rotated Axis Title Labels
@@ -3872,11 +3971,27 @@ function drawGraph() {
   ctx.fillText(config.xLabel, paddingLeft + graphWidth / 2, h - 2);
   
   // Y-axis: Custom Label
-  ctx.save();
-  ctx.translate(12, paddingTop + graphHeight / 2);
-  ctx.rotate(-Math.PI / 2);
-  ctx.fillText(config.yLabel, 0, 0);
-  ctx.restore();
+  if (state.activeExperiment === 'rc_rl_rlc') {
+    // Left label
+    ctx.save();
+    ctx.translate(12, paddingTop + graphHeight / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText("Impedance Z (Ω)", 0, 0);
+    ctx.restore();
+    
+    // Right label
+    ctx.save();
+    ctx.translate(w - 5, paddingTop + graphHeight / 2);
+    ctx.rotate(Math.PI / 2);
+    ctx.fillText("Phase Angle φ (°)", 0, 0);
+    ctx.restore();
+  } else {
+    ctx.save();
+    ctx.translate(12, paddingTop + graphHeight / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText(config.yLabel, 0, 0);
+    ctx.restore();
+  }
   
   // 5. Plot best-fit line for Ohm's Law
   let slopeDisp = "—";
@@ -3884,24 +3999,18 @@ function drawGraph() {
   let error_disp = "—";
   
   if (config.showSlopeCard && state.dataPoints.length >= 2) {
-    const N = state.dataPoints.length;
-    let sumV = 0, sumI = 0, sumVI = 0, sumV2 = 0;
+    let sumVI = 0;
+    let sumI2 = 0;
     state.dataPoints.forEach(pt => {
-      sumV += pt.V;
-      sumI += pt.I;
       sumVI += pt.V * pt.I;
-      sumV2 += pt.V * pt.V;
+      sumI2 += pt.I * pt.I;
     });
-    const denom = (N * sumV2 - sumV * sumV);
-    if (denom !== 0) {
-      const m = (N * sumVI - sumV * sumI) / denom; // slope in A/V
-      const c = (sumI - m * sumV) / N; // intercept
-      
-      const m_mA = m * 1000; // slope in mA/V
-      const R_calc = 1 / m; // resistance in Ohms
+    if (sumI2 !== 0) {
+      const R_calc = sumVI / sumI2; // Resistance in Ohms (V/A)
+      const m = R_calc / 1000; // slope in V/mA
       const error = Math.abs(R_calc - R_theoretical) / R_theoretical * 100;
       
-      slopeDisp = `${m_mA.toFixed(3)} mA/V`;
+      slopeDisp = `${m.toFixed(4)} V/mA`;
       R_calc_disp = `${R_calc.toFixed(1)} Ω`;
       error_disp = `${error.toFixed(2)}%`;
       
@@ -3913,15 +4022,11 @@ function drawGraph() {
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
       
-      const vStart = 0;
-      const iStart = m * vStart + c;
-      const xStart = paddingLeft + (vStart / maxValX) * graphWidth;
-      const yStart = h - paddingBottom - ((iStart * 1000) / maxValY) * graphHeight;
+      const xStart = paddingLeft;
+      const yStart = h - paddingBottom;
       
-      const vEnd = maxValX;
-      const iEnd = m * vEnd + c;
-      const xEnd = paddingLeft + (vEnd / maxValX) * graphWidth;
-      const yEnd = h - paddingBottom - ((iEnd * 1000) / maxValY) * graphHeight;
+      const xEnd = paddingLeft + graphWidth;
+      const yEnd = h - paddingBottom - ((maxValX * m) / maxValY) * graphHeight;
       
       ctx.moveTo(xStart, yStart);
       ctx.lineTo(xEnd, yEnd);
@@ -3971,46 +4076,269 @@ function drawGraph() {
   }
   
   // 6. Draw connection line and data points
-  if (state.dataPoints.length > 0) {
-    ctx.strokeStyle = 'rgba(168, 85, 247, 0.4)';
+  if (state.activeExperiment === 'rc_rl_rlc') {
+    const R = state.params.R || 100;
+    const L = (state.params.L || 50) * 1e-3; // H
+    const C = (state.params.C || 100) * 1e-6; // F
+    
+    // Theoretical curves (dashed lines)
     ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    
+    // Z Curve (cyan)
+    ctx.strokeStyle = '#06b6d4';
     ctx.beginPath();
-    const sortedPoints = [...state.dataPoints].sort((a, b) => config.getX(a) - config.getX(b));
-    sortedPoints.forEach((pt, idx) => {
-      const xVal = config.getX(pt);
-      const yVal = config.getY(pt);
-      const xPix = paddingLeft + (xVal / maxValX) * graphWidth;
-      const yPix = h - paddingBottom - (yVal / maxValY) * graphHeight;
+    let startedZ = false;
+    for (let f = 10; f <= 1000; f += 5) {
+      const omega = 2 * Math.PI * f;
+      const XL = omega * L;
+      const XC = 1 / (omega * C);
+      const Z = Math.sqrt(R * R + (XL - XC) * (XL - XC));
       
-      if (idx === 0) ctx.moveTo(xPix, yPix);
-      else ctx.lineTo(xPix, yPix);
-    });
-    if (sortedPoints.length > 1) {
-      ctx.stroke();
+      const xPct = (Math.log10(f) - 1) / 2;
+      const xPix = paddingLeft + xPct * graphWidth;
+      const yPix = h - paddingBottom - (Z / 1000) * graphHeight;
+      
+      if (yPix < paddingTop) continue;
+      
+      if (!startedZ) {
+        ctx.moveTo(xPix, yPix);
+        startedZ = true;
+      } else {
+        ctx.lineTo(xPix, yPix);
+      }
+    }
+    ctx.stroke();
+    
+    // Phase Curve (pink)
+    ctx.strokeStyle = '#ec4899';
+    ctx.beginPath();
+    let startedPhi = false;
+    for (let f = 10; f <= 1000; f += 5) {
+      const omega = 2 * Math.PI * f;
+      const XL = omega * L;
+      const XC = 1 / (omega * C);
+      const phi = Math.atan((XL - XC) / R) * 180 / Math.PI;
+      
+      const xPct = (Math.log10(f) - 1) / 2;
+      const xPix = paddingLeft + xPct * graphWidth;
+      const yPix = h - paddingBottom - ((phi + 90) / 180) * graphHeight;
+      
+      if (!startedPhi) {
+        ctx.moveTo(xPix, yPix);
+        startedPhi = true;
+      } else {
+        ctx.lineTo(xPix, yPix);
+      }
+    }
+    ctx.stroke();
+    ctx.setLineDash([]); // reset
+    
+    // Draw experimental points
+    if (state.dataPoints.length > 0) {
+      const sortedPoints = [...state.dataPoints].sort((a, b) => a.f - b.f);
+      
+      // Z Points
+      ctx.strokeStyle = 'rgba(6, 182, 212, 0.4)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      sortedPoints.forEach((pt, idx) => {
+        const xPct = (Math.log10(pt.f) - 1) / 2;
+        const xPix = paddingLeft + xPct * graphWidth;
+        const yPix = h - paddingBottom - (pt.R / 1000) * graphHeight;
+        if (idx === 0) ctx.moveTo(xPix, yPix);
+        else ctx.lineTo(xPix, yPix);
+      });
+      if (sortedPoints.length > 1) ctx.stroke();
+      
+      sortedPoints.forEach(pt => {
+        const xPct = (Math.log10(pt.f) - 1) / 2;
+        const xPix = paddingLeft + xPct * graphWidth;
+        const yPix = h - paddingBottom - (pt.R / 1000) * graphHeight;
+        
+        ctx.fillStyle = '#06b6d4';
+        ctx.shadowBlur = 6;
+        ctx.shadowColor = '#06b6d4';
+        ctx.beginPath();
+        ctx.arc(xPix, yPix, 3.5, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.arc(xPix, yPix, 1.5, 0, 2 * Math.PI);
+        ctx.fill();
+      });
+      
+      // Phase Points
+      ctx.strokeStyle = 'rgba(236, 72, 153, 0.4)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      sortedPoints.forEach((pt, idx) => {
+        const xPct = (Math.log10(pt.f) - 1) / 2;
+        const xPix = paddingLeft + xPct * graphWidth;
+        const yPix = h - paddingBottom - ((pt.phi + 90) / 180) * graphHeight;
+        if (idx === 0) ctx.moveTo(xPix, yPix);
+        else ctx.lineTo(xPix, yPix);
+      });
+      if (sortedPoints.length > 1) ctx.stroke();
+      
+      sortedPoints.forEach(pt => {
+        const xPct = (Math.log10(pt.f) - 1) / 2;
+        const xPix = paddingLeft + xPct * graphWidth;
+        const yPix = h - paddingBottom - ((pt.phi + 90) / 180) * graphHeight;
+        
+        ctx.fillStyle = '#ec4899';
+        ctx.shadowBlur = 6;
+        ctx.shadowColor = '#ec4899';
+        ctx.beginPath();
+        ctx.arc(xPix, yPix, 3.5, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.arc(xPix, yPix, 1.5, 0, 2 * Math.PI);
+        ctx.fill();
+      });
     }
     
-    // Draw glowing circles
-    state.dataPoints.forEach(pt => {
-      const xVal = config.getX(pt);
-      const yVal = config.getY(pt);
-      const xPix = paddingLeft + (xVal / maxValX) * graphWidth;
-      const yPix = h - paddingBottom - (yVal / maxValY) * graphHeight;
-      
-      // Neon violet halo
-      ctx.fillStyle = '#a855f7';
-      ctx.shadowBlur = 8;
-      ctx.shadowColor = '#a855f7';
+    // Draw dual legend box
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth = 1;
+    
+    const legendW = 145;
+    const legendH = 28;
+    const legendX = w - paddingRight - legendW - 5;
+    const legendY = paddingTop + 5;
+    
+    ctx.fillRect(legendX, legendY, legendW, legendH);
+    ctx.strokeRect(legendX, legendY, legendW, legendH);
+    
+    ctx.font = '7px monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    
+    ctx.fillStyle = '#06b6d4';
+    ctx.fillRect(legendX + 6, legendY + 8, 8, 4);
+    ctx.fillStyle = '#e2e8f0';
+    ctx.fillText("Impedance Z (left axis)", legendX + 18, legendY + 10);
+    
+    ctx.fillStyle = '#ec4899';
+    ctx.fillRect(legendX + 6, legendY + 18, 8, 4);
+    ctx.fillStyle = '#e2e8f0';
+    ctx.fillText("Phase φ (right axis)", legendX + 18, legendY + 20);
+    
+  } else if (state.activeExperiment === 'kcl') {
+    const series = [
+      { key: 'I', color: '#00d084', name: 'Total Current (I_total)' },
+      { key: 'IR1', color: '#3b82f6', name: 'Branch 1 Current (I1)' },
+      { key: 'IR2', color: '#f97316', name: 'Branch 2 Current (I2)' }
+    ];
+    
+    series.forEach(s => {
+      ctx.strokeStyle = s.color;
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(xPix, yPix, 4, 0, 2 * Math.PI);
-      ctx.fill();
       
-      // White core
-      ctx.fillStyle = '#ffffff';
-      ctx.shadowBlur = 0;
-      ctx.beginPath();
-      ctx.arc(xPix, yPix, 1.8, 0, 2 * Math.PI);
-      ctx.fill();
+      const sortedPoints = [...state.dataPoints].sort((a, b) => a.id - b.id);
+      sortedPoints.forEach((pt, idx) => {
+        const xVal = pt.id; // Measurement Point (index 1 to 10)
+        const yVal = pt[s.key] * 1000; // Value in mA
+        const xPix = paddingLeft + (xVal / maxValX) * graphWidth;
+        const yPix = h - paddingBottom - (yVal / maxValY) * graphHeight;
+        
+        if (idx === 0) ctx.moveTo(xPix, yPix);
+        else ctx.lineTo(xPix, yPix);
+      });
+      if (sortedPoints.length > 1) {
+        ctx.stroke();
+      }
+      
+      state.dataPoints.forEach(pt => {
+        const xVal = pt.id;
+        const yVal = pt[s.key] * 1000;
+        const xPix = paddingLeft + (xVal / maxValX) * graphWidth;
+        const yPix = h - paddingBottom - (yVal / maxValY) * graphHeight;
+        
+        ctx.fillStyle = s.color;
+        ctx.shadowBlur = 6;
+        ctx.shadowColor = s.color;
+        ctx.beginPath();
+        ctx.arc(xPix, yPix, 3.5, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.arc(xPix, yPix, 1.5, 0, 2 * Math.PI);
+        ctx.fill();
+      });
     });
+    
+    // Draw legend box
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth = 1;
+    
+    const legendW = 120;
+    const legendH = 38;
+    const legendX = w - paddingRight - legendW - 5;
+    const legendY = paddingTop + 5;
+    
+    ctx.fillRect(legendX, legendY, legendW, legendH);
+    ctx.strokeRect(legendX, legendY, legendW, legendH);
+    
+    ctx.font = '7px monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    
+    series.forEach((s, idx) => {
+      const itemY = legendY + 6 + idx * 10;
+      ctx.fillStyle = s.color;
+      ctx.fillRect(legendX + 6, itemY - 2, 8, 4);
+      ctx.fillStyle = '#e2e8f0';
+      ctx.fillText(s.name, legendX + 18, itemY);
+    });
+    
+  } else {
+    if (state.dataPoints.length > 0) {
+      ctx.strokeStyle = 'rgba(168, 85, 247, 0.4)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      const sortedPoints = [...state.dataPoints].sort((a, b) => config.getX(a) - config.getX(b));
+      sortedPoints.forEach((pt, idx) => {
+        const xVal = config.getX(pt);
+        const yVal = config.getY(pt);
+        const xPix = paddingLeft + (xVal / maxValX) * graphWidth;
+        const yPix = h - paddingBottom - (yVal / maxValY) * graphHeight;
+        
+        if (idx === 0) ctx.moveTo(xPix, yPix);
+        else ctx.lineTo(xPix, yPix);
+      });
+      if (sortedPoints.length > 1) {
+        ctx.stroke();
+      }
+      
+      state.dataPoints.forEach(pt => {
+        const xVal = config.getX(pt);
+        const yVal = config.getY(pt);
+        const xPix = paddingLeft + (xVal / maxValX) * graphWidth;
+        const yPix = h - paddingBottom - (yVal / maxValY) * graphHeight;
+        
+        ctx.fillStyle = '#a855f7';
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = '#a855f7';
+        ctx.beginPath();
+        ctx.arc(xPix, yPix, 4, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.arc(xPix, yPix, 1.8, 0, 2 * Math.PI);
+        ctx.fill();
+      });
+    }
   }
   
   // 7. Render Interactive Hover Crosshairs
@@ -4037,8 +4365,21 @@ function drawGraph() {
     ctx.setLineDash([]); // reset
     
     // Calculate hover values
-    const xHover = ((graphMouseX - paddingLeft) / graphWidth) * maxValX;
-    const yHover = ((h - paddingBottom - graphMouseY) / graphHeight) * maxValY;
+    let xHover = 0;
+    let yHover = 0;
+    let yHoverZ = 0;
+    let yHoverPhi = 0;
+    
+    if (state.activeExperiment === 'rc_rl_rlc') {
+      const xPct = (graphMouseX - paddingLeft) / graphWidth;
+      xHover = Math.pow(10, 1 + xPct * 2);
+      const yPct = (h - paddingBottom - graphMouseY) / graphHeight;
+      yHoverZ = yPct * 1000;
+      yHoverPhi = -90 + yPct * 180;
+    } else {
+      xHover = ((graphMouseX - paddingLeft) / graphWidth) * maxValX;
+      yHover = ((h - paddingBottom - graphMouseY) / graphHeight) * maxValY;
+    }
     
     // Float coordinate label HUD
     ctx.shadowBlur = 6;
@@ -4048,7 +4389,7 @@ function drawGraph() {
     ctx.lineWidth = 1;
     
     const hudW = 95;
-    const hudH = 28;
+    const hudH = state.activeExperiment === 'rc_rl_rlc' ? 34 : 28;
     let hudX = graphMouseX + 10;
     let hudY = graphMouseY - 34;
     if (hudX + hudW > w) hudX = graphMouseX - hudW - 10;
@@ -4062,10 +4403,18 @@ function drawGraph() {
     ctx.font = '8px monospace';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    const xClean = config.xLabel.split(' ')[0];
-    const yClean = config.yLabel.split(' ')[0];
-    ctx.fillText(`${xClean}: ${xHover.toFixed(1)}`, hudX + 5, hudY + 5);
-    ctx.fillText(`${yClean}: ${yHover.toFixed(1)}`, hudX + 5, hudY + 15);
+    
+    if (state.activeExperiment === 'rc_rl_rlc') {
+      ctx.fillText(`Freq: ${xHover.toFixed(0)} Hz`, hudX + 5, hudY + 5);
+      ctx.fillText(`Imp Z: ${yHoverZ.toFixed(0)} Ω`, hudX + 5, hudY + 13);
+      ctx.fillText(`Phase φ: ${yHoverPhi.toFixed(0)}°`, hudX + 5, hudY + 21);
+    } else {
+      const xClean = config.xLabel.split(' ')[0];
+      const yClean = config.yLabel.split(' ')[0];
+      const xFormatted = xClean === 'Measurement' ? xHover.toFixed(0) : xHover.toFixed(1);
+      ctx.fillText(`${xClean}: ${xFormatted}`, hudX + 5, hudY + 5);
+      ctx.fillText(`${yClean}: ${yHover.toFixed(1)}`, hudX + 5, hudY + 15);
+    }
   }
   
   // 8. Render Stats Card Overlay (placed dynamically in grid top-right)
@@ -4188,19 +4537,17 @@ function generateExperimentConclusion(expKey, dataPoints) {
   switch (expKey) {
     case 'ohms': {
       const R_theoretical = state.params.R || 100;
-      let sumV = 0, sumI = 0, sumVI = 0, sumV2 = 0;
+      let sumVI = 0;
+      let sumI2 = 0;
       dataPoints.forEach(p => {
-        sumV += p.V;
-        sumI += p.I;
         sumVI += p.V * p.I;
-        sumV2 += p.V * p.V;
+        sumI2 += p.I * p.I;
       });
-      const denom = (N * sumV2 - sumV * sumV);
-      if (denom !== 0) {
-        const m = (N * sumVI - sumV * sumI) / denom;
-        const R_calc = 1 / m;
+      if (sumI2 !== 0) {
+        const R_calc = sumVI / sumI2;
+        const m = R_calc / 1000; // slope in V/mA
         const error = Math.abs(R_calc - R_theoretical) / R_theoretical * 100;
-        return `The Ohm's Law verification experiment was successfully completed. Based on the ${N} recorded data points, the V-I characteristic curve is a straight line passing through the origin, representing a purely Ohmic response. The experimental resistance calculated from the slope (reciprocal of conductance m = ${(m * 1000).toFixed(3)} mA/V) is ${R_calc.toFixed(1)} Ω. This deviates from the theoretical value of ${R_theoretical} Ω by only ${error.toFixed(2)}%, thereby verifying the linear relationship V = I × R.`;
+        return `The Ohm's Law verification experiment was successfully completed. Based on the ${N} recorded data points, the V-I characteristic curve is a straight line passing through the origin, representing a purely Ohmic response. The experimental resistance calculated from the slope (slope m = ${m.toFixed(4)} V/mA) is ${R_calc.toFixed(1)} Ω. This deviates from the theoretical value of ${R_theoretical} Ω by only ${error.toFixed(2)}%, thereby verifying the linear relationship V = I × R.`;
       }
       return `The Ohm's Law verification experiment was performed. The V-I characteristic curve exhibits a linear response passing through the origin. This confirms that current is directly proportional to voltage and inversely proportional to resistance, verifying V = I × R.`;
     }
@@ -5291,7 +5638,15 @@ function initInteraction() {
       C: state.params.C,
       P: state.meters.power,
       sourceV: state.params.V,
-      time: state.experimentStartTime ? (Date.now() - state.experimentStartTime) / 1000 : 0
+      time: state.experimentStartTime ? (Date.now() - state.experimentStartTime) / 1000 : 0,
+      XL: state.analysis.XL !== undefined ? state.analysis.XL : 0,
+      XC: state.analysis.XC !== undefined ? state.analysis.XC : 0,
+      phi: state.analysis.phi !== undefined ? state.analysis.phi : 0,
+      f0: state.analysis.f0 !== undefined ? state.analysis.f0 : 0,
+      IR1: state.analysis.IR1 !== undefined ? state.analysis.IR1 : 0,
+      IR2: state.analysis.IR2 !== undefined ? state.analysis.IR2 : 0,
+      VR1: state.analysis.VR1 !== undefined ? state.analysis.VR1 : 0,
+      VR2: state.analysis.VR2 !== undefined ? state.analysis.VR2 : 0
     };
     state.dataPoints.push(pt);
     
@@ -6735,129 +7090,70 @@ function updateTargetHighlights() {
   else if (state.activeExperiment === 'kcl') {
     const source = findComp('source');
     const resistors = comps.filter(c => c.type === 'resistor');
-    const ammeter = findComp('ammeter');
-    
-    const resistor1 = resistors[0];
-    const resistor2 = resistors[1];
+    const ammeters = comps.filter(c => c.type === 'ammeter');
 
     if (!source) {
       if (!state.selectedTool || state.selectedTool === 'source') {
         targetHighlightRing1 = addRing(1 * 14 + 0);
         targetHighlightRing2 = addRing(1 * 14 + 1);
       }
-    } else if (!resistor1) {
-      if (!state.selectedTool || state.selectedTool === 'resistor') {
-        targetHighlightRing1 = addRing(8 * 14 + 3);
-        targetHighlightRing2 = addRing(12 * 14 + 3);
-      }
-    } else if (!resistor2) {
-      if (!state.selectedTool || state.selectedTool === 'resistor') {
-        targetHighlightRing1 = addRing(8 * 14 + 5);
-        targetHighlightRing2 = addRing(12 * 14 + 5);
-      }
-    } else if (!ammeter) {
+    } else if (ammeters.length < 1) {
       if (!state.selectedTool || state.selectedTool === 'ammeter') {
         targetHighlightRing1 = addRing(3 * 14 + 7);
         targetHighlightRing2 = addRing(6 * 14 + 7);
       }
+    } else if (ammeters.length < 2) {
+      if (!state.selectedTool || state.selectedTool === 'ammeter') {
+        targetHighlightRing1 = addRing(7 * 14 + 4);
+        targetHighlightRing2 = addRing(10 * 14 + 4);
+      }
+    } else if (ammeters.length < 3) {
+      if (!state.selectedTool || state.selectedTool === 'ammeter') {
+        targetHighlightRing1 = addRing(7 * 14 + 9);
+        targetHighlightRing2 = addRing(10 * 14 + 9);
+      }
+    } else if (resistors.length < 1) {
+      if (!state.selectedTool || state.selectedTool === 'resistor') {
+        targetHighlightRing1 = addRing(10 * 14 + 4);
+        targetHighlightRing2 = addRing(14 * 14 + 4);
+      }
+    } else if (resistors.length < 2) {
+      if (!state.selectedTool || state.selectedTool === 'resistor') {
+        targetHighlightRing1 = addRing(10 * 14 + 9);
+        targetHighlightRing2 = addRing(14 * 14 + 9);
+      }
     } else {
       if (!state.selectedTool || state.selectedTool === 'wire') {
-        const r1_1 = resistor1.snap1, r1_2 = resistor1.snap2;
-        const r2_1 = resistor2.snap1, r2_2 = resistor2.snap2;
-        const am1 = ammeter.snap1, am2 = ammeter.snap2;
-        const r1_1_node = uf.find(r1_1), r1_2_node = uf.find(r1_2);
-        const r2_1_node = uf.find(r2_1), r2_2_node = uf.find(r2_2);
-        const am1_node = uf.find(am1), am2_node = uf.find(am2);
-
-        const posRail = uf.find(6 * 14 + 0);
-        const negRail = uf.find(6 * 14 + 1);
-
-        const isLowSide = (am1_node === negRail || am2_node === negRail);
-
-        if (isLowSide) {
-          const pos_to_r1 = (r1_1_node === posRail || r1_2_node === posRail);
-          if (!pos_to_r1) {
-            targetHighlightRing1 = addRing(6 * 14 + 0, true);
-            targetHighlightRing2 = addRing(r1_1, true);
-            return;
-          }
-          const r1_start = (r1_1_node === posRail) ? r1_1 : r1_2;
-          const r1_end = (r1_start === r1_1) ? r1_2 : r1_1;
-
-          const branch_in = (uf.find(r1_start) === r2_1_node || uf.find(r1_start) === r2_2_node);
-          if (!branch_in) {
-            targetHighlightRing1 = addRing(r1_start, true);
-            targetHighlightRing2 = addRing(r2_1, true);
-            return;
-          }
-          const r2_end = (uf.find(r1_start) === r2_1_node) ? r2_2 : r2_1;
-
-          const branch_out = (uf.find(r1_end) === uf.find(r2_end));
-          if (!branch_out) {
-            targetHighlightRing1 = addRing(r1_end, true);
-            targetHighlightRing2 = addRing(r2_end, true);
-            return;
-          }
-
-          const am_free = (am1_node === negRail) ? am2 : am1;
-          const r1_end_node = uf.find(r1_end);
-          const parallel_to_am = (r1_end_node === uf.find(am_free));
-          if (!parallel_to_am) {
-            targetHighlightRing1 = addRing(r1_end, true);
-            targetHighlightRing2 = addRing(am_free, true);
-            return;
-          }
-        } else {
-          let s_to_r1 = false;
-          let r1_start = null;
-
-          if ((am1_node === posRail && am2_node === r1_1_node) || (am2_node === posRail && am1_node === r1_1_node)) {
-            s_to_r1 = true;
-            r1_start = r1_1;
-          } else if ((am1_node === posRail && am2_node === r1_2_node) || (am2_node === posRail && am1_node === r1_2_node)) {
-            s_to_r1 = true;
-            r1_start = r1_2;
-          }
-
-          if (!s_to_r1) {
-            if (am1_node !== posRail && am2_node !== posRail) {
-              targetHighlightRing1 = addRing(6 * 14 + 0, true);
-              targetHighlightRing2 = addRing(am1, true);
-            } else {
-              const am_free = (am1_node === posRail) ? am2 : am1;
-              targetHighlightRing1 = addRing(am_free, true);
-              targetHighlightRing2 = addRing(r1_1, true);
-            }
-            return;
-          }
-
-          if (!r1_start) {
-            r1_start = (uf.find(6 * 14 + 0) === r1_1_node) ? r1_1 : r1_2;
-          }
-          const r1_end = (r1_start === r1_1) ? r1_2 : r1_1;
-
-          const branch_in = (uf.find(r1_start) === r2_1_node || uf.find(r1_start) === r2_2_node);
-          if (!branch_in) {
-            targetHighlightRing1 = addRing(r1_start, true);
-            targetHighlightRing2 = addRing(r2_1, true);
-            return;
-          }
-          const r2_end = (uf.find(r1_start) === r2_1_node) ? r2_2 : r2_1;
-
-          const branch_out = (uf.find(r1_end) === uf.find(r2_end));
-          if (!branch_out) {
-            targetHighlightRing1 = addRing(r1_end, true);
-            targetHighlightRing2 = addRing(r2_end, true);
-            return;
-          }
-
-          const r2_end_node = uf.find(r2_end);
-          const to_gnd = (r2_end_node === negRail);
-          if (!to_gnd) {
-            targetHighlightRing1 = addRing(r2_end, true);
-            targetHighlightRing2 = addRing(6 * 14 + 1, true);
-            return;
-          }
+        // Wiring verification using union find:
+        // 1. Positive rail to Ammeter Total start (3 * 14 + 0 to 3 * 14 + 7)
+        if (uf.find(3 * 14 + 0) !== uf.find(3 * 14 + 7)) {
+          targetHighlightRing1 = addRing(3 * 14 + 0, true);
+          targetHighlightRing2 = addRing(3 * 14 + 7, true);
+          return;
+        }
+        // 2. Ammeter Total end to junction column 8 Row F (6 * 14 + 7 to 7 * 14 + 7)
+        if (uf.find(6 * 14 + 7) !== uf.find(7 * 14 + 7)) {
+          targetHighlightRing1 = addRing(6 * 14 + 7, true);
+          targetHighlightRing2 = addRing(7 * 14 + 7, true);
+          return;
+        }
+        // 3. Across ravine node: Branch 1 entry to Branch 2 entry (7 * 14 + 4 to 7 * 14 + 9)
+        if (uf.find(7 * 14 + 4) !== uf.find(7 * 14 + 9)) {
+          targetHighlightRing1 = addRing(7 * 14 + 4, true);
+          targetHighlightRing2 = addRing(7 * 14 + 9, true);
+          return;
+        }
+        // 4. Across ravine node at exit: Resistor 1 end to Resistor 2 end (14 * 14 + 4 to 14 * 14 + 9)
+        if (uf.find(14 * 14 + 4) !== uf.find(14 * 14 + 9)) {
+          targetHighlightRing1 = addRing(14 * 14 + 4, true);
+          targetHighlightRing2 = addRing(14 * 14 + 9, true);
+          return;
+        }
+        // 5. Exit node to ground negative rail (14 * 14 + 9 to 14 * 14 + 1)
+        if (uf.find(14 * 14 + 9) !== uf.find(14 * 14 + 1)) {
+          targetHighlightRing1 = addRing(14 * 14 + 9, true);
+          targetHighlightRing2 = addRing(14 * 14 + 1, true);
+          return;
         }
       }
     }
@@ -6992,7 +7288,7 @@ function updateTargetHighlights() {
     const inductor = findComp('inductor');
     const capacitor = findComp('capacitor');
     const ammeter = findComp('ammeter');
-    const voltmeter = findComp('voltmeter');
+    const voltmeter = state.activeExperiment === 'rc_rl_rlc' ? findComp('voltmeter') : null;
 
     if (!source) {
       if (!state.selectedTool || state.selectedTool === 'source') {
@@ -7019,7 +7315,7 @@ function updateTargetHighlights() {
         targetHighlightRing1 = addRing(19 * 14 + 9);
         targetHighlightRing2 = addRing(24 * 14 + 9);
       }
-    } else if (!voltmeter) {
+    } else if (state.activeExperiment === 'rc_rl_rlc' && !voltmeter) {
       if (!state.selectedTool || state.selectedTool === 'voltmeter') {
         targetHighlightRing1 = addRing(15 * 14 + 11);
         targetHighlightRing2 = addRing(19 * 14 + 11);
@@ -7030,7 +7326,6 @@ function updateTargetHighlights() {
         const l1 = inductor.snap1, l2 = inductor.snap2;
         const c1 = capacitor.snap1, c2 = capacitor.snap2;
         const am1 = ammeter.snap1, am2 = ammeter.snap2;
-        const volt1 = voltmeter.snap1, volt2 = voltmeter.snap2;
 
         const s_to_r = (uf.find(7 * 14 + 0) === uf.find(r1) || uf.find(7 * 14 + 0) === uf.find(r2));
         if (!s_to_r) {
@@ -7079,20 +7374,23 @@ function updateTargetHighlights() {
           return;
         }
 
-        const volt1_connected = (uf.find(volt1) === uf.find(c1) || uf.find(volt1) === uf.find(c2));
-        if (!volt1_connected) {
-          targetHighlightRing1 = addRing(volt1, true);
-          targetHighlightRing2 = addRing(c1, true);
-          return;
-        }
+        if (state.activeExperiment === 'rc_rl_rlc') {
+          const volt1 = voltmeter.snap1, volt2 = voltmeter.snap2;
+          const volt1_connected = (uf.find(volt1) === uf.find(c1) || uf.find(volt1) === uf.find(c2));
+          if (!volt1_connected) {
+            targetHighlightRing1 = addRing(volt1, true);
+            targetHighlightRing2 = addRing(c1, true);
+            return;
+          }
 
-        const volt1_conn_to = (uf.find(volt1) === uf.find(c1)) ? c1 : c2;
-        const volt2_target = (volt1_conn_to === c1) ? c2 : c1;
-        const volt2_connected = (uf.find(volt2) === uf.find(volt2_target));
-        if (!volt2_connected) {
-          targetHighlightRing1 = addRing(volt2, true);
-          targetHighlightRing2 = addRing(volt2_target, true);
-          return;
+          const volt1_conn_to = (uf.find(volt1) === uf.find(c1)) ? c1 : c2;
+          const volt2_target = (volt1_conn_to === c1) ? c2 : c1;
+          const volt2_connected = (uf.find(volt2) === uf.find(volt2_target));
+          if (!volt2_connected) {
+            targetHighlightRing1 = addRing(volt2, true);
+            targetHighlightRing2 = addRing(volt2_target, true);
+            return;
+          }
         }
       }
     }
@@ -7527,62 +7825,48 @@ function getAIMentorMessage() {
     if (!ammeter) {
       return "<b>Step 2: Place Ammeter</b><br>Select <b>Ammeter</b> <i class='fa-solid fa-gauge-simple-high'></i> and place horizontally between Col 20, Row H and Col 25, Row H.";
     }
-    if (!voltmeter) {
-      return "<b>Step 2: Place Voltmeter</b><br>Select <b>Voltmeter</b> <i class='fa-solid fa-gauge-simple'></i> and place horizontally between Col 16, Row J and Col 20, Row J.";
-    }
     
     const uf = runUnionFind();
     const r1 = resistor.snap1, r2 = resistor.snap2;
     const l1 = inductor.snap1, l2 = inductor.snap2;
     const c1 = capacitor.snap1, c2 = capacitor.snap2;
     const am1 = ammeter.snap1, am2 = ammeter.snap2;
-    const volt1 = voltmeter.snap1, volt2 = voltmeter.snap2;
     
     // Wire 1: Top (+) Rail to Resistor start
     const s_to_r = (uf.find(7 * 14 + 0) === uf.find(r1));
     if (!s_to_r) {
-      return `<b>Step 1: Wire (+) Rail to Resistor</b><br>Wire **Top (+) Rail (Col 8)** to **Resistor start** (${getSocketLabelShort(r1)}).`;
+      return `<b>Step 3: Wire (+) Rail to Resistor</b><br>Wire **Top (+) Rail (Col 8)** to **Resistor start** (${getSocketLabelShort(r1)}).`;
     }
     // Wire 2: Resistor end to Inductor start
     const r_to_l = (uf.find(r2) === uf.find(l1));
     if (!r_to_l) {
-      return `<b>Step 1: Wire Resistor to Inductor</b><br>Wire **Resistor end** (${getSocketLabelShort(r2)}) to **Inductor start** (${getSocketLabelShort(l1)}).`;
+      return `<b>Step 3: Wire Resistor to Inductor</b><br>Wire **Resistor end** (${getSocketLabelShort(r2)}) to **Inductor start** (${getSocketLabelShort(l1)}).`;
     }
     // Wire 3: Inductor end to Capacitor start
     const l_to_c = (uf.find(l2) === uf.find(c1));
     if (!l_to_c) {
-      return `<b>Step 1: Wire Inductor to Capacitor</b><br>Wire **Inductor end** (${getSocketLabelShort(l2)}) to **Capacitor start** (${getSocketLabelShort(c1)}).`;
+      return `<b>Step 3: Wire Inductor to Capacitor</b><br>Wire **Inductor end** (${getSocketLabelShort(l2)}) to **Capacitor start** (${getSocketLabelShort(c1)}).`;
     }
     // Wire 4: Capacitor end to Ammeter (+)
     const c_to_am = (uf.find(c2) === uf.find(am1));
     if (!c_to_am) {
-      return `<b>Step 2: Wire Capacitor to Ammeter</b><br>Wire **Capacitor end** (${getSocketLabelShort(c2)}) to **Ammeter (+)** (${getSocketLabelShort(am1)}).`;
+      return `<b>Step 3: Wire Capacitor to Ammeter</b><br>Wire **Capacitor end** (${getSocketLabelShort(c2)}) to **Ammeter (+)** (${getSocketLabelShort(am1)}).`;
     }
     // Wire 5: Ammeter (-) back to Top (-) Rail
     const am_to_gnd = (uf.find(am2) === uf.find(24 * 14 + 1));
     if (!am_to_gnd) {
-      return `<b>Step 2: Wire Ammeter to (-) Rail</b><br>Wire **Ammeter (-)** (${getSocketLabelShort(am2)}) to **Top (-) Rail (Col 25)**.`;
-    }
-    // Wire 6: Voltmeter (+) to Capacitor start
-    const volt_pos_to_c = (uf.find(volt1) === uf.find(c1));
-    if (!volt_pos_to_c) {
-      return `<b>Step 2: Wire Voltmeter (+) to Capacitor</b><br>Wire **Voltmeter (+)** (${getSocketLabelShort(volt1)}) to **Capacitor start** (${getSocketLabelShort(c1)}).`;
-    }
-    // Wire 7: Voltmeter (-) to Capacitor end
-    const volt_neg_to_c = (uf.find(volt2) === uf.find(c2));
-    if (!volt_neg_to_c) {
-      return `<b>Step 2: Wire Voltmeter (-) to Capacitor</b><br>Wire **Voltmeter (-)** (${getSocketLabelShort(volt2)}) to **Capacitor end** (${getSocketLabelShort(c2)}).`;
+      return `<b>Step 3: Wire Ammeter to (-) Rail</b><br>Wire **Ammeter (-)** (${getSocketLabelShort(am2)}) to **Top (-) Rail (Col 25)**.`;
     }
     
     if (!state.isRunning) {
-      return "<b>Step 3: Initialize Circuit</b><br>Wiring complete! Click <b>INITIALIZE</b> in the top bar to start the LCR simulation.";
+      return "<b>Step 4: Initialize Circuit</b><br>Wiring complete! Click <b>INITIALIZE</b> in the top bar to start the LCR simulation.";
     }
     
     if (state.dataPoints.length < 5) {
-      return `<b>Step 4: Record Resonance Data</b><br>Vary the **Source Frequency** slider to find the resonance peak, and click <b>Record Point</b> (${5 - state.dataPoints.length} remaining).`;
+      return `<b>Step 5: Record Resonance Data</b><br>Vary the **Source Frequency** slider to find the resonance peak, and click <b>Record Point</b> (${5 - state.dataPoints.length} remaining).`;
     }
     
-    return "<b>Step 5: View Resonance Curve</b><br>Great job! Click on the **Graph** panel to view the sharp resonant frequency curve.";
+    return "<b>Step 6: View Resonance Curve</b><br>Great job! Click on the **Graph** panel to view the sharp resonant frequency curve.";
   }
   
   if (state.activeExperiment === 'rc') {
@@ -7815,57 +8099,57 @@ function getAIMentorMessage() {
 
   if (state.activeExperiment === 'kcl') {
     const resistors = comps.filter(c => c.type === 'resistor');
-    const r1 = resistors[0];
-    const r2 = resistors[1];
+    const ammeters = comps.filter(c => c.type === 'ammeter');
     
     if (!source) {
       return "<b>Step 1: Place DC Source</b><br>Select <b>DC Power Source</b> <i class='fa-solid fa-plug'></i> and click glowing green Top Rails slots (Col 2, Row +/-).";
     }
-    if (!ammeter) {
-      return "<b>Step 2: Place Ammeter</b><br>Select <b>Ammeter (Series)</b> and place horizontally between Col 4, Row H and Col 7, Row H.";
+    if (ammeters.length < 1) {
+      return "<b>Step 2: Place Ammeter (Total)</b><br>Select <b>Ammeter</b> and place horizontally between Col 4, Row F and Col 7, Row F.";
     }
-    if (!r1) {
-      return "<b>Step 3: Place Resistor 1</b><br>Select <b>Ceramic Resistor</b> and place horizontally between Col 8, Row C and Col 12, Row C.";
+    if (ammeters.length < 2) {
+      return "<b>Step 2: Place Ammeter (Branch 1)</b><br>Select <b>Ammeter</b> and place horizontally between Col 8, Row C and Col 11, Row C.";
     }
-    if (!r2) {
-      return "<b>Step 4: Place Resistor 2</b><br>Select <b>Ceramic Resistor</b> and place horizontally between Col 8, Row F and Col 12, Row F.";
+    if (ammeters.length < 3) {
+      return "<b>Step 2: Place Ammeter (Branch 2)</b><br>Select <b>Ammeter</b> and place horizontally between Col 8, Row H and Col 11, Row H.";
+    }
+    if (resistors.length < 1) {
+      return "<b>Step 3: Place Resistor 1</b><br>Select <b>Ceramic Resistor</b> and place horizontally between Col 11, Row C and Col 15, Row C.";
+    }
+    if (resistors.length < 2) {
+      return "<b>Step 4: Place Resistor 2</b><br>Select <b>Ceramic Resistor</b> and place horizontally between Col 11, Row H and Col 15, Row H.";
     }
     
     const uf = runUnionFind();
-    const r1_1 = r1.snap1, r1_2 = r1.snap2;
-    const r2_1 = r2.snap1, r2_2 = r2.snap2;
-    const am1 = ammeter.snap1, am2 = ammeter.snap2;
     
-    // Wire 1: Source (+) Col 6 to Ammeter start Col 4 Row H
-    const s_to_am = (uf.find(5 * 14 + 0) === uf.find(am1));
-    if (!s_to_am) {
-      return `<b>Step 5: Wire (+) Rail to Ammeter</b><br>Wire **Top (+) Rail (Col 6)** to **Ammeter start** (${getSocketLabelShort(am1)}).`;
+    // 1. Positive rail to Ammeter Total start (3 * 14 + 0 to 3 * 14 + 7)
+    if (uf.find(3 * 14 + 0) !== uf.find(3 * 14 + 7)) {
+      return `<b>Step 5: Wire Positive Rail to Ammeter Total</b><br>Wire **Top (+) Rail (Col 4)** to **Ammeter Total start** (${getSocketLabelShort(3 * 14 + 7)}).`;
     }
-    // Wire 2: Ammeter end Col 7 Row H to Resistor 1 start Col 8 Row C
-    const am_to_r1 = (uf.find(am2) === uf.find(r1_1));
-    if (!am_to_r1) {
-      return `<b>Step 5: Wire Ammeter to Resistor 1</b><br>Wire **Ammeter end** (${getSocketLabelShort(am2)}) to **Resistor 1 start** (${getSocketLabelShort(r1_1)}).`;
+    // 2. Ammeter Total end to junction column 8 Row F (6 * 14 + 7 to 7 * 14 + 7)
+    if (uf.find(6 * 14 + 7) !== uf.find(7 * 14 + 7)) {
+      return `<b>Step 5: Wire Ammeter Total to Junction</b><br>Wire **Ammeter Total end** (${getSocketLabelShort(6 * 14 + 7)}) to **Junction column** (${getSocketLabelShort(7 * 14 + 7)}).`;
     }
-    // Wire 3: Resistor 1 start to Resistor 2 start (parallel junction)
-    const r1_to_r2_start = (uf.find(r1_1) === uf.find(r2_1));
-    if (!r1_to_r2_start) {
-      return `<b>Step 5: Connect Resistors (Parallel start)</b><br>Wire **Resistor 1 start** (${getSocketLabelShort(r1_1)}) to **Resistor 2 start** (${getSocketLabelShort(r2_1)}).`;
+    // 3. Across ravine node: Branch 1 entry to Branch 2 entry (7 * 14 + 4 to 7 * 14 + 9)
+    if (uf.find(7 * 14 + 4) !== uf.find(7 * 14 + 9)) {
+      return `<b>Step 5: Connect Parallel Branches</b><br>Wire **Branch 1 input** (${getSocketLabelShort(7 * 14 + 4)}) to **Branch 2 input** (${getSocketLabelShort(7 * 14 + 9)}) (across the ravine).`;
     }
-    // Wire 4: Resistor 1 end to Resistor 2 end (parallel junction end)
-    const r1_to_r2_end = (uf.find(r1_2) === uf.find(r2_2));
-    if (!r1_to_r2_end) {
-      return `<b>Step 5: Connect Resistors (Parallel end)</b><br>Wire **Resistor 1 end** (${getSocketLabelShort(r1_2)}) to **Resistor 2 end** (${getSocketLabelShort(r2_2)}).`;
+    // 4. Across ravine node at exit: Resistor 1 end to Resistor 2 end (14 * 14 + 4 to 14 * 14 + 9)
+    if (uf.find(14 * 14 + 4) !== uf.find(14 * 14 + 9)) {
+      return `<b>Step 5: Connect Recombine Nodes</b><br>Wire **Resistor 1 end** (${getSocketLabelShort(14 * 14 + 4)}) to **Resistor 2 end** (${getSocketLabelShort(14 * 14 + 9)}) (across the ravine).`;
     }
-    // Wire 5: Resistor 2 end back to Source (-) Col 6
-    const r2_to_gnd = (uf.find(r2_2) === uf.find(5 * 14 + 1));
-    if (!r2_to_gnd) {
-      return `<b>Step 5: Wire Resistor 2 to (-) Rail</b><br>Wire **Resistor 2 end** (${getSocketLabelShort(r2_2)}) to **Top (-) Rail (Col 6)**.`;
+    // 5. Exit node to ground negative rail (14 * 14 + 9 to 14 * 14 + 1)
+    if (uf.find(14 * 14 + 9) !== uf.find(14 * 14 + 1)) {
+      return `<b>Step 5: Wire Recombine Node to (-) Rail</b><br>Wire **Resistor 2 end** (${getSocketLabelShort(14 * 14 + 9)}) to **Top (-) Rail (Col 15)**.`;
     }
     
     if (!state.isRunning) {
       return "<b>Step 6: Initialize Circuit</b><br>Wiring complete! Click <b>INITIALIZE</b> in the top bar to power on the circuit.";
     }
-    return "<b>Complete!</b><br>Kirchhoff's Current Law verified! Verify that junction currents sum to the total current.";
+    if (state.dataPoints.length < 5) {
+      return `<b>Step 7: Record KCL Data</b><br>Vary the **Source Voltage** and click <b>Record Point</b> (${5 - state.dataPoints.length} remaining).`;
+    }
+    return "<b>Complete!</b><br>Kirchhoff's Current Law successfully verified! Answer the Viva questions in the Report panel.";
   }
 
   if (state.activeExperiment === 'rc_rl_rlc') {
