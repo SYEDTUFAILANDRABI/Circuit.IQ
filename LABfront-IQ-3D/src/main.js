@@ -5990,10 +5990,11 @@ function autoBuildExperiment() {
     create3DWire(11 * 14 + 6, 11 * 14 + 9);                     // Col 12 Row E (internally links to R1 end & Voltmeter -) to Ammeter (+) Col 12 Row H
     create3DWire(13 * 14 + 9, 13 * 14 + 6);                     // Ammeter (-) Col 14 Row H to Col 14 Row E (internally links to R2 start)
     create3DWire(17 * 14 + 6, 17 * 14 + 1);                     // Col 18 Row E (internally links to R2 end) to Source (-) rail Col 18
-    create3DWire(7 * 14 + 3, 7 * 14 + 4);                       // Voltmeter 1 (+) Col 8 Row B to Col 8 Row C (parallel link)
-    create3DWire(11 * 14 + 3, 11 * 14 + 4);                     // Voltmeter 1 (-) Col 12 Row B to Col 12 Row C (parallel link)
-    create3DWire(13 * 14 + 3, 13 * 14 + 4);                     // Voltmeter 2 (+) Col 14 Row B to Col 14 Row C (parallel link)
-    create3DWire(17 * 14 + 3, 17 * 14 + 4);                     // Voltmeter 2 (-) Col 18 Row B to Col 18 Row C (parallel link)
+    create3DWire(7 * 14 + 3, 7 * 14 + 5);                       // Voltmeter 1 (+) Col 8 Row B to Col 8 Row D (parallel link)
+    create3DWire(11 * 14 + 3, 11 * 14 + 5);                     // Voltmeter 1 (-) Col 12 Row B to Col 12 Row D (parallel link)
+    create3DWire(13 * 14 + 3, 13 * 14 + 5);                     // Voltmeter 2 (+) Col 14 Row B to Col 14 Row D (parallel link)
+    create3DWire(17 * 14 + 3, 17 * 14 + 5);                     // Voltmeter 2 (-) Col 18 Row B to Col 18 Row D (parallel link)
+    completeStep(1);
   } else if (expKey === 'kcl') {
     placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
     placeComponent3D('ammeter', 3 * 14 + 7, 6 * 14 + 7);       // Ammeter: Cols 4-7, row H (measures I_total before junction)
@@ -13910,7 +13911,10 @@ function updateDiagram(expKey) {
         <path d="M 30 60 L 185 60 L 185 20 L 150 20" fill="none" stroke="#64748b" stroke-width="1.5" />
         <path d="M 50 20 L 55 15 L 60 25 L 65 15 L 70 25 L 75 15 L 80 25 L 85 20" fill="none" stroke="#f97316" stroke-width="1.5" />
         <text x="67" y="10" fill="#f97316" font-size="8" font-family="sans-serif" text-anchor="middle">R₁</text>
-        <line x1="85" y1="20" x2="115" y2="20" stroke="#00d084" stroke-width="1.5" />
+        <line x1="85" y1="20" x2="93" y2="20" stroke="#00d084" stroke-width="1.5" />
+        <circle cx="100" cy="20" r="6" fill="#020617" stroke="#3b82f6" stroke-width="1.2" />
+        <text x="100" y="22" fill="#3b82f6" font-size="7" font-family="sans-serif" font-weight="bold" text-anchor="middle">A</text>
+        <line x1="107" y1="20" x2="115" y2="20" stroke="#00d084" stroke-width="1.5" />
         <path d="M 115 20 L 120 15 L 125 25 L 130 15 L 135 25 L 140 15 L 145 25 L 150 20" fill="none" stroke="#3b82f6" stroke-width="1.5" />
         <text x="132" y="10" fill="#3b82f6" font-size="8" font-family="sans-serif" text-anchor="middle">R₂</text>
         <path d="M 50 20 L 50 45 L 60 45" fill="none" stroke="#00d084" stroke-width="1" />
