@@ -9687,12 +9687,43 @@ function initThreeJS() {
     
     // --- HTML5 Drag-and-Drop on Canvas ---
     function getDefaultToolSpan(tool) {
+      const exp = state.activeExperiment;
+      if (exp === 'ohms') {
+        if (tool === 'resistor') return { colSpan: 5, rowSpan: 0 };
+        if (tool === 'voltmeter' || tool === 'ammeter') return { colSpan: 5, rowSpan: 0 };
+      } else if (exp === 'kvl') {
+        if (tool === 'resistor') return { colSpan: 4, rowSpan: 0 };
+        if (tool === 'voltmeter') return { colSpan: 4, rowSpan: 0 };
+        if (tool === 'ammeter') return { colSpan: 2, rowSpan: 0 };
+      } else if (exp === 'kcl') {
+        if (tool === 'resistor') return { colSpan: 4, rowSpan: 0 };
+        if (tool === 'ammeter') return { colSpan: 3, rowSpan: 0 };
+      } else if (exp === 'rc' || exp === 'rc_rl_rlc' || exp === 'lcr') {
+        if (tool === 'resistor') return { colSpan: 4, rowSpan: 0 };
+        if (tool === 'inductor') return { colSpan: 4, rowSpan: 0 };
+        if (tool === 'capacitor') return { colSpan: 4, rowSpan: 0 };
+        if (tool === 'toggle_switch') return { colSpan: 4, rowSpan: 0 };
+        if (tool === 'ammeter') return { colSpan: 5, rowSpan: 0 };
+        if (tool === 'voltmeter') return { colSpan: 4, rowSpan: 0 };
+      } else if (exp === 'series_parallel') {
+        if (state.params.C === 2) {
+          if (tool === 'resistor') return { colSpan: 4, rowSpan: 0 };
+          if (tool === 'ammeter') return { colSpan: 3, rowSpan: 0 };
+          if (tool === 'voltmeter') return { colSpan: 4, rowSpan: 0 };
+        } else {
+          if (tool === 'resistor') return { colSpan: 4, rowSpan: 0 };
+          if (tool === 'ammeter') return { colSpan: 5, rowSpan: 0 };
+          if (tool === 'voltmeter') return { colSpan: 4, rowSpan: 0 };
+        }
+      }
+
       switch (tool) {
         case 'resistor':
         case 'capacitor':
           return { colSpan: 5, rowSpan: 0 };
         case 'ammeter':
         case 'voltmeter':
+        case 'galvanometer':
           return { colSpan: 4, rowSpan: 0 };
         case 'inductor':
         case 'diode':
