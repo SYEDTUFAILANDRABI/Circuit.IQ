@@ -2096,6 +2096,10 @@ function startPollingCalculations() {
       state.analysis.XC = data.XC;
       state.analysis.phi = data.phi;
       state.analysis.f0 = data.f0;
+      if (data.VR1 !== undefined) state.analysis.VR1 = data.VR1;
+      if (data.VR2 !== undefined) state.analysis.VR2 = data.VR2;
+      if (data.IR1 !== undefined) state.analysis.IR1 = data.IR1;
+      if (data.IR2 !== undefined) state.analysis.IR2 = data.IR2;
       
       updateUI();
       updateDynamicTextures();
