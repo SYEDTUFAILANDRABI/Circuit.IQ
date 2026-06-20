@@ -6346,181 +6346,211 @@ async function startSimulation() {
 }
 
 function autoBuildExperiment() {
-  setupExperiment(state.activeExperiment, false, true);
-  const expKey = state.activeExperiment;
-  if (expKey === 'ohms') {
-    placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
-    placeComponent3D('resistor', 9 * 14 + 4, 14 * 14 + 4);     // Cols 10-15, row E (top half)
-    placeComponent3D('ammeter', 14 * 14 + 7, 19 * 14 + 7);     // Cols 15-20, row H (below ravine)
-    placeComponent3D('voltmeter', 9 * 14 + 9, 14 * 14 + 9);    // Cols 10-15, row J (below ravine, isolated from resistor)
-    create3DWire(9 * 14 + 0, 9 * 14 + 4);                      // Source (+) rail to resistor start
-    create3DWire(14 * 14 + 4, 14 * 14 + 7);                    // Resistor end to ammeter start (cross ravine)
-    create3DWire(19 * 14 + 7, 19 * 14 + 1);                    // Ammeter end to Source (-) rail
-    create3DWire(9 * 14 + 4, 9 * 14 + 9);                      // Resistor terminal 1 to voltmeter terminal 1 (cross ravine)
-    create3DWire(14 * 14 + 4, 14 * 14 + 9);                    // Resistor terminal 2 to voltmeter terminal 2 (cross ravine)
-    completeStep(1);
-    completeStep(2);
-    completeStep(3);
-    completeStep(4);
-  } else if (expKey === 'kvl') {
-    placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
-    placeComponent3D('resistor', 7 * 14 + 5, 11 * 14 + 5);      // Resistor 1: Col 8-12, Row D
-    placeComponent3D('resistor', 13 * 14 + 5, 17 * 14 + 5);     // Resistor 2: Col 14-18, Row D
-    placeComponent3D('ammeter', 11 * 14 + 9, 13 * 14 + 9);      // Ammeter: Col 12-14, Row H
-    placeComponent3D('voltmeter', 7 * 14 + 3, 11 * 14 + 3);     // Voltmeter 1: Col 8-12, Row B
-    placeComponent3D('voltmeter', 13 * 14 + 3, 17 * 14 + 3);    // Voltmeter 2: Col 14-18, Row B
-    create3DWire(7 * 14 + 0, 7 * 14 + 6);                       // Source (+) rail Col 8 to Col 8 Row E (internally links to R1 start & Voltmeter +)
-    create3DWire(11 * 14 + 6, 11 * 14 + 9);                     // Col 12 Row E (internally links to R1 end & Voltmeter -) to Ammeter (+) Col 12 Row H
-    create3DWire(13 * 14 + 9, 13 * 14 + 6);                     // Ammeter (-) Col 14 Row H to Col 14 Row E (internally links to R2 start)
-    create3DWire(17 * 14 + 6, 17 * 14 + 1);                     // Col 18 Row E (internally links to R2 end) to Source (-) rail Col 18
-    create3DWire(7 * 14 + 3, 7 * 14 + 5);                       // Voltmeter 1 (+) Col 8 Row B to Col 8 Row D (parallel link)
-    create3DWire(11 * 14 + 3, 11 * 14 + 5);                     // Voltmeter 1 (-) Col 12 Row B to Col 12 Row D (parallel link)
-    create3DWire(13 * 14 + 3, 13 * 14 + 5);                     // Voltmeter 2 (+) Col 14 Row B to Col 14 Row D (parallel link)
-    create3DWire(17 * 14 + 3, 17 * 14 + 5);                     // Voltmeter 2 (-) Col 18 Row B to Col 18 Row D (parallel link)
-    completeStep(1);
-  } else if (expKey === 'kcl') {
-    placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
-    placeComponent3D('ammeter', 3 * 14 + 7, 6 * 14 + 7);       // Ammeter (Total): Cols 4-7, row F
-    placeComponent3D('ammeter', 7 * 14 + 4, 10 * 14 + 4);      // Ammeter (Branch 1): Cols 8-11, row C
-    placeComponent3D('ammeter', 7 * 14 + 9, 10 * 14 + 9);      // Ammeter (Branch 2): Cols 8-11, row H
-    placeComponent3D('resistor', 10 * 14 + 4, 14 * 14 + 4);    // Resistor 1: Cols 11-15, row C
-    placeComponent3D('resistor', 10 * 14 + 9, 14 * 14 + 9);    // Resistor 2: Cols 11-15, row H
-    
-    create3DWire(3 * 14 + 0, 3 * 14 + 7);                      // Source (+) Col 4 to Total Ammeter start
-    create3DWire(6 * 14 + 7, 7 * 14 + 7);                      // Total Ammeter end to Junction node bottom (Col 8 Row F)
-    create3DWire(7 * 14 + 4, 7 * 14 + 9);                      // Junction wire: Col 8 Row C to Col 8 Row H (crosses ravine)
-    create3DWire(14 * 14 + 4, 14 * 14 + 9);                    // Recombine wire: Col 15 Row C to Col 15 Row H (crosses ravine)
-    create3DWire(14 * 14 + 9, 14 * 14 + 1);                    // Recombined end to Source (-) Col 15
-    completeStep(1);
-    completeStep(2);
-    completeStep(3);
-    completeStep(4);
-  } else if (expKey === 'led') { // led color experiment
-    placeComponent3D('source', 3 * 14 + 0, 3 * 14 + 1); // Source at Col 4 Positive & Negative
-    placeComponent3D('resistor', 6 * 14 + 4, 9 * 14 + 4); // Resistor at Col 7E to 10E
-    placeComponent3D('led', 9 * 14 + 5, 9 * 14 + 6); // LED anode 10f, cathode 10g
-    create3DWire(4 * 14 + 0, 6 * 14 + 4); // Wire positive rail (Col 5) to Resistor start
-    create3DWire(9 * 14 + 4, 9 * 14 + 5); // Wire Resistor end to LED anode
-    create3DWire(9 * 14 + 6, 4 * 14 + 1); // Wire LED cathode to ground negative rail (Col 5)
-  } else if (expKey === 'planck_led') {
-    placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
-    placeComponent3D('resistor', 7 * 14 + 4, 11 * 14 + 4);     // Resistor: Col 8-12, row E
-    placeComponent3D('led', 11 * 14 + 5, 15 * 14 + 5);         // LED: Col 12-16, row D
-    create3DWire(7 * 14 + 0, 7 * 14 + 4);                      // Source (+) Col 8 to Resistor start
-    create3DWire(15 * 14 + 5, 15 * 14 + 1);                    // LED cathode to Source (-) Col 16
-  } else if (expKey === 'diode_iv') {
-    placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
-    placeComponent3D('resistor', 9 * 14 + 4, 14 * 14 + 4);     // Cols 10-15, row E
-    placeComponent3D('diode', 14 * 14 + 7, 19 * 14 + 7);       // Diode anode Col 15F, cathode Col 20F
-    placeComponent3D('ammeter', 19 * 14 + 9, 24 * 14 + 9);     // Cols 20-25, row H
-    placeComponent3D('voltmeter', 14 * 14 + 2, 19 * 14 + 2);    // Voltmeter Col 15A to Col 20A
-    create3DWire(2 * 14 + 0, 9 * 14 + 4);                      // Source (+) rail (Col 3) to Resistor start
-    create3DWire(14 * 14 + 4, 14 * 14 + 7);                    // Resistor end to Diode anode
-    create3DWire(19 * 14 + 7, 19 * 14 + 9);                    // Diode cathode to Ammeter start
-    create3DWire(24 * 14 + 9, 2 * 14 + 1);                     // Ammeter end to Source (-) rail (Col 3)
-    create3DWire(14 * 14 + 2, 14 * 14 + 7);                    // Voltmeter (+) to Diode anode
-    create3DWire(19 * 14 + 2, 19 * 14 + 7);                    // Voltmeter (-) to Diode cathode
-  } else if (expKey === 'voltage_divider') {
-    placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
-    placeComponent3D('resistor', 7 * 14 + 4, 11 * 14 + 4);     // R1: Col 8-12, row E
-    placeComponent3D('resistor', 11 * 14 + 4, 15 * 14 + 4);    // R2: Col 12-16, row E
-    create3DWire(7 * 14 + 0, 7 * 14 + 4);                      // Source (+) Col 8 to R1 start
-    create3DWire(15 * 14 + 4, 15 * 14 + 1);                    // R2 end to Source (-) Col 16
-  } else if (expKey === 'rc_rl_rlc') {
-    placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
-    placeComponent3D('resistor', 7 * 14 + 4, 11 * 14 + 4);
-    placeComponent3D('inductor', 11 * 14 + 5, 15 * 14 + 5);
-    placeComponent3D('capacitor', 15 * 14 + 6, 19 * 14 + 6);
-    placeComponent3D('ammeter', 19 * 14 + 9, 24 * 14 + 9);
-    placeComponent3D('voltmeter', 15 * 14 + 11, 19 * 14 + 11);
-    create3DWire(7 * 14 + 0, 7 * 14 + 4);
-    create3DWire(11 * 14 + 4, 11 * 14 + 5);
-    create3DWire(15 * 14 + 5, 15 * 14 + 6);
-    create3DWire(19 * 14 + 6, 19 * 14 + 9);
-    create3DWire(24 * 14 + 9, 24 * 14 + 1);
-    create3DWire(15 * 14 + 11, 15 * 14 + 6);
-    create3DWire(19 * 14 + 11, 19 * 14 + 6);
-    completeStep(1);
-    completeStep(2);
-  } else if (expKey === 'lcr') {
-    placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
-    placeComponent3D('resistor', 7 * 14 + 4, 11 * 14 + 4);
-    placeComponent3D('inductor', 11 * 14 + 5, 15 * 14 + 5);
-    placeComponent3D('capacitor', 15 * 14 + 6, 19 * 14 + 6);
-    placeComponent3D('ammeter', 19 * 14 + 9, 24 * 14 + 9);
-    placeComponent3D('voltmeter', 15 * 14 + 11, 19 * 14 + 11);
-    create3DWire(7 * 14 + 0, 7 * 14 + 4);
-    create3DWire(11 * 14 + 4, 11 * 14 + 5);
-    create3DWire(15 * 14 + 5, 15 * 14 + 6);
-    create3DWire(19 * 14 + 6, 19 * 14 + 9);
-    create3DWire(24 * 14 + 9, 24 * 14 + 1);
-    create3DWire(15 * 14 + 11, 15 * 14 + 6);
-    create3DWire(19 * 14 + 11, 19 * 14 + 6);
-    completeStep(1);
-    completeStep(2);
-  } else if (expKey === 'rc') {
-    placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
-    placeComponent3D('toggle_switch', 5 * 14 + 5, 9 * 14 + 5);  // Col 6 Row D to Col 10 Row D
-    placeComponent3D('resistor', 9 * 14 + 6, 14 * 14 + 6);     // Col 10 Row E to Col 15 Row E
-    placeComponent3D('capacitor', 14 * 14 + 7, 19 * 14 + 7);   // Col 15 Row F to Col 20 Row F
-    placeComponent3D('ammeter', 19 * 14 + 10, 24 * 14 + 10);   // Col 20 Row I to Col 25 Row I
-    placeComponent3D('voltmeter', 14 * 14 + 11, 19 * 14 + 11);  // Col 15 Row J to Col 20 Row J
-    
-    create3DWire(5 * 14 + 0, 5 * 14 + 5);                      // Source (+) Col 6 to Switch terminal 1
-    create3DWire(14 * 14 + 6, 14 * 14 + 7);                    // Resistor terminal 2 to Capacitor terminal 1 (across ravine)
-    create3DWire(19 * 14 + 7, 19 * 14 + 10);                   // Capacitor terminal 2 to Ammeter terminal 1 (across rows)
-    create3DWire(24 * 14 + 10, 24 * 14 + 1);                   // Ammeter terminal 2 to Source (-) Col 25
-    
-    create3DWire(14 * 14 + 11, 14 * 14 + 7);                   // Voltmeter (+) to Capacitor terminal 1
-    create3DWire(19 * 14 + 11, 19 * 14 + 7);                   // Voltmeter (-) to Capacitor terminal 2
-  } else if (expKey === 'series_parallel') {
-    placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
-    if (state.params.C === 2) {
-      // Parallel configuration
-      placeComponent3D('ammeter', 3 * 14 + 7, 6 * 14 + 7);       // Ammeter Col 4 Row H to Col 7 Row H
-      placeComponent3D('resistor', 8 * 14 + 3, 12 * 14 + 3);     // R1 Col 9 Row C to Col 13 Row C
-      placeComponent3D('resistor', 8 * 14 + 5, 12 * 14 + 5);     // R2 Col 9 Row F to Col 13 Row F
-      placeComponent3D('voltmeter', 8 * 14 + 9, 12 * 14 + 9);    // Voltmeter Col 9 Row J to Col 13 Row J
+  if (state.isAutoBuilding) return;
+  state.isAutoBuilding = true;
+  try {
+    setupExperiment(state.activeExperiment, false, true);
+    const expKey = state.activeExperiment;
+    if (expKey === 'ohms') {
+      placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
+      placeComponent3D('resistor', 9 * 14 + 4, 14 * 14 + 4);     // Cols 10-15, row E (top half)
+      placeComponent3D('ammeter', 14 * 14 + 7, 19 * 14 + 7);     // Cols 15-20, row H (below ravine)
+      placeComponent3D('voltmeter', 9 * 14 + 11, 14 * 14 + 11);    // Cols 10-15, row J (below ravine, isolated from resistor)
+      create3DWire(9 * 14 + 0, 9 * 14 + 4);                      // Source (+) rail to resistor start
+      create3DWire(14 * 14 + 4, 14 * 14 + 7);                    // Resistor end to ammeter start (cross ravine)
+      create3DWire(19 * 14 + 7, 19 * 14 + 1);                    // Ammeter end to Source (-) rail
+      create3DWire(9 * 14 + 4, 9 * 14 + 11);                      // Resistor terminal 1 to voltmeter terminal 1 (cross ravine)
+      create3DWire(14 * 14 + 4, 14 * 14 + 11);                    // Resistor terminal 2 to voltmeter terminal 2 (cross ravine)
+      completeStep(1);
+      completeStep(2);
+      completeStep(3);
+      completeStep(4);
+    } else if (expKey === 'kvl') {
+      placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
+      placeComponent3D('resistor', 7 * 14 + 5, 11 * 14 + 5);      // Resistor 1: Col 8-12, Row D
+      placeComponent3D('resistor', 13 * 14 + 5, 17 * 14 + 5);     // Resistor 2: Col 14-18, Row D
+      placeComponent3D('ammeter', 11 * 14 + 9, 13 * 14 + 9);      // Ammeter: Col 12-14, Row H
+      placeComponent3D('voltmeter', 7 * 14 + 3, 11 * 14 + 3);     // Voltmeter 1: Col 8-12, Row B
+      placeComponent3D('voltmeter', 13 * 14 + 3, 17 * 14 + 3);    // Voltmeter 2: Col 14-18, Row B
+      create3DWire(7 * 14 + 0, 7 * 14 + 6);                       // Source (+) rail Col 8 to Col 8 Row E (internally links to R1 start & Voltmeter +)
+      create3DWire(11 * 14 + 6, 11 * 14 + 9);                     // Col 12 Row E (internally links to R1 end & Voltmeter -) to Ammeter (+) Col 12 Row H
+      create3DWire(13 * 14 + 9, 13 * 14 + 6);                     // Ammeter (-) Col 14 Row H to Col 14 Row E (internally links to R2 start)
+      create3DWire(17 * 14 + 6, 17 * 14 + 1);                     // Col 18 Row E (internally links to R2 end) to Source (-) rail Col 18
+      create3DWire(7 * 14 + 3, 7 * 14 + 5);                       // Voltmeter 1 (+) Col 8 Row B to Col 8 Row D (parallel link)
+      create3DWire(11 * 14 + 3, 11 * 14 + 5);                     // Voltmeter 1 (-) Col 12 Row B to Col 12 Row D (parallel link)
+      create3DWire(13 * 14 + 3, 13 * 14 + 5);                     // Voltmeter 2 (+) Col 14 Row B to Col 14 Row D (parallel link)
+      create3DWire(17 * 14 + 3, 17 * 14 + 5);                     // Voltmeter 2 (-) Col 18 Row B to Col 18 Row D (parallel link)
+      completeStep(1);
+    } else if (expKey === 'kcl') {
+      placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
+      placeComponent3D('ammeter', 3 * 14 + 7, 6 * 14 + 7);       // Ammeter (Total): Cols 4-7, row F
+      placeComponent3D('ammeter', 7 * 14 + 4, 10 * 14 + 4);      // Ammeter (Branch 1): Cols 8-11, row C
+      placeComponent3D('ammeter', 7 * 14 + 9, 10 * 14 + 9);      // Ammeter (Branch 2): Cols 8-11, row H
+      placeComponent3D('resistor', 10 * 14 + 4, 14 * 14 + 4);    // Resistor 1: Cols 11-15, row C
+      placeComponent3D('resistor', 10 * 14 + 9, 14 * 14 + 9);    // Resistor 2: Cols 11-15, row H
       
-      create3DWire(6 * 14 + 0, 3 * 14 + 7);                      // Source (+) Col 7 to Ammeter start
-      create3DWire(6 * 14 + 7, 8 * 14 + 3);                      // Ammeter end Col 7 Row H to R1 start Col 9 Row C
-      create3DWire(8 * 14 + 3, 8 * 14 + 5);                      // Junction 1: R1 start to R2 start
-      create3DWire(12 * 14 + 3, 12 * 14 + 5);                    // Junction 2: R1 end to R2 end
-      create3DWire(12 * 14 + 5, 6 * 14 + 1);                     // Junction 2 back to Source (-) Col 7
-      
-      create3DWire(8 * 14 + 9, 8 * 14 + 5);                      // Voltmeter (+) to R2 start (Junction 1)
-      create3DWire(12 * 14 + 9, 12 * 14 + 5);                    // Voltmeter (-) to R2 end (Junction 2)
-    } else {
-      // Series configuration (original layout)
+      create3DWire(3 * 14 + 0, 3 * 14 + 7);                      // Source (+) Col 4 to Total Ammeter start
+      create3DWire(6 * 14 + 7, 7 * 14 + 7);                      // Total Ammeter end to Junction node bottom (Col 8 Row F)
+      create3DWire(7 * 14 + 4, 7 * 14 + 9);                      // Junction wire: Col 8 Row C to Col 8 Row H (crosses ravine)
+      create3DWire(14 * 14 + 4, 14 * 14 + 9);                    // Recombine wire: Col 15 Row C to Col 15 Row H (crosses ravine)
+      create3DWire(14 * 14 + 9, 14 * 14 + 1);                    // Recombined end to Source (-) Col 15
+      completeStep(1);
+      completeStep(2);
+      completeStep(3);
+      completeStep(4);
+    } else if (expKey === 'led') { // led color experiment
+      placeComponent3D('source', 3 * 14 + 0, 3 * 14 + 1); // Source at Col 4 Positive & Negative
+      placeComponent3D('resistor', 6 * 14 + 4, 9 * 14 + 4); // Resistor at Col 7E to 10E
+      placeComponent3D('led', 9 * 14 + 5, 9 * 14 + 6); // LED anode 10f, cathode 10g
+      create3DWire(4 * 14 + 0, 6 * 14 + 4); // Wire positive rail (Col 5) to Resistor start
+      create3DWire(9 * 14 + 4, 9 * 14 + 5); // Wire Resistor end to LED anode
+      create3DWire(9 * 14 + 6, 4 * 14 + 1); // Wire LED cathode to ground negative rail (Col 5)
+    } else if (expKey === 'planck_led') {
+      placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
+      placeComponent3D('resistor', 7 * 14 + 4, 11 * 14 + 4);     // Resistor: Col 8-12, row E
+      placeComponent3D('led', 11 * 14 + 5, 15 * 14 + 5);         // LED: Col 12-16, row D
+      placeComponent3D('ammeter', 15 * 14 + 9, 19 * 14 + 9);     // Ammeter: Col 16-20, row H
+      placeComponent3D('voltmeter', 11 * 14 + 9, 15 * 14 + 9);    // Voltmeter: Col 12-16, row H
+      create3DWire(7 * 14 + 0, 7 * 14 + 4);                      // Source (+) Col 8 to Resistor start
+      create3DWire(15 * 14 + 5, 15 * 14 + 9);                    // LED cathode to Ammeter (+)
+      create3DWire(19 * 14 + 9, 19 * 14 + 1);                    // Ammeter (-) to Source (-) Col 20
+      create3DWire(11 * 14 + 9, 11 * 14 + 5);                    // Voltmeter (+) to LED anode
+      create3DWire(15 * 14 + 9, 15 * 14 + 5);                    // Voltmeter (-) to LED cathode
+      completeStep(1);
+      completeStep(2);
+    } else if (expKey === 'diode_iv') {
+      placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
+      placeComponent3D('resistor', 9 * 14 + 4, 14 * 14 + 4);     // Cols 10-15, row E
+      placeComponent3D('diode', 14 * 14 + 7, 19 * 14 + 7);       // Diode anode Col 15F, cathode Col 20F
+      placeComponent3D('ammeter', 19 * 14 + 9, 24 * 14 + 9);     // Cols 20-25, row H
+      placeComponent3D('voltmeter', 14 * 14 + 2, 19 * 14 + 2);    // Voltmeter Col 15A to Col 20A
+      create3DWire(2 * 14 + 0, 9 * 14 + 4);                      // Source (+) rail (Col 3) to Resistor start
+      create3DWire(14 * 14 + 4, 14 * 14 + 7);                    // Resistor end to Diode anode
+      create3DWire(19 * 14 + 7, 19 * 14 + 9);                    // Diode cathode to Ammeter start
+      create3DWire(24 * 14 + 9, 2 * 14 + 1);                     // Ammeter end to Source (-) rail (Col 3)
+      create3DWire(14 * 14 + 2, 14 * 14 + 7);                    // Voltmeter (+) to Diode anode
+      create3DWire(19 * 14 + 2, 19 * 14 + 7);                    // Voltmeter (-) to Diode cathode
+    } else if (expKey === 'voltage_divider') {
+      placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
+      placeComponent3D('resistor', 7 * 14 + 4, 11 * 14 + 4);     // R1: Col 8-12, row E
+      placeComponent3D('resistor', 11 * 14 + 4, 15 * 14 + 4);    // R2: Col 12-16, row E
+      placeComponent3D('ammeter', 15 * 14 + 9, 19 * 14 + 9);     // Ammeter: Col 16-20, row H
+      placeComponent3D('voltmeter', 11 * 14 + 9, 15 * 14 + 9);    // Voltmeter: Col 12-16, row H
+      create3DWire(7 * 14 + 0, 7 * 14 + 4);                      // Source (+) Col 8 to R1 start
+      create3DWire(15 * 14 + 4, 15 * 14 + 9);                    // R2 end to Ammeter (+)
+      create3DWire(19 * 14 + 9, 19 * 14 + 1);                    // Ammeter (-) to Source (-) Col 20
+      create3DWire(11 * 14 + 9, 11 * 14 + 4);                    // Voltmeter (+) to R2 start
+      create3DWire(15 * 14 + 9, 15 * 14 + 4);                    // Voltmeter (-) to R2 end
+      completeStep(1);
+      completeStep(2);
+    } else if (expKey === 'rc_rl_rlc') {
+      placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
       placeComponent3D('resistor', 7 * 14 + 4, 11 * 14 + 4);
-      placeComponent3D('resistor', 11 * 14 + 4, 15 * 14 + 4);
-      placeComponent3D('ammeter', 15 * 14 + 7, 20 * 14 + 7);       // Ammeter in series measuring loop current (row H)
-      placeComponent3D('voltmeter', 7 * 14 + 9, 11 * 14 + 9);      // Voltmeter in parallel across Resistor 1 (row J)
-      create3DWire(7 * 14 + 0, 7 * 14 + 4);                        // Source (+) to Resistor 1 start
-      create3DWire(15 * 14 + 4, 15 * 14 + 7);                      // Resistor 2 end to Ammeter start (cross ravine)
-      create3DWire(20 * 14 + 7, 20 * 14 + 1);                      // Ammeter end to Source (-)
-      create3DWire(7 * 14 + 4, 7 * 14 + 9);                        // Resistor 1 start to Voltmeter start (cross ravine)
-      create3DWire(11 * 14 + 4, 11 * 14 + 9);                      // Resistor 1 end to Voltmeter end (cross ravine)
+      placeComponent3D('inductor', 11 * 14 + 5, 15 * 14 + 5);
+      placeComponent3D('capacitor', 15 * 14 + 6, 19 * 14 + 6);
+      placeComponent3D('ammeter', 19 * 14 + 9, 24 * 14 + 9);
+      placeComponent3D('voltmeter', 15 * 14 + 11, 19 * 14 + 11);
+      create3DWire(7 * 14 + 0, 7 * 14 + 4);
+      create3DWire(11 * 14 + 4, 11 * 14 + 5);
+      create3DWire(15 * 14 + 5, 15 * 14 + 6);
+      create3DWire(19 * 14 + 6, 19 * 14 + 9);
+      create3DWire(24 * 14 + 9, 24 * 14 + 1);
+      create3DWire(15 * 14 + 11, 15 * 14 + 6);
+      create3DWire(19 * 14 + 11, 19 * 14 + 6);
+      completeStep(1);
+      completeStep(2);
+    } else if (expKey === 'lcr') {
+      placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
+      placeComponent3D('resistor', 7 * 14 + 4, 11 * 14 + 4);
+      placeComponent3D('inductor', 11 * 14 + 5, 15 * 14 + 5);
+      placeComponent3D('capacitor', 15 * 14 + 6, 19 * 14 + 6);
+      placeComponent3D('ammeter', 19 * 14 + 9, 24 * 14 + 9);
+      placeComponent3D('voltmeter', 15 * 14 + 11, 19 * 14 + 11);
+      create3DWire(7 * 14 + 0, 7 * 14 + 4);
+      create3DWire(11 * 14 + 4, 11 * 14 + 5);
+      create3DWire(15 * 14 + 5, 15 * 14 + 6);
+      create3DWire(19 * 14 + 6, 19 * 14 + 9);
+      create3DWire(24 * 14 + 9, 24 * 14 + 1);
+      create3DWire(15 * 14 + 11, 15 * 14 + 6);
+      create3DWire(19 * 14 + 11, 19 * 14 + 6);
+      completeStep(1);
+      completeStep(2);
+    } else if (expKey === 'rc') {
+      placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
+      placeComponent3D('toggle_switch', 5 * 14 + 5, 9 * 14 + 5);  // Col 6 Row D to Col 10 Row D
+      placeComponent3D('resistor', 9 * 14 + 6, 14 * 14 + 6);     // Col 10 Row E to Col 15 Row E
+      placeComponent3D('capacitor', 14 * 14 + 7, 19 * 14 + 7);   // Col 15 Row F to Col 20 Row F
+      placeComponent3D('ammeter', 19 * 14 + 10, 24 * 14 + 10);   // Col 20 Row I to Col 25 Row I
+      placeComponent3D('voltmeter', 14 * 14 + 11, 19 * 14 + 11);  // Col 15 Row J to Col 20 Row J
+      
+      create3DWire(5 * 14 + 0, 5 * 14 + 5);                      // Source (+) Col 6 to Switch terminal 1
+      create3DWire(14 * 14 + 6, 14 * 14 + 7);                    // Resistor terminal 2 to Capacitor terminal 1 (across ravine)
+      create3DWire(19 * 14 + 7, 19 * 14 + 10);                   // Capacitor terminal 2 to Ammeter terminal 1 (across rows)
+      create3DWire(24 * 14 + 10, 24 * 14 + 1);                   // Ammeter terminal 2 to Source (-) Col 25
+      
+      create3DWire(14 * 14 + 11, 14 * 14 + 7);                   // Voltmeter (+) to Capacitor terminal 1
+      create3DWire(19 * 14 + 11, 19 * 14 + 7);                   // Voltmeter (-) to Capacitor terminal 2
+    } else if (expKey === 'series_parallel') {
+      placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
+      if (state.params.C === 2) {
+        // Parallel configuration
+        placeComponent3D('ammeter', 3 * 14 + 7, 6 * 14 + 7);       // Ammeter Col 4 Row H to Col 7 Row H
+        placeComponent3D('resistor', 8 * 14 + 3, 12 * 14 + 3);     // R1 Col 9 Row C to Col 13 Row C
+        placeComponent3D('resistor', 8 * 14 + 5, 12 * 14 + 5);     // R2 Col 9 Row F to Col 13 Row F
+        placeComponent3D('voltmeter', 8 * 14 + 9, 12 * 14 + 9);    // Voltmeter Col 9 Row J to Col 13 Row J
+        
+        create3DWire(6 * 14 + 0, 3 * 14 + 7);                      // Source (+) Col 7 to Ammeter start
+        create3DWire(6 * 14 + 7, 8 * 14 + 3);                      // Ammeter end Col 7 Row H to R1 start Col 9 Row C
+        create3DWire(8 * 14 + 3, 8 * 14 + 5);                      // Junction 1: R1 start to R2 start
+        create3DWire(12 * 14 + 3, 12 * 14 + 5);                    // Junction 2: R1 end to R2 end
+        create3DWire(12 * 14 + 5, 6 * 14 + 1);                     // Junction 2 back to Source (-) Col 7
+        
+        create3DWire(8 * 14 + 9, 8 * 14 + 5);                      // Voltmeter (+) to R2 start (Junction 1)
+        create3DWire(12 * 14 + 9, 12 * 14 + 5);                    // Voltmeter (-) to R2 end (Junction 2)
+        completeStep(1);
+        completeStep(3);
+      } else {
+        // Series configuration (original layout)
+        placeComponent3D('resistor', 7 * 14 + 4, 11 * 14 + 4);
+        placeComponent3D('resistor', 11 * 14 + 4, 15 * 14 + 4);
+        placeComponent3D('ammeter', 15 * 14 + 7, 20 * 14 + 7);       // Ammeter in series measuring loop current (row H)
+        placeComponent3D('voltmeter', 7 * 14 + 9, 11 * 14 + 9);      // Voltmeter in parallel across Resistor 1 (row J)
+        create3DWire(7 * 14 + 0, 7 * 14 + 4);                        // Source (+) to Resistor 1 start
+        create3DWire(15 * 14 + 4, 15 * 14 + 7);                      // Resistor 2 end to Ammeter start (cross ravine)
+        create3DWire(20 * 14 + 7, 20 * 14 + 1);                      // Ammeter end to Source (-)
+        create3DWire(7 * 14 + 4, 7 * 14 + 9);                        // Resistor 1 start to Voltmeter start (cross ravine)
+        create3DWire(11 * 14 + 4, 11 * 14 + 9);                      // Resistor 1 end to Voltmeter end (cross ravine)
+        completeStep(1);
+        completeStep(2);
+      }
+    } else if (expKey === 'wheatstone') {
+      placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
+      placeComponent3D('resistor', 6 * 14 + 4, 10 * 14 + 4);  // R1: Col 7 to 11 Row C
+      placeComponent3D('resistor', 10 * 14 + 4, 14 * 14 + 4); // R2: Col 11 to 15 Row C
+      placeComponent3D('resistor', 6 * 14 + 9, 10 * 14 + 9);  // R3: Col 7 to 11 Row H
+      placeComponent3D('resistor', 10 * 14 + 9, 14 * 14 + 9); // R4: Col 11 to 15 Row H
+      placeComponent3D('galvanometer', 8 * 14 + 9, 12 * 14 + 9); // Galvanometer: Col 9 to 13 Row H
+      create3DWire(2 * 14 + 0, 6 * 14 + 4); // Positive rail to R1 start
+      create3DWire(6 * 14 + 4, 6 * 14 + 9); // Positive link crossing ravine (R1 start to R3 start)
+      create3DWire(14 * 14 + 4, 14 * 14 + 9); // Negative link crossing ravine (R2 end to R4 end)
+      create3DWire(14 * 14 + 9, 2 * 14 + 1); // Negative link to negative rail
+      create3DWire(10 * 14 + 4, 8 * 14 + 9); // Midpoint A to Galvanometer term 1
+      create3DWire(10 * 14 + 9, 12 * 14 + 9); // Midpoint B to Galvanometer term 2
+      completeStep(1);
+      completeStep(2);
+      completeStep(3);
+    } else if (expKey === 'arduino_led') {
+      placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
+      placeComponent3D('button', 11 * 14 + 6, 11 * 14 + 7);
+      placeComponent3D('led', 15 * 14 + 6, 17 * 14 + 6);
+      placeComponent3D('resistor', 17 * 14 + 7, 21 * 14 + 7);
+      create3DWire(882, 11 * 14 + 6);
+      create3DWire(11 * 14 + 7, 15 * 14 + 6);
+      create3DWire(17 * 14 + 6, 17 * 14 + 7);
+      create3DWire(21 * 14 + 7, 883);
     }
-  } else if (expKey === 'wheatstone') {
-    placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
-    placeComponent3D('resistor', 6 * 14 + 3, 10 * 14 + 3);  // R1
-    placeComponent3D('resistor', 10 * 14 + 3, 14 * 14 + 3); // R2
-    placeComponent3D('resistor', 6 * 14 + 5, 10 * 14 + 5);  // R3
-    placeComponent3D('resistor', 10 * 14 + 5, 14 * 14 + 5); // R4
-    create3DWire(2 * 14 + 0, 6 * 14 + 3);
-    create3DWire(6 * 14 + 3, 6 * 14 + 5);
-    create3DWire(14 * 14 + 3, 14 * 14 + 5);
-    create3DWire(14 * 14 + 5, 2 * 14 + 1);
-  } else if (expKey === 'arduino_led') {
-    placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
-    placeComponent3D('button', 11 * 14 + 6, 11 * 14 + 7);
-    placeComponent3D('led', 15 * 14 + 6, 17 * 14 + 6);
-    placeComponent3D('resistor', 17 * 14 + 7, 21 * 14 + 7);
-    create3DWire(882, 11 * 14 + 6);
-    create3DWire(11 * 14 + 7, 15 * 14 + 6);
-    create3DWire(17 * 14 + 6, 17 * 14 + 7);
-    create3DWire(21 * 14 + 7, 883);
+  } finally {
+    state.isAutoBuilding = false;
   }
 }
 
