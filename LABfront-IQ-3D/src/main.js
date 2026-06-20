@@ -14817,19 +14817,27 @@ function updateDiagram(expKey) {
         <circle cx="30" cy="60" r="10" fill="none" stroke="#3b82f6" stroke-width="1.5" />
         <path d="M 25 60 Q 27.5 55 30 60 T 35 60" fill="none" stroke="#3b82f6" stroke-width="1.5" />
         <path d="M 30 50 L 30 20 L 55 20" fill="none" stroke="#00d084" stroke-width="1.5" />
-        <path d="M 30 70 L 30 100 L 180 100 L 180 20 L 160 20" fill="none" stroke="#64748b" stroke-width="1.5" />
+        <path d="M 30 70 L 30 100 L 180 100 L 180 20 L 171 20" fill="none" stroke="#64748b" stroke-width="1.5" />
         <path d="M 55 20 L 60 15 L 65 25 L 70 15 L 75 25 L 80 15 L 85 25 L 90 20" fill="none" stroke="#f97316" stroke-width="1.5" />
-        <text x="72" y="10" fill="#f97316" font-size="8" font-family="sans-serif" text-anchor="middle">R</text>
+        <text x="72" y="10" fill="#f97316" font-size="8" font-family="sans-serif" text-anchor="middle" font-weight="bold">R</text>
         <line x1="90" y1="20" x2="105" y2="20" stroke="#00d084" stroke-width="1.5" />
         <path d="M 105 20 Q 108 13 111 20 Q 114 13 117 20 Q 120 13 123 20 Q 126 13 129 20" fill="none" stroke="#a855f7" stroke-width="1.5" />
-        <text x="117" y="10" fill="#a855f7" font-size="8" font-family="sans-serif" text-anchor="middle">L</text>
-        <line x1="129" y1="20" x2="145" y2="20" stroke="#00d084" stroke-width="1.5" />
-        <line x1="145" y1="12" x2="145" y2="28" stroke="#06b6d4" stroke-width="2" />
-        <line x1="150" y1="12" x2="150" y2="28" stroke="#06b6d4" stroke-width="2" />
-        <text x="148" y="8" fill="#06b6d4" font-size="8" font-family="sans-serif" text-anchor="middle">C</text>
+        <text x="117" y="10" fill="#a855f7" font-size="8" font-family="sans-serif" text-anchor="middle" font-weight="bold">L</text>
+        <line x1="129" y1="20" x2="140" y2="20" stroke="#00d084" stroke-width="1.5" />
+        <line x1="140" y1="12" x2="140" y2="28" stroke="#06b6d4" stroke-width="2" />
+        <line x1="144" y1="12" x2="144" y2="28" stroke="#06b6d4" stroke-width="2" />
+        <text x="142" y="8" fill="#06b6d4" font-size="8" font-family="sans-serif" text-anchor="middle" font-weight="bold">C</text>
+        <line x1="144" y1="20" x2="155" y2="20" stroke="#00d084" stroke-width="1.5" />
+        <circle cx="163" cy="20" r="8" fill="#020617" stroke="#3b82f6" stroke-width="1.5" />
+        <text x="163" y="22.5" fill="#3b82f6" font-size="8" font-family="sans-serif" font-weight="bold" text-anchor="middle">A</text>
+        
+        <path d="M 135 20 L 135 45 L 139 45" fill="none" stroke="#00d084" stroke-width="1.2" />
+        <path d="M 150 20 L 150 45 L 147 45" fill="none" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="143" cy="45" r="7" fill="#020617" stroke="#ef4444" stroke-width="1.2" />
+        <text x="143" y="47.5" fill="#ef4444" font-size="7" font-family="sans-serif" font-weight="bold" text-anchor="middle">V</text>
       </svg>
     `;
-    description = "AC Series resonance circuit. Reactance XL cancels XC at resonance frequency f₀ = 1 / (2π√(LC)), yielding minimum impedance Z = R.";
+    description = "AC Series resonance circuit. Reactance XL cancels XC at resonance frequency f₀ = 1 / (2π√(LC)), yielding minimum impedance Z = R. Voltmeter measures capacitor drop, Ammeter measures loop current.";
   }
   else if (expKey === 'rc') {
     title = "RC Transient Charging";
@@ -14855,21 +14863,62 @@ function updateDiagram(expKey) {
     description = "Transient charging loop. Switch closes to initiate exponential charging. Capacitor voltage is measured across time Constant τ = R × C.";
   }
   else if (expKey === 'series_parallel') {
-    title = "Series Resistors Network";
-    svg = `
-      <svg viewBox="0 0 200 120" style="width:100%;max-width:180px;height:auto;margin:0 auto;display:block">
-        <line x1="30" y1="50" x2="30" y2="70" stroke="#ef4444" stroke-width="2" />
-        <line x1="35" y1="55" x2="35" y2="65" stroke="#ef4444" stroke-width="1" />
-        <path d="M 30 60 L 15 60 L 15 20 L 60 20" fill="none" stroke="#00d084" stroke-width="1.5" />
-        <path d="M 35 60 L 175 60 L 175 20 L 145 20" fill="none" stroke="#64748b" stroke-width="1.5" />
-        <path d="M 60 20 L 65 15 L 70 25 L 75 15 L 80 25 L 85 15 L 90 25 L 95 20" fill="none" stroke="#f97316" stroke-width="1.5" />
-        <text x="77" y="10" fill="#f97316" font-size="8" font-family="sans-serif" text-anchor="middle">R₁</text>
-        <line x1="95" y1="20" x2="110" y2="20" stroke="#00d084" stroke-width="1.5" />
-        <path d="M 110 20 L 115 15 L 120 25 L 125 15 L 130 25 L 135 15 L 140 25 L 145 20" fill="none" stroke="#3b82f6" stroke-width="1.5" />
-        <text x="127" y="10" fill="#3b82f6" font-size="8" font-family="sans-serif" text-anchor="middle">R₂</text>
-      </svg>
-    `;
-    description = "Resistors in series combine directly: R_total = R₁ + R₂. The current flowing through both is identical.";
+    if (state.params.C === 2) {
+      title = "Parallel Resistors Network";
+      svg = `
+        <svg viewBox="0 0 200 120" style="width:100%;max-width:180px;height:auto;margin:0 auto;display:block">
+          <line x1="30" y1="50" x2="30" y2="70" stroke="#ef4444" stroke-width="2" />
+          <line x1="35" y1="55" x2="35" y2="65" stroke="#ef4444" stroke-width="1" />
+          <text x="18" y="63" fill="#ef4444" font-size="8" font-family="sans-serif" font-weight="bold">+</text>
+          <text x="45" y="63" fill="#ef4444" font-size="8" font-family="sans-serif">-</text>
+          <path d="M 30 60 L 15 60 L 15 20 L 45 20" fill="none" stroke="#00d084" stroke-width="1.5" />
+          <circle cx="53" cy="20" r="8" fill="#020617" stroke="#3b82f6" stroke-width="1.5" />
+          <text x="53" y="22.5" fill="#3b82f6" font-size="8" font-family="sans-serif" font-weight="bold" text-anchor="middle">A</text>
+          <line x1="61" y1="20" x2="70" y2="20" stroke="#00d084" stroke-width="1.5" />
+          <circle cx="70" cy="20" r="1.5" fill="#22c55e" />
+          <path d="M 70 20 L 70 10 L 80 10" fill="none" stroke="#00d084" stroke-width="1.2" />
+          <path d="M 80 10 L 85 7 L 90 13 L 95 7 L 100 13 L 105 7 L 110 13 L 115 10" fill="none" stroke="#f97316" stroke-width="1.2" />
+          <text x="97" y="4" fill="#f97316" font-size="7" font-family="sans-serif" text-anchor="middle">R₁</text>
+          <path d="M 115 10 L 125 10 L 125 20" fill="none" stroke="#64748b" stroke-width="1.2" />
+          <path d="M 70 20 L 70 30 L 80 30" fill="none" stroke="#00d084" stroke-width="1.2" />
+          <path d="M 80 30 L 85 27 L 90 33 L 95 27 L 100 33 L 105 27 L 110 33 L 115 30" fill="none" stroke="#3b82f6" stroke-width="1.2" />
+          <text x="97" y="24" fill="#3b82f6" font-size="7" font-family="sans-serif" text-anchor="middle">R₂</text>
+          <path d="M 115 30 L 125 30 L 125 20" fill="none" stroke="#64748b" stroke-width="1.2" />
+          <circle cx="125" cy="20" r="1.5" fill="#22c55e" />
+          <path d="M 125 20 L 180 20 L 180 60 L 35 60" fill="none" stroke="#64748b" stroke-width="1.5" />
+          <path d="M 70 20 L 70 45 L 90 45" fill="none" stroke="#00d084" stroke-width="1" />
+          <path d="M 125 20 L 125 45 L 104 45" fill="none" stroke="#64748b" stroke-width="1" />
+          <circle cx="97" cy="45" r="7" fill="#020617" stroke="#ef4444" stroke-width="1.2" />
+          <text x="97" y="47.5" fill="#ef4444" font-size="7" font-family="sans-serif" font-weight="bold" text-anchor="middle">V</text>
+        </svg>
+      `;
+      description = "Resistors in parallel combine reciprocally: 1/R_total = 1/R₁ + 1/R₂. The voltage across both branches is identical. Voltmeter measures parallel voltage drop, Ammeter measures total line current.";
+    } else {
+      title = "Series Resistors Network";
+      svg = `
+        <svg viewBox="0 0 200 120" style="width:100%;max-width:180px;height:auto;margin:0 auto;display:block">
+          <line x1="30" y1="50" x2="30" y2="70" stroke="#ef4444" stroke-width="2" />
+          <line x1="35" y1="55" x2="35" y2="65" stroke="#ef4444" stroke-width="1" />
+          <text x="18" y="63" fill="#ef4444" font-size="8" font-family="sans-serif" font-weight="bold">+</text>
+          <text x="45" y="63" fill="#ef4444" font-size="8" font-family="sans-serif">-</text>
+          <path d="M 30 60 L 15 60 L 15 20 L 55 20" fill="none" stroke="#00d084" stroke-width="1.5" />
+          <path d="M 55 20 L 60 15 L 65 25 L 70 15 L 75 25 L 80 15 L 85 25 L 90 20" fill="none" stroke="#f97316" stroke-width="1.5" />
+          <text x="72" y="10" fill="#f97316" font-size="8" font-family="sans-serif" text-anchor="middle" font-weight="bold">R₁</text>
+          <line x1="90" y1="20" x2="105" y2="20" stroke="#00d084" stroke-width="1.5" />
+          <path d="M 105 20 L 110 15 L 115 25 L 120 15 L 125 25 L 130 15 L 135 25 L 140 20" fill="none" stroke="#3b82f6" stroke-width="1.5" />
+          <text x="122" y="10" fill="#3b82f6" font-size="8" font-family="sans-serif" text-anchor="middle" font-weight="bold">R₂</text>
+          <line x1="140" y1="20" x2="150" y2="20" stroke="#00d084" stroke-width="1.5" />
+          <circle cx="158" cy="20" r="8" fill="#020617" stroke="#3b82f6" stroke-width="1.5" />
+          <text x="158" y="22.5" fill="#3b82f6" font-size="8" font-family="sans-serif" font-weight="bold" text-anchor="middle">A</text>
+          <path d="M 166 20 L 180 20 L 180 60 L 35 60" fill="none" stroke="#64748b" stroke-width="1.5" />
+          <path d="M 50 20 L 50 45 L 65 45" fill="none" stroke="#00d084" stroke-width="1" />
+          <path d="M 95 20 L 95 45 L 79 45" fill="none" stroke="#64748b" stroke-width="1" />
+          <circle cx="72" cy="45" r="7" fill="#020617" stroke="#ef4444" stroke-width="1.2" />
+          <text x="72" y="47.5" fill="#ef4444" font-size="7" font-family="sans-serif" font-weight="bold" text-anchor="middle">V</text>
+        </svg>
+      `;
+      description = "Resistors in series combine directly: R_total = R₁ + R₂. The current flowing through both is identical. Voltmeter measures R₁ drop, Ammeter measures loop current.";
+    }
   }
   else if (expKey === 'wheatstone') {
     title = "Wheatstone Bridge Balance";
@@ -14922,17 +14971,23 @@ function updateDiagram(expKey) {
         <line x1="35" y1="55" x2="35" y2="65" stroke="#ef4444" stroke-width="1" />
         <text x="18" y="63" fill="#ef4444" font-size="8" font-family="sans-serif" font-weight="bold">+</text>
         <path d="M 30 60 L 15 60 L 15 20 L 50 20" fill="none" stroke="#00d084" stroke-width="1.5" />
-        <path d="M 35 60 L 175 60 L 175 20 L 140 20" fill="none" stroke="#64748b" stroke-width="1.5" />
+        <path d="M 35 60 L 175 60 L 175 20 L 146 20" fill="none" stroke="#64748b" stroke-width="1.5" />
         <path d="M 50 20 L 55 15 L 60 25 L 65 15 L 70 25 L 75 15 L 80 25 L 85 20" fill="none" stroke="#f97316" stroke-width="1.5" />
         <text x="67" y="10" fill="#f97316" font-size="8" font-family="sans-serif" text-anchor="middle">R</text>
         <line x1="85" y1="20" x2="100" y2="20" stroke="#00d084" stroke-width="1.5" />
         <path d="M 100 12 L 100 28 L 115 20 Z" fill="#3b82f6" stroke="#3b82f6" stroke-width="1" />
         <line x1="115" y1="12" x2="115" y2="28" stroke="#3b82f6" stroke-width="2" />
-        <line x1="115" y1="20" x2="140" y2="20" stroke="#00d084" stroke-width="1.5" />
+        <line x1="115" y1="20" x2="130" y2="20" stroke="#00d084" stroke-width="1.5" />
+        <circle cx="138" cy="20" r="8" fill="#020617" stroke="#3b82f6" stroke-width="1.5" />
+        <text x="138" y="23" fill="#3b82f6" font-size="9" font-family="sans-serif" font-weight="bold" text-anchor="middle">A</text>
         <text x="108" y="8" fill="#3b82f6" font-size="8" font-family="sans-serif" text-anchor="middle">D</text>
+        <path d="M 95 20 L 95 45 L 101 45" fill="none" stroke="#00d084" stroke-width="1.2" />
+        <path d="M 120 20 L 120 45 L 115 45" fill="none" stroke="#64748b" stroke-width="1.2" />
+        <circle cx="108" cy="45" r="7" fill="#020617" stroke="#ef4444" stroke-width="1.5" />
+        <text x="108" y="47.5" fill="#ef4444" font-size="8" font-family="sans-serif" font-weight="bold" text-anchor="middle">V</text>
       </svg>
     `;
-    description = "Semiconductor Diode I-V circuit. A diode is placed in series with a current-limiting resistor. The forward bias voltage and current are measured to trace the exponential I-V curve.";
+    description = "Semiconductor Diode I-V circuit. A diode is placed in series with a current-limiting resistor and an ammeter to measure loop current <i>I</i>. A voltmeter is connected in parallel across the diode to measure forward voltage drop <i>V</i>.";
   }
   else if (expKey === 'voltage_divider') {
     title = "Voltage & Current Divider";
