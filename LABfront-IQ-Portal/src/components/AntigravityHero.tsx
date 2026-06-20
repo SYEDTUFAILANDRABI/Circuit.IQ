@@ -38,7 +38,7 @@ function CursorGlitter() {
   );
 }
 
-function FloatingComponent({ position, type, index, delay, progressRef, isLogo }: { position: [number, number, number], type: string, index: number, delay: number, progressRef?: React.MutableRefObject<{value: number}>, isLogo?: boolean }) {
+function FloatingComponent({ position, type, index, delay, progressRef, isLogo, isBackground = false }: { position: [number, number, number], type: string, index: number, delay: number, progressRef?: React.MutableRefObject<{value: number}>, isLogo?: boolean, isBackground?: boolean }) {
   const meshRef = useRef<THREE.Group>(null);
   const materialRef1 = useRef<THREE.MeshStandardMaterial>(null);
   const materialRef2 = useRef<THREE.MeshStandardMaterial>(null);
@@ -61,14 +61,16 @@ function FloatingComponent({ position, type, index, delay, progressRef, isLogo }
             const timeOffset = index * 0.5;
             const osc = Math.sin(t * 2.5 + timeOffset) * 0.35 + 0.65; // smooth osc 0.3 to 1.0
             const maxIntensity = isLogo ? 3.0 : 1.5;
-            let currentEmissiveIntensity = THREE.MathUtils.lerp(0.12, maxIntensity * osc, Math.pow(progress, 3));
+            let currentEmissiveIntensity = isBackground 
+              ? maxIntensity * osc
+              : THREE.MathUtils.lerp(0.12, maxIntensity * osc, Math.pow(progress, 3));
 
             // Realistic electric current high-frequency flicker randomness
             const flicker = 0.94 + 0.06 * Math.sin(t * 43.0 + index * 29.0) * Math.cos(t * 17.0 + index * 11.0);
             currentEmissiveIntensity *= flicker;
 
             // Morph color beautifully when fully formed
-            if (progress > 0.9) {
+            if (isBackground || progress > 0.9) {
                 const targetColor = new THREE.Color(ledEmissive);
                 materialRef1.current.emissive.copy(targetColor);
                 materialRef2.current.emissive.copy(targetColor);
@@ -81,7 +83,7 @@ function FloatingComponent({ position, type, index, delay, progressRef, isLogo }
             materialRef2.current.emissiveIntensity = currentEmissiveIntensity * 0.75;
 
             // Sync procedural halos and ground bounce lights
-            if (highFidelityMode) {
+            if (highFidelityMode && !isBackground) {
                 const amp = currentEmissiveIntensity / 3.0;
                 if (haloRef.current) {
                     haloRef.current.opacity = (0.02 + 0.08 * amp) * progress;
@@ -91,13 +93,18 @@ function FloatingComponent({ position, type, index, delay, progressRef, isLogo }
                 }
             }
         } else {
-            materialRef1.current.emissiveIntensity = THREE.MathUtils.lerp(0.05, emissiveFactor, Math.pow(progress, 4));
-            materialRef2.current.emissiveIntensity = THREE.MathUtils.lerp(0.02, emissiveFactor * 0.8, Math.pow(progress, 4));
+            materialRef1.current.emissiveIntensity = isBackground
+              ? emissiveFactor
+              : THREE.MathUtils.lerp(0.05, emissiveFactor, Math.pow(progress, 4));
+            materialRef2.current.emissiveIntensity = isBackground
+              ? emissiveFactor * 0.8
+              : THREE.MathUtils.lerp(0.02, emissiveFactor * 0.8, Math.pow(progress, 4));
         }
     }
   });
 
   const subdivisions = highFidelityMode ? 32 : 16;
+  const geomSubdivisions = isBackground ? 6 : subdivisions;
 
   return (
     <group ref={meshRef} position={position} scale={0.8}>
@@ -105,99 +112,107 @@ function FloatingComponent({ position, type, index, delay, progressRef, isLogo }
         <group>
           {/* Main body: using a capsule for smooth ends */}
           <mesh rotation={[0, 0, Math.PI / 2]}>
-            <capsuleGeometry args={[0.13, 0.6, subdivisions, subdivisions]} />
+            <capsuleGeometry args={[0.13, 0.6, geomSubdivisions, geomSubdivisions]} />
             <meshStandardMaterial color="#eacba0" roughness={0.9} />
           </mesh>
-          {/* Realistic wider end caps */}
-          <mesh position={[-0.35, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-             <cylinderGeometry args={[0.16, 0.16, 0.15, subdivisions]} />
-             <meshStandardMaterial color="#eacba0" roughness={0.9} />
-          </mesh>
-          <mesh position={[0.35, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-             <cylinderGeometry args={[0.16, 0.16, 0.15, subdivisions]} />
-             <meshStandardMaterial color="#eacba0" roughness={0.9} />
-          </mesh>
-          
-          {/* Color bands on the central body */}
-          <mesh position={[-0.15, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-             <cylinderGeometry args={[0.132, 0.132, 0.08, subdivisions]} />
-             <meshBasicMaterial color="#b91c1c" />
-          </mesh>
-          <mesh position={[0.0, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-             <cylinderGeometry args={[0.132, 0.132, 0.08, subdivisions]} />
-             <meshBasicMaterial color="#ca8a04" />
-          </mesh>
-          <mesh position={[0.15, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-             <cylinderGeometry args={[0.132, 0.132, 0.08, subdivisions]} />
-             <meshBasicMaterial color="#1e3a8a" />
-          </mesh>
-          <mesh position={[0.35, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-             {/* Gold tolerance band on the right end cap */}
-             <cylinderGeometry args={[0.162, 0.162, 0.05, subdivisions]} />
-             <meshBasicMaterial color="#d4af37" />
-          </mesh>
+          {!isBackground && (
+            <>
+              {/* Realistic wider end caps */}
+              <mesh position={[-0.35, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+                 <cylinderGeometry args={[0.16, 0.16, 0.15, subdivisions]} />
+                 <meshStandardMaterial color="#eacba0" roughness={0.9} />
+              </mesh>
+              <mesh position={[0.35, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+                 <cylinderGeometry args={[0.16, 0.16, 0.15, subdivisions]} />
+                 <meshStandardMaterial color="#eacba0" roughness={0.9} />
+              </mesh>
+              
+              {/* Color bands on the central body */}
+              <mesh position={[-0.15, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+                 <cylinderGeometry args={[0.132, 0.132, 0.08, subdivisions]} />
+                 <meshBasicMaterial color="#b91c1c" />
+              </mesh>
+              <mesh position={[0.0, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+                 <cylinderGeometry args={[0.132, 0.132, 0.08, subdivisions]} />
+                 <meshBasicMaterial color="#ca8a04" />
+              </mesh>
+              <mesh position={[0.15, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+                 <cylinderGeometry args={[0.132, 0.132, 0.08, subdivisions]} />
+                 <meshBasicMaterial color="#1e3a8a" />
+              </mesh>
+              <mesh position={[0.35, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+                 {/* Gold tolerance band on the right end cap */}
+                 <cylinderGeometry args={[0.162, 0.162, 0.05, subdivisions]} />
+                 <meshBasicMaterial color="#d4af37" />
+              </mesh>
 
-          {/* leads */}
-          <group position={[-0.425, 0, 0]}>
-            <mesh position={[-0.2, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-               <cylinderGeometry args={[0.02, 0.02, 0.4, 8]} />
-               <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
-            </mesh>
-            <mesh position={[-0.4, -0.25, 0]}>
-               <cylinderGeometry args={[0.02, 0.02, 0.5, 8]} />
-               <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
-            </mesh>
-            {/* The bend joint */}
-            <mesh position={[-0.4, 0, 0]}>
-               <sphereGeometry args={[0.02, 8, 8]} />
-               <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
-            </mesh>
-          </group>
+              {/* leads */}
+              <group position={[-0.425, 0, 0]}>
+                <mesh position={[-0.2, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+                   <cylinderGeometry args={[0.02, 0.02, 0.4, 8]} />
+                   <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
+                </mesh>
+                <mesh position={[-0.4, -0.25, 0]}>
+                   <cylinderGeometry args={[0.02, 0.02, 0.5, 8]} />
+                   <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
+                </mesh>
+                {/* The bend joint */}
+                <mesh position={[-0.4, 0, 0]}>
+                   <sphereGeometry args={[0.02, 8, 8]} />
+                   <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
+                </mesh>
+              </group>
 
-          <group position={[0.425, 0, 0]}>
-            <mesh position={[0.2, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-               <cylinderGeometry args={[0.02, 0.02, 0.4, 8]} />
-               <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
-            </mesh>
-            <mesh position={[0.4, -0.25, 0]}>
-               <cylinderGeometry args={[0.02, 0.02, 0.5, 8]} />
-               <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
-            </mesh>
-            {/* The bend joint */}
-            <mesh position={[0.4, 0, 0]}>
-               <sphereGeometry args={[0.02, 8, 8]} />
-               <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
-            </mesh>
-          </group>
+              <group position={[0.425, 0, 0]}>
+                <mesh position={[0.2, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+                   <cylinderGeometry args={[0.02, 0.02, 0.4, 8]} />
+                   <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
+                </mesh>
+                <mesh position={[0.4, -0.25, 0]}>
+                   <cylinderGeometry args={[0.02, 0.02, 0.5, 8]} />
+                   <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
+                </mesh>
+                {/* The bend joint */}
+                <mesh position={[0.4, 0, 0]}>
+                   <sphereGeometry args={[0.02, 8, 8]} />
+                   <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
+                </mesh>
+              </group>
+            </>
+          )}
         </group>
       )}
       {type === 'led' && (
         <group>
           {/* LED Domed Body */}
           <mesh position={[0, 0.44, 0]}>
-            <sphereGeometry args={[0.24, subdivisions, subdivisions, 0, Math.PI * 2, 0, Math.PI / 2]} />
-            <meshStandardMaterial ref={materialRef1} color={ledColor} emissive={ledEmissive} emissiveIntensity={0.1} transparent opacity={0.9} roughness={0.1} toneMapped={false} />
+            <sphereGeometry args={[0.24, geomSubdivisions, geomSubdivisions, 0, Math.PI * 2, 0, Math.PI / 2]} />
+            <meshStandardMaterial ref={materialRef1} color={ledColor} emissive={ledEmissive} emissiveIntensity={0.1} transparent={!isBackground} opacity={0.9} roughness={0.1} toneMapped={false} />
           </mesh>
           <mesh position={[0, 0.21, 0]}>
-            <cylinderGeometry args={[0.24, 0.24, 0.46, subdivisions]} />
-            <meshStandardMaterial ref={materialRef2} color={ledColor} emissive={ledEmissive} emissiveIntensity={0.05} transparent opacity={0.8} roughness={0.1} toneMapped={false} />
+            <cylinderGeometry args={[0.24, 0.24, 0.46, geomSubdivisions]} />
+            <meshStandardMaterial ref={materialRef2} color={ledColor} emissive={ledEmissive} emissiveIntensity={0.05} transparent={!isBackground} opacity={0.8} roughness={0.1} toneMapped={false} />
           </mesh>
-          <mesh position={[0, -0.04, 0]}>
-            <cylinderGeometry args={[0.26, 0.26, 0.06, subdivisions]} />
-            <meshStandardMaterial color="#9ca3af" roughness={0.4} />
-          </mesh>
-          {/* Leg leads represent premium connection contacts */}
-          <mesh position={[-0.15, -0.25, 0]}>
-            <cylinderGeometry args={[0.025, 0.025, 0.5]} />
-            <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
-          </mesh>
-          <mesh position={[0.15, -0.25, 0]}>
-            <cylinderGeometry args={[0.025, 0.025, 0.5]} />
-            <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
-          </mesh>
+          {!isBackground && (
+            <>
+              <mesh position={[0, -0.04, 0]}>
+                <cylinderGeometry args={[0.26, 0.26, 0.06, subdivisions]} />
+                <meshStandardMaterial color="#9ca3af" roughness={0.4} />
+              </mesh>
+              {/* Leg leads represent premium connection contacts */}
+              <mesh position={[-0.15, -0.25, 0]}>
+                <cylinderGeometry args={[0.025, 0.025, 0.5]} />
+                <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
+              </mesh>
+              <mesh position={[0.15, -0.25, 0]}>
+                <cylinderGeometry args={[0.025, 0.025, 0.5]} />
+                <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
+              </mesh>
+            </>
+          )}
 
           {/* High-Fidelity soft volumetric glow halo */}
-          {highFidelityMode && (
+          {highFidelityMode && !isBackground && (
             <mesh position={[0, 0.44, 0]}>
               <sphereGeometry args={[0.48, 12, 12]} />
               <meshBasicMaterial
@@ -213,7 +228,7 @@ function FloatingComponent({ position, type, index, delay, progressRef, isLogo }
           )}
 
           {/* Soft bounce light reflection ring on the breadboard surface */}
-          {highFidelityMode && (
+          {highFidelityMode && !isBackground && (
             <mesh position={[0, -0.31, 0]} rotation={[-Math.PI / 2, 0, 0]}>
               <circleGeometry args={[0.42, 12]} />
               <meshBasicMaterial
@@ -443,11 +458,9 @@ function PhysicsBackgroundItems({ hideBoard = false }: { hideBoard?: boolean }) 
       return {
         id: i,
         type,
-        position: [
-          Math.cos(angle) * radius,
-          y,
-          Math.sin(angle) * radius
-        ] as [number, number, number],
+        radius,
+        angle,
+        y,
         rotation: [Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI] as [number, number, number],
         scale: 0.6 + Math.random() * 0.7,
         speed: {
@@ -475,12 +488,11 @@ function PhysicsBackgroundItems({ hideBoard = false }: { hideBoard?: boolean }) 
            child.rotation.y = item.rotation[1] + t * item.speed.rotY;
            child.rotation.z = item.rotation[2] + t * item.speed.rotZ;
            
-           const currentRadius = Math.sqrt(item.position[0]*item.position[0] + item.position[2]*item.position[2]);
-           const currentAngle = Math.atan2(item.position[2], item.position[0]) + t * item.speed.orbit;
+           const currentAngle = item.angle + t * item.speed.orbit;
            
-           child.position.x = Math.cos(currentAngle) * currentRadius;
-           child.position.z = Math.sin(currentAngle) * currentRadius;
-           child.position.y = item.position[1] + Math.sin(t * item.speed.yFreq + item.speed.yOffset) * 4;
+           child.position.x = Math.cos(currentAngle) * item.radius;
+           child.position.z = Math.sin(currentAngle) * item.radius;
+           child.position.y = item.y + Math.sin(t * item.speed.yFreq + item.speed.yOffset) * 4;
         });
      }
   });
@@ -488,8 +500,8 @@ function PhysicsBackgroundItems({ hideBoard = false }: { hideBoard?: boolean }) 
   return (
     <group ref={groupRef}>
        {items.map((item) => (
-         <group key={item.id} position={item.position} rotation={item.rotation} scale={item.scale}>
-            <FloatingComponent position={[0, 0, 0]} type={item.type} index={item.id} delay={0} isLogo={false} />
+         <group key={item.id} position={[Math.cos(item.angle)*item.radius, item.y, Math.sin(item.angle)*item.radius]} rotation={item.rotation} scale={item.scale}>
+            <FloatingComponent position={[0, 0, 0]} type={item.type} index={item.id} delay={0} isLogo={false} isBackground={true} />
          </group>
        ))}
     </group>
@@ -595,11 +607,22 @@ function GridLogoScene({ progressRef }: { progressRef: React.MutableRefObject<{v
     // Bring the breadboard up from the void
     if (breadboardRef.current) {
       gsap.fromTo(breadboardRef.current.position, 
-        { y: -40, z: -20, rotationX: 0.2 },
+        { y: -40, z: -20 },
         {
           y: 0,
           z: 0,
-          rotationX: 0,
+          scrollTrigger: {
+            trigger: "#simulation-section",
+            start: "top bottom",
+            end: "center center",
+            scrub: 0.8,
+          }
+        }
+      );
+      gsap.fromTo(breadboardRef.current.rotation,
+        { x: 0.2 },
+        {
+          x: 0,
           scrollTrigger: {
             trigger: "#simulation-section",
             start: "top bottom",
@@ -690,7 +713,7 @@ function GridLogoScene({ progressRef }: { progressRef: React.MutableRefObject<{v
       {components.map((comp, i) => (
         <group 
           key={comp.id} 
-          ref={el => el && (refs.current[i] = el)} 
+          ref={(el) => { if (el) refs.current[i] = el; }} 
         >
           <FloatingComponent position={[0,0,0]} type={comp.type} index={comp.id} delay={comp.delay} progressRef={progressRef} isLogo={comp.isLogo} />
         </group>
