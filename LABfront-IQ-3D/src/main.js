@@ -4054,11 +4054,11 @@ function drawGraph() {
       ctx.stroke();
     }
 
-    // 3b. Draw Left Y-axis (Impedance Z: 0 to 1000 Ω)
+    // 3b. Draw Left Y-axis (Impedance Z: 0 to maxValY Ω)
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     for (let i = 0; i <= 5; i++) {
-      const zVal = (i / 5) * 1000;
+      const zVal = (i / 5) * maxValY;
       const yPix = h - paddingBottom - (i / 5) * graphHeight;
       
       ctx.strokeStyle = isLight ? 'rgba(0, 0, 0, 0.04)' : 'rgba(255, 255, 255, 0.04)';
@@ -4256,6 +4256,61 @@ function drawGraph() {
     ctx.shadowBlur = 0;
   }
   
+  // 5c. Draw theoretical straight lines for KVL and KCL
+  if (state.activeExperiment === 'kvl') {
+    const R1 = state.params.R || 50;
+    const R2 = state.params.L || 50;
+    const totalR = R1 + R2;
+    
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    
+    const lines = [
+      { ratio: R1 / totalR, color: '#3b82f6' },
+      { ratio: R2 / totalR, color: '#f97316' },
+      { ratio: 1.0, color: '#00d084' }
+    ];
+    
+    lines.forEach(line => {
+      ctx.strokeStyle = line.color;
+      ctx.beginPath();
+      const xStartPix = paddingLeft;
+      const yStartPix = h - paddingBottom;
+      const xEndPix = paddingLeft + graphWidth;
+      const yEndPix = h - paddingBottom - (line.ratio * maxValX / maxValY) * graphHeight;
+      ctx.moveTo(xStartPix, yStartPix);
+      ctx.lineTo(xEndPix, yEndPix);
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
+  } else if (state.activeExperiment === 'kcl') {
+    const R1 = state.params.R || 50;
+    const R2 = state.params.L || 50;
+    const totalZ = (R1 * R2) / (R1 + R2);
+    
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    
+    const lines = [
+      { slope: 1000 / R1, color: '#3b82f6' },
+      { slope: 1000 / R2, color: '#f97316' },
+      { slope: 1000 / totalZ, color: '#00d084' }
+    ];
+    
+    lines.forEach(line => {
+      ctx.strokeStyle = line.color;
+      ctx.beginPath();
+      const xStartPix = paddingLeft;
+      const yStartPix = h - paddingBottom;
+      const xEndPix = paddingLeft + graphWidth;
+      const yEndPix = h - paddingBottom - (line.slope * maxValX / maxValY) * graphHeight;
+      ctx.moveTo(xStartPix, yStartPix);
+      ctx.lineTo(xEndPix, yEndPix);
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
+  }
+  
   // 6. Draw connection line and data points
   if (state.activeExperiment === 'rc_rl_rlc') {
     const R = state.params.R || 100;
@@ -4278,7 +4333,7 @@ function drawGraph() {
       
       const xPct = (Math.log10(f) - 1) / 2;
       const xPix = paddingLeft + xPct * graphWidth;
-      const yPix = h - paddingBottom - (Z / 1000) * graphHeight;
+      const yPix = h - paddingBottom - (Z / maxValY) * graphHeight;
       
       if (yPix < paddingTop) continue;
       
@@ -4326,7 +4381,7 @@ function drawGraph() {
       sortedPoints.forEach((pt, idx) => {
         const xPct = (Math.log10(pt.f) - 1) / 2;
         const xPix = paddingLeft + xPct * graphWidth;
-        const yPix = h - paddingBottom - (pt.R / 1000) * graphHeight;
+        const yPix = h - paddingBottom - (pt.R / maxValY) * graphHeight;
         if (idx === 0) ctx.moveTo(xPix, yPix);
         else ctx.lineTo(xPix, yPix);
       });
@@ -4335,7 +4390,7 @@ function drawGraph() {
       sortedPoints.forEach(pt => {
         const xPct = (Math.log10(pt.f) - 1) / 2;
         const xPix = paddingLeft + xPct * graphWidth;
-        const yPix = h - paddingBottom - (pt.R / 1000) * graphHeight;
+        const yPix = h - paddingBottom - (pt.R / maxValY) * graphHeight;
         
         ctx.fillStyle = '#06b6d4';
         ctx.shadowBlur = 6;
@@ -4421,10 +4476,10 @@ function drawGraph() {
       ctx.lineWidth = 2;
       ctx.beginPath();
       
-      const sortedPoints = [...state.dataPoints].sort((a, b) => a.id - b.id);
+      const sortedPoints = [...state.dataPoints].sort((a, b) => a.sourceV - b.sourceV);
       sortedPoints.forEach((pt, idx) => {
-        const xVal = pt.id; // Measurement Point (index 1 to 10)
-        const yVal = pt[s.key] * 1000; // Value in mA
+        const xVal = pt.sourceV;
+        const yVal = pt[s.key] * 1000; // mA
         const xPix = paddingLeft + (xVal / maxValX) * graphWidth;
         const yPix = h - paddingBottom - (yVal / maxValY) * graphHeight;
         
@@ -4436,8 +4491,80 @@ function drawGraph() {
       }
       
       state.dataPoints.forEach(pt => {
-        const xVal = pt.id;
+        const xVal = pt.sourceV;
         const yVal = pt[s.key] * 1000;
+        const xPix = paddingLeft + (xVal / maxValX) * graphWidth;
+        const yPix = h - paddingBottom - (yVal / maxValY) * graphHeight;
+        
+        ctx.fillStyle = s.color;
+        ctx.shadowBlur = 6;
+        ctx.shadowColor = s.color;
+        ctx.beginPath();
+        ctx.arc(xPix, yPix, 3.5, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowBlur = 0;
+        ctx.beginPath();
+        ctx.arc(xPix, yPix, 1.5, 0, 2 * Math.PI);
+        ctx.fill();
+      });
+    });
+    
+    // Draw legend box
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+    ctx.lineWidth = 1;
+    
+    const legendW = 120;
+    const legendH = 38;
+    const legendX = w - paddingRight - legendW - 5;
+    const legendY = paddingTop + 5;
+    
+    ctx.fillRect(legendX, legendY, legendW, legendH);
+    ctx.strokeRect(legendX, legendY, legendW, legendH);
+    
+    ctx.font = '7px monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    
+    series.forEach((s, idx) => {
+      const itemY = legendY + 6 + idx * 10;
+      ctx.fillStyle = s.color;
+      ctx.fillRect(legendX + 6, itemY - 2, 8, 4);
+      ctx.fillStyle = '#e2e8f0';
+      ctx.fillText(s.name, legendX + 18, itemY);
+    });
+    
+  } else if (state.activeExperiment === 'kvl') {
+    const series = [
+      { key: 'VR1', color: '#3b82f6', name: 'Voltage Drop V1' },
+      { key: 'VR2', color: '#f97316', name: 'Voltage Drop V2' },
+      { key: 'sum', color: '#00d084', name: 'Sum (V1 + V2)' }
+    ];
+    
+    series.forEach(s => {
+      ctx.strokeStyle = s.color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      
+      const sortedPoints = [...state.dataPoints].sort((a, b) => a.sourceV - b.sourceV);
+      sortedPoints.forEach((pt, idx) => {
+        const xVal = pt.sourceV;
+        const yVal = s.key === 'sum' ? (pt.VR1 + pt.VR2) : pt[s.key];
+        const xPix = paddingLeft + (xVal / maxValX) * graphWidth;
+        const yPix = h - paddingBottom - (yVal / maxValY) * graphHeight;
+        
+        if (idx === 0) ctx.moveTo(xPix, yPix);
+        else ctx.lineTo(xPix, yPix);
+      });
+      if (sortedPoints.length > 1) {
+        ctx.stroke();
+      }
+      
+      state.dataPoints.forEach(pt => {
+        const xVal = pt.sourceV;
+        const yVal = s.key === 'sum' ? (pt.VR1 + pt.VR2) : pt[s.key];
         const xPix = paddingLeft + (xVal / maxValX) * graphWidth;
         const yPix = h - paddingBottom - (yVal / maxValY) * graphHeight;
         
