@@ -792,14 +792,25 @@ export default function AntigravityHero({ hideBoard = false }: { hideBoard?: boo
   const wrapperRef = useRef<HTMLDivElement>(null);
   const highFidelityMode = useAppStore((state) => state.highFidelityMode);
   const [shouldRender, setShouldRender] = useState(false);
+  const [canvasOpacity, setCanvasOpacity] = useState(0);
 
   useEffect(() => {
-    // Delay canvas initialization by 300ms to allow other WebGL contexts (e.g. 3D lab) to clean up first
-    const timer = setTimeout(() => {
+    // Fast canvas initialization delay (50ms) to trigger immediate compilation
+    const timer1 = setTimeout(() => {
       setShouldRender(true);
-    }, 300);
-    return () => clearTimeout(timer);
+    }, 50);
+    return () => clearTimeout(timer1);
   }, []);
+
+  // Fade in the canvas opacity smoothly once it renders to mask shader compile pops
+  useEffect(() => {
+    if (shouldRender) {
+      const timer2 = setTimeout(() => {
+        setCanvasOpacity(1);
+      }, 50);
+      return () => clearTimeout(timer2);
+    }
+  }, [shouldRender]);
 
   useEffect(() => {
      if (wrapperRef.current && !hideBoard) {
@@ -818,36 +829,37 @@ export default function AntigravityHero({ hideBoard = false }: { hideBoard?: boo
   return (
     <div ref={wrapperRef} className="fixed inset-0 pointer-events-none z-0">
       {shouldRender ? (
-        <Canvas dpr={highFidelityMode ? [1, 2] : 1}>
-          <WebGLContextDisposer />
-          <PerspectiveCamera makeDefault position={[0, 12, 22]} fov={45} />
-          <ambientLight intensity={0.6} />
-          <spotLight position={[15, 20, 15]} angle={0.3} penumbra={1} intensity={2} color="#ffffff" castShadow={highFidelityMode} />
-          <pointLight position={[-10, 5, -10]} intensity={1.5} color="#3b82f6" />
-          <pointLight position={[10, 5, 10]} intensity={1} color="#fcf0d5" />
-          
-          <CursorGlitter />
-          <PhysicsBackgroundItems hideBoard={hideBoard} />
+        <div 
+          className="w-full h-full transition-opacity duration-500 ease-out"
+          style={{ opacity: canvasOpacity }}
+        >
+          <Canvas dpr={highFidelityMode ? [1, 2] : 1}>
+            <WebGLContextDisposer />
+            <PerspectiveCamera makeDefault position={[0, 12, 22]} fov={45} />
+            <ambientLight intensity={0.6} />
+            <spotLight position={[15, 20, 15]} angle={0.3} penumbra={1} intensity={2} color="#ffffff" castShadow={highFidelityMode} />
+            <pointLight position={[-10, 5, -10]} intensity={1.5} color="#3b82f6" />
+            <pointLight position={[10, 5, 10]} intensity={1} color="#fcf0d5" />
+            
+            <CursorGlitter />
+            <PhysicsBackgroundItems hideBoard={hideBoard} />
 
-          {hideBoard ? (
-            <>
-              <Sparkles count={highFidelityMode ? 100 : 40} scale={35} size={2.5} color="#60a5fa" opacity={0.8} speed={0.5} />
-              <Stars radius={100} depth={50} count={highFidelityMode ? 1500 : 500} factor={3} saturation={1} fade speed={1.5} />
-            </>
-          ) : (
-            <GridLogoScene progressRef={progressRef} />
-          )}
-
-          <Rig progressRef={progressRef} />
-          <EffectComposer>
-            {highFidelityMode ? (
-              <Bloom luminanceThreshold={0.4} mipmapBlur intensity={1.1} radius={0.5} />
+            {hideBoard ? (
+              <>
+                <Sparkles count={highFidelityMode ? 100 : 40} scale={35} size={2.5} color="#60a5fa" opacity={0.8} speed={0.5} />
+                <Stars radius={100} depth={50} count={highFidelityMode ? 1500 : 500} factor={3} saturation={1} fade speed={1.5} />
+              </>
             ) : (
-              <Bloom luminanceThreshold={0.5} intensity={0.5} radius={0.3} />
+              <GridLogoScene progressRef={progressRef} />
             )}
-            <Vignette eskil={false} offset={0.1} darkness={0.8} />
-          </EffectComposer>
-        </Canvas>
+
+            <Rig progressRef={progressRef} />
+            <EffectComposer>
+              <Bloom luminanceThreshold={0.5} intensity={0.8} radius={0.65} />
+              <Vignette eskil={false} offset={0.1} darkness={0.8} />
+            </EffectComposer>
+          </Canvas>
+        </div>
       ) : (
         <div className="w-full h-full bg-transparent" />
       )}

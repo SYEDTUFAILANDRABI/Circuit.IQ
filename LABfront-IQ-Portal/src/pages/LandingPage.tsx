@@ -974,9 +974,9 @@ export default function LandingPage({ view = 'home' }: { view?: 'home' | 'experi
       {/* Hero Content */}
       <section className="sticky top-0 h-screen flex flex-col items-center justify-center text-center px-6 overflow-hidden">
         <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
+          initial={{ opacity: 0, scale: 0.93 }}
           animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 1, ease: "easeOut" }}
+          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
           className="relative z-10"
         >
           <div className="inline-flex items-center gap-2 px-4 py-1 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-600 text-[10px] font-bold tracking-[0.2em] uppercase mb-8">
