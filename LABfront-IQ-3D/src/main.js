@@ -3764,16 +3764,26 @@ function getGraphConfig(expKey) {
       
     case 'kcl':
       return {
-        xLabel: "Measurement Point",
+        xLabel: "Source Voltage Vs (V)",
         yLabel: "Current I (mA)",
-        xMax: 10,
+        xMax: 30,
         yMax: 300,
-        getX: (pt) => pt.id,
+        getX: (pt) => pt.sourceV,
         getY: (pt) => pt.I * 1000,
         showSlopeCard: false
       };
       
     case 'kvl':
+      return {
+        xLabel: "Source Voltage Vs (V)",
+        yLabel: "Voltage Drops V (V)",
+        xMax: 30,
+        yMax: 30,
+        getX: (pt) => pt.sourceV,
+        getY: (pt) => pt.sourceV,
+        showSlopeCard: false
+      };
+      
     case 'series_parallel':
     case 'wheatstone':
     case 'arduino_led':
