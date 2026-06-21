@@ -2364,7 +2364,34 @@ function drawObservationTable() {
     state.dataPoints.forEach(pt => {
       rows += `<tr><td>${pt.id}</td><td>${(pt.sourceV !== undefined ? pt.sourceV : pt.V).toFixed(2)}</td><td>${pt.V.toFixed(3)}</td><td>${(pt.I * 1000).toFixed(2)}</td><td>${pt.R.toFixed(1)}</td></tr>`;
     });
-  } else if (['ohms', 'kvl', 'kcl', 'series_parallel', 'wheatstone', 'arduino_led', 'voltage_divider'].includes(expKey)) {
+  } else if (expKey === 'kvl') {
+    const R1 = state.params.R || 100;
+    const R2 = state.params.L || 100;
+    headers = `<th>#</th><th>Vs (V)</th><th>V1 across R1 (V)</th><th>V2 across R2 (V)</th><th>V1 + V2 (V)</th><th>Error (V)</th><th>Result</th>`;
+    state.dataPoints.forEach(pt => {
+      const Vs = pt.V;
+      const V1 = pt.VR1 || (pt.I * R1);
+      const V2 = pt.VR2 || (pt.I * R2);
+      const sum = V1 + V2;
+      const error = Math.abs(Vs - sum);
+      const result = error < 0.15 ? 'KVL Verified ✓' : 'Discrepancy';
+      rows += `<tr><td>${pt.id}</td><td>${Vs.toFixed(2)}</td><td>${V1.toFixed(2)}</td><td>${V2.toFixed(2)}</td><td>${sum.toFixed(2)}</td><td>${error.toFixed(3)}</td><td style="color:${error < 0.15 ? '#22c55e' : '#ef4444'}">${result}</td></tr>`;
+    });
+  } else if (expKey === 'kcl') {
+    const R1 = state.params.R || 100;
+    const R2 = state.params.L || 100;
+    headers = `<th>#</th><th>Voltage V (V)</th><th>I_total (mA)</th><th>I1 (R1=${R1}Ω) (mA)</th><th>I2 (R2=${R2}Ω) (mA)</th><th>I1 + I2 (mA)</th><th>Error (mA)</th><th>Result</th>`;
+    state.dataPoints.forEach(pt => {
+      const V = pt.V;
+      const I_tot = pt.I;
+      const I1 = pt.IR1 || (V / R1);
+      const I2 = pt.IR2 || (V / R2);
+      const sum = I1 + I2;
+      const error_mA = Math.abs(I_tot - sum) * 1000;
+      const result = error_mA < 0.8 ? 'KCL Verified ✓' : 'Discrepancy';
+      rows += `<tr><td>${pt.id}</td><td>${V.toFixed(2)}</td><td>${(I_tot * 1000).toFixed(1)}</td><td>${(I1 * 1000).toFixed(1)}</td><td>${(I2 * 1000).toFixed(1)}</td><td>${(sum * 1000).toFixed(1)}</td><td>${error_mA.toFixed(2)}</td><td style="color:${error_mA < 0.8 ? '#22c55e' : '#ef4444'}">${result}</td></tr>`;
+    });
+  } else if (['ohms', 'series_parallel', 'wheatstone', 'arduino_led', 'voltage_divider'].includes(expKey)) {
     headers = `<th>#</th><th>Voltage V (V)</th><th>Current I (mA)</th><th>${expKey === 'ohms' ? 'Resistance' : 'Impedance'} (Ω)</th>`;
     state.dataPoints.forEach(pt => {
       rows += `<tr><td>${pt.id}</td><td>${pt.V.toFixed(2)}</td><td>${(pt.I * 1000).toFixed(1)}</td><td>${pt.R.toFixed(1)}</td></tr>`;
@@ -4862,25 +4889,52 @@ function generateExperimentConclusion(expKey, dataPoints) {
     case 'kvl': {
       const R1 = state.params.R || 100;
       const R2 = state.params.L || 100;
-      const Vs_noisy = addRealisticNoise(lastPt.V, lastPt.id * 10 + 1, 0.005);
-      const I_noisy = addRealisticNoise(lastPt.I, lastPt.id * 10 + 2, 0.008);
-      const V1 = addRealisticNoise(I_noisy * R1, 101, 0.007);
-      const V2 = addRealisticNoise(I_noisy * R2, 102, 0.007);
-      const sumDrops = V1 + V2;
-      const discrepancy = Math.abs(Vs_noisy - sumDrops);
-      return `Kirchhoff's Voltage Law (KVL) was verified in a series DC loop containing resistances R1 = ${R1} Ω and R2 = ${R2} Ω. The sum of the individual potential drops (V1 = ${V1.toFixed(2)} V and V2 = ${V2.toFixed(2)} V) equals ${sumDrops.toFixed(2)} V, compared to the measured total source voltage Vs = ${Vs_noisy.toFixed(2)} V (discrepancy: ${discrepancy.toFixed(3)} V). This confirms the Loop Rule (ΣV = 0) within a minimal experimental margin of uncertainty, verifying conservation of energy.`;
+      const R_total = R1 + R2;
+      let verifiedCount = 0;
+      let maxError = 0;
+      let avgError = 0;
+      const rowSummaries = [];
+      dataPoints.forEach(p => {
+        const Vs_noisy = addRealisticNoise(p.V, p.id * 10 + 1, 0.005);
+        const I_noisy = addRealisticNoise(p.I, p.id * 10 + 2, 0.008);
+        const V1 = addRealisticNoise(I_noisy * R1, p.id * 10 + 3, 0.007);
+        const V2 = addRealisticNoise(I_noisy * R2, p.id * 10 + 4, 0.007);
+        const sumDrops = V1 + V2;
+        const error = Math.abs(Vs_noisy - sumDrops);
+        if (error < 0.15) verifiedCount++;
+        maxError = Math.max(maxError, error);
+        avgError += error;
+        rowSummaries.push({ Vs: Vs_noisy, V1, V2, sum: sumDrops, error });
+      });
+      avgError /= N;
+      const pctError = (avgError / (rowSummaries[0]?.Vs || 1)) * 100;
+      const lastRow = rowSummaries[N - 1];
+      return `Kirchhoff's Voltage Law (KVL) was verified in a series DC loop containing two resistors: R₁ = ${R1} Ω and R₂ = ${R2} Ω (R_total = ${R_total} Ω, manufacturer tolerance ±5%). Across ${N} recorded observations at varying source voltages, the measured source voltage Vs was compared against the sum of individual voltage drops V₁ (across R₁) and V₂ (across R₂). For instance, at Vs = ${lastRow.Vs.toFixed(2)} V, V₁ = ${lastRow.V1.toFixed(2)} V and V₂ = ${lastRow.V2.toFixed(2)} V, giving V₁ + V₂ = ${lastRow.sum.toFixed(2)} V (absolute error: ${lastRow.error.toFixed(3)} V). Out of ${N} readings, ${verifiedCount} out of ${N} verified KVL within experimental tolerance. The average absolute discrepancy across all readings was ${avgError.toFixed(3)} V (≈${pctError.toFixed(2)}%), and the maximum discrepancy was ${maxError.toFixed(3)} V. These small deviations are attributable to DMM calibration accuracy, breadboard contact resistance, and passive component tolerances. The results conclusively confirm Kirchhoff's Voltage Law: the algebraic sum of all voltages around the closed loop equals zero (Vs − V₁ − V₂ = 0), verifying the conservation of energy.`;
     }
 
     case 'kcl': {
       const R1 = state.params.R || 100;
       const R2 = state.params.L || 100;
-      const lastV = lastPt.V;
-      const I1 = addRealisticNoise(lastV / R1, 201, 0.012);
-      const I2 = addRealisticNoise(lastV / R2, 202, 0.012);
-      const I_total = addRealisticNoise(lastPt.I, lastPt.id * 10 + 2, 0.008);
-      const sumBranch = I1 + I2;
-      const discrepancy_mA = Math.abs(I_total - sumBranch) * 1000;
-      return `Kirchhoff's Current Law (KCL) was verified at a parallel junction containing resistors R1 = ${R1} Ω and R2 = ${R2} Ω. At a source potential of ${lastV.toFixed(1)} V, the measured total entering current is ${(I_total * 1000).toFixed(1)} mA, which closely matches the sum of individual branch currents (I1 = ${(I1 * 1000).toFixed(1)} mA and I2 = ${(I2 * 1000).toFixed(1)} mA, sum = ${(sumBranch * 1000).toFixed(1)} mA, error margin: ${discrepancy_mA.toFixed(2)} mA). This confirms the Junction Rule (ΣI_in = ΣI_out) within experimental limits, validating the principle of conservation of charge.`;
+      let verifiedCount = 0;
+      let maxError = 0;
+      let avgError = 0;
+      const rowSummaries = [];
+      dataPoints.forEach(p => {
+        const V_noisy = addRealisticNoise(p.V, p.id * 10 + 1, 0.005);
+        const I_total_noisy = addRealisticNoise(p.I, p.id * 10 + 2, 0.008);
+        const I1 = addRealisticNoise(p.IR1 || (V_noisy / R1), p.id * 10 + 3, 0.012);
+        const I2 = addRealisticNoise(p.IR2 || (V_noisy / R2), p.id * 10 + 4, 0.012);
+        const sumBranch = I1 + I2;
+        const error_mA = Math.abs(I_total_noisy - sumBranch) * 1000;
+        if (error_mA < 0.8) verifiedCount++;
+        maxError = Math.max(maxError, error_mA);
+        avgError += error_mA;
+        rowSummaries.push({ V: V_noisy, Itot: I_total_noisy, I1, I2, sum: sumBranch, error: error_mA });
+      });
+      avgError /= N;
+      const lastRow = rowSummaries[N - 1];
+      const pctError = (avgError / (lastRow.Itot * 1000 || 1)) * 100;
+      return `Kirchhoff's Current Law (KCL) was verified at a parallel junction containing resistors R1 = ${R1} Ω and R2 = ${R2} Ω (±5% tolerance). Across ${N} recorded observations at varying voltages, the measured total entering current I_total was compared against the sum of individual branch currents I1 (across R1) and I2 (across R2). For instance, at source potential Vs = ${lastRow.V.toFixed(2)} V, the total entering current is ${(lastRow.Itot * 1000).toFixed(1)} mA, which closely matches the sum of branch currents (I1 = ${(lastRow.I1 * 1000).toFixed(1)} mA, I2 = ${(lastRow.I2 * 1000).toFixed(1)} mA, sum = ${(lastRow.sum * 1000).toFixed(1)} mA, error: ${lastRow.error.toFixed(2)} mA). Out of ${N} readings, ${verifiedCount} out of ${N} verified KCL within experimental limits. The average branch discrepancy across all readings was ${avgError.toFixed(2)} mA (approx. ${pctError.toFixed(2)}%), and the maximum discrepancy was ${maxError.toFixed(2)} mA. These small errors are due to breadboard clip contact resistances, digital multimeter measurement tolerances, and minor passive component heating. The results successfully verify the Kirchhoff Current Law: the algebraic sum of currents entering and leaving a node is zero (I_total - I1 - I2 = 0), confirming the principle of conservation of charge.`;
     }
 
     case 'rc_rl_rlc': {
@@ -5076,7 +5130,35 @@ function generateLabReportPDF() {
   let tableHeaders = '';
   let tableRows = '';
   
-  if (['ohms', 'kvl', 'kcl', 'series_parallel', 'wheatstone', 'arduino_led', 'diode_iv', 'voltage_divider', 'planck_led'].includes(expKey)) {
+  if (expKey === 'kvl') {
+    const R1 = state.params.R || 100;
+    const R2 = state.params.L || 100;
+    tableHeaders = `<th>S.No.</th><th>Source Voltage Vs (V)</th><th>V₁ across R₁=${R1}Ω (V)</th><th>V₂ across R₂=${R2}Ω (V)</th><th>V₁ + V₂ (V)</th><th>Error |Vs−(V₁+V₂)| (V)</th><th>Verification</th>`;
+    state.dataPoints.forEach(p => {
+      const Vs_noisy = addRealisticNoise(p.V, p.id * 10 + 1, 0.005);
+      const I_noisy = addRealisticNoise(p.I, p.id * 10 + 2, 0.008);
+      const V1_noisy = addRealisticNoise(I_noisy * R1, p.id * 10 + 3, 0.007);
+      const V2_noisy = addRealisticNoise(I_noisy * R2, p.id * 10 + 4, 0.007);
+      const sumDrops = V1_noisy + V2_noisy;
+      const error = Math.abs(Vs_noisy - sumDrops);
+      const verified = error < 0.15 ? 'KVL Verified ✓' : 'Discrepancy';
+      tableRows += `<tr><td>${p.id}</td><td>${Vs_noisy.toFixed(2)}</td><td>${V1_noisy.toFixed(2)}</td><td>${V2_noisy.toFixed(2)}</td><td>${sumDrops.toFixed(2)}</td><td>${error.toFixed(3)}</td><td style="color:${error < 0.15 ? '#16a34a' : '#dc2626'}">${verified}</td></tr>`;
+    });
+  } else if (expKey === 'kcl') {
+    const R1 = state.params.R || 100;
+    const R2 = state.params.L || 100;
+    tableHeaders = `<th>S.No.</th><th>Voltage V (V)</th><th>Total Current I_total (mA)</th><th>Branch I₁ (R₁=${R1}Ω) (mA)</th><th>Branch I₂ (R₂=${R2}Ω) (mA)</th><th>I₁ + I₂ (mA)</th><th>Error |I_total−(I₁+I₂)| (mA)</th><th>Verification</th>`;
+    state.dataPoints.forEach(p => {
+      const V_noisy = addRealisticNoise(p.V, p.id * 10 + 1, 0.005);
+      const I_tot_noisy = addRealisticNoise(p.I, p.id * 10 + 2, 0.008);
+      const I1_noisy = addRealisticNoise(p.IR1 || (V_noisy / R1), p.id * 10 + 3, 0.012);
+      const I2_noisy = addRealisticNoise(p.IR2 || (V_noisy / R2), p.id * 10 + 4, 0.012);
+      const sumBranch = I1_noisy + I2_noisy;
+      const error_mA = Math.abs(I_tot_noisy - sumBranch) * 1000;
+      const verified = error_mA < 0.8 ? 'KCL Verified ✓' : 'Discrepancy';
+      tableRows += `<tr><td>${p.id}</td><td>${V_noisy.toFixed(2)}</td><td>${(I_tot_noisy * 1000).toFixed(2)}</td><td>${(I1_noisy * 1000).toFixed(2)}</td><td>${(I2_noisy * 1000).toFixed(2)}</td><td>${(sumBranch * 1000).toFixed(2)}</td><td>${error_mA.toFixed(3)}</td><td style="color:${error_mA < 0.8 ? '#16a34a' : '#dc2626'}">${verified}</td></tr>`;
+    });
+  } else if (['ohms', 'series_parallel', 'wheatstone', 'arduino_led', 'diode_iv', 'voltage_divider', 'planck_led'].includes(expKey)) {
     tableHeaders = `<th>S.No.</th><th>Voltage V (V)</th><th>Current I (mA)</th><th>${expKey === 'ohms' ? 'Resistance' : 'Impedance'} R (Ω)</th>`;
     state.dataPoints.forEach(p => {
       const V_noisy = addRealisticNoise(p.V, p.id * 10 + 1, 0.008);
@@ -5292,7 +5374,12 @@ function generateLabReportPDF() {
     <h3>Aim</h3>
     <p>${exp.aim || 'To verify the given circuit law experimentally using a virtual breadboard setup.'}</p>
     <h3 style="margin-top:10px;">Apparatus Required</h3>
-    <p>Power Supply, ${expKey === 'arduino_led' ? 'Arduino Uno' : 'Breadboard, Passive Components (Nominal Resistance: ' + (state.params.R || 100) + ' Ω, Tolerance: ±5%)'}, Digital Multimeter (DMM), Jumper Wires.</p>
+    <p>${(() => {
+      if (expKey === 'arduino_led') return 'Arduino Uno, Push-button Switch, LED, Current-limiting Resistor (R = ' + (state.params.R || 150) + ' Ω, ±5%), Breadboard, Jumper Wires.';
+      if (expKey === 'kvl') return 'DC Power Supply (Variable 0–30 V), Resistor R₁ = ' + (state.params.R || 100) + ' Ω (±5%), Resistor R₂ = ' + (state.params.L || 100) + ' Ω (±5%), Ammeter (0–200 mA DC), Voltmeter ×2, Breadboard, Jumper Wires.';
+      if (expKey === 'kcl') return 'DC Power Supply (Variable 0–30 V), Resistor R₁ = ' + (state.params.R || 100) + ' Ω (±5%), Resistor R₂ = ' + (state.params.L || 100) + ' Ω (±5%), Ammeter ×3, Breadboard, Jumper Wires.';
+      return 'Power Supply, Breadboard, Passive Components (Nominal Resistance: ' + (state.params.R || 100) + ' Ω, Tolerance: ±5%), Digital Multimeter (DMM), Jumper Wires.';
+    })()}</p>
   </div>
 
   <!-- THEORY -->
@@ -5324,6 +5411,8 @@ function generateLabReportPDF() {
   <div class="section-box">
     ${graphImgHTML || '<p style="color:#6b7280;font-size:10px;text-align:center;padding:15px;">📈 <em>No graph plotted. Please record data points during the experiment to generate a graph plot.</em></p>'}
     ${expKey === 'ohms' ? '<p style="margin-top:8px;font-size:9.5px;color:#475569;text-align:center;">Plot: Voltage (V) on X-axis vs. Current I (mA) on Y-axis. The linear slope represents conductance (1/R).</p>' : ''}
+    ${expKey === 'kvl' ? '<p style="margin-top:8px;font-size:9.5px;color:#475569;text-align:center;">Plot: Source Voltage Vs (V) on X-axis vs. Voltage Drops V₁, V₂, and (V₁+V₂) (V) on Y-axis. The green line (V₁+V₂) should closely overlap the Source Voltage, confirming ΣV = 0.</p>' : ''}
+    ${expKey === 'kcl' ? '<p style="margin-top:8px;font-size:9.5px;color:#475569;text-align:center;">Plot: Source Voltage Vs (V) on X-axis vs. Currents I₁, I₂, and I_total (mA) on Y-axis. The green line (I_total) should match the sum of individual branch currents (I₁+I₂), confirming ΣI = 0 at the junction.</p>' : ''}
     ${expKey === 'lcr' ? '<p style="margin-top:8px;font-size:9.5px;color:#475569;text-align:center;">Plot: Frequency (Hz) on X-axis vs. Impedance Z (Ω) on Y-axis. The dip indicates the resonant point.</p>' : ''}
     ${expKey === 'rc' ? '<p style="margin-top:8px;font-size:9.5px;color:#475569;text-align:center;">Plot: Time (ms) on X-axis vs. Capacitor Voltage (V) on Y-axis, showing the exponential charging curve.</p>' : ''}
   </div>
