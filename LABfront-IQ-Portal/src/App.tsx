@@ -54,7 +54,7 @@ export default function App() {
   }, [activeTab, isLabOpen]);
 
   return (
-    <div className={cn("min-h-screen bg-white dark:bg-space-black text-slate-900 dark:text-slate-100 relative overflow-hidden transition-colors duration-300", theme)}>
+    <div className={cn("min-h-screen bg-white dark:bg-space-black text-slate-900 dark:text-slate-100 relative overflow-x-hidden transition-colors duration-300", theme)}>
       <div className="atmospheric-bg" />
       <div className="glow-top-left" />
       <div className="glow-bottom-right" />

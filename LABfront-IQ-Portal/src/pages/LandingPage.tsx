@@ -670,16 +670,10 @@ export default function LandingPage({ view = 'home' }: { view?: 'home' | 'experi
     }
   };
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const { scrollY } = useScroll();
-  
-  const yText = useTransform(scrollY, [0, 800], [0, 250]);
-  const scaleText = useTransform(scrollY, [0, 800], [1, 0.8]);
-  const opacityText = useTransform(scrollY, [0, 600], [1, 0]);
-  const trackingText = useTransform(scrollY, [0, 800], ["-0.05em", "0.15em"]);
-  const rotateXText = useTransform(scrollY, [0, 800], [0, 45]);
-  const rotateZText = useTransform(scrollY, [0, 800], [0, 5]);
-  const blurText = useTransform(scrollY, [0, 600], ["blur(0px)", "blur(10px)"]);
+  const heroTitleRef = useRef<HTMLHeadingElement>(null);
+  const heroDescRef = useRef<HTMLParagraphElement>(null);
+  const heroButtonsRef = useRef<HTMLDivElement>(null);
+  const scrollIndicatorRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const lenis = new Lenis({
@@ -699,9 +693,49 @@ export default function LandingPage({ view = 'home' }: { view?: 'home' | 'experi
     gsap.ticker.add(updateRaf);
     gsap.ticker.lagSmoothing(0);
 
+    const ctx = gsap.context(() => {
+      const tl = gsap.timeline({
+        scrollTrigger: {
+          trigger: "#hero-section",
+          start: "top top",
+          end: "bottom top",
+          scrub: true,
+        }
+      });
+
+      tl.to(heroTitleRef.current, {
+        y: 250,
+        scale: 0.8,
+        opacity: 0,
+        letterSpacing: "0.15em",
+        rotateX: 45,
+        rotateZ: 5,
+        filter: "blur(10px)",
+        ease: "none"
+      }, 0);
+
+      tl.to(heroDescRef.current, {
+        y: 200,
+        opacity: 0,
+        ease: "none"
+      }, 0);
+
+      tl.to(heroButtonsRef.current, {
+        y: 150,
+        opacity: 0,
+        ease: "none"
+      }, 0);
+
+      tl.to(scrollIndicatorRef.current, {
+        opacity: 0,
+        ease: "none"
+      }, 0);
+    });
+
     return () => {
       lenis.destroy();
       gsap.ticker.remove(updateRaf);
+      ctx.revert();
     };
   }, []);
 
@@ -966,13 +1000,13 @@ export default function LandingPage({ view = 'home' }: { view?: 'home' | 'experi
   }
 
   return (
-    <div ref={scrollRef} className="relative min-h-[300vh] bg-transparent">
+    <div className="relative min-h-[300vh] bg-transparent">
       <Suspense fallback={<div className="fixed inset-0 bg-transparent pointer-events-none z-0" />}>
         <AntigravityHero />
       </Suspense>
 
       {/* Hero Content */}
-      <section className="sticky top-0 h-screen flex flex-col items-center justify-center text-center px-6 overflow-hidden">
+      <section id="hero-section" className="sticky top-0 h-screen flex flex-col items-center justify-center text-center px-6 overflow-hidden">
         <motion.div
           initial={{ opacity: 0, scale: 0.93 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -984,29 +1018,21 @@ export default function LandingPage({ view = 'home' }: { view?: 'home' | 'experi
             <span>Next-Gen Simulation Engine</span>
           </div>
           
-          <motion.h1 
-            style={{ 
-              y: yText, 
-              scale: scaleText, 
-              opacity: opacityText, 
-              letterSpacing: trackingText,
-              rotateX: rotateXText,
-              rotateZ: rotateZText,
-              filter: blurText
-            }}
+          <h1 
+            ref={heroTitleRef}
             className="text-8xl md:text-9xl font-display font-bold text-cinematic mb-6 leading-none"
           >
             Circuit.IQ
-          </motion.h1>
+          </h1>
           
-          <motion.p 
-            style={{ y: useTransform(scrollY, [0, 800], [0, 200]), opacity: opacityText }}
+          <p 
+            ref={heroDescRef}
             className="max-w-2xl mx-auto text-2xl text-slate-500 dark:text-slate-400 font-light italic mb-12 leading-relaxed"
           >
             AI-Powered Virtual Physics Laboratory for the <span className="text-blue-600 dark:text-blue-400">Modern Engineer</span>.
-          </motion.p>
+          </p>
 
-          <motion.div style={{ opacity: opacityText }} className="flex flex-col sm:flex-row items-center justify-center gap-6">
+          <div ref={heroButtonsRef} className="flex flex-col sm:flex-row items-center justify-center gap-6">
             <button 
               onClick={() => setLabOpen(true)}
               className="px-10 py-4 bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold rounded-xl flex items-center gap-2 hover:bg-slate-800 dark:hover:bg-slate-200 transition-all hover:scale-105 active:scale-95 shadow-xl shadow-slate-900/10 dark:shadow-white/10"
@@ -1020,10 +1046,11 @@ export default function LandingPage({ view = 'home' }: { view?: 'home' | 'experi
             >
               Explore Library
             </button>
-          </motion.div>
+          </div>
         </motion.div>
 
         <motion.div 
+          ref={scrollIndicatorRef}
           animate={{ y: [0, 10, 0] }}
           transition={{ duration: 2, repeat: Infinity }}
           className="absolute bottom-10 flex flex-col items-center gap-2 opacity-50"

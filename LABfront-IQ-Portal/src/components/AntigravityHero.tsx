@@ -9,6 +9,16 @@ import { useAppStore } from '../store/useAppStore';
 
 gsap.registerPlugin(ScrollTrigger);
 
+const GEOMETRY_CACHE: Record<string, THREE.BufferGeometry> = {};
+
+function getCachedGeometry(key: string, creator: () => THREE.BufferGeometry): THREE.BufferGeometry {
+  if (!GEOMETRY_CACHE[key]) {
+    GEOMETRY_CACHE[key] = creator();
+  }
+  return GEOMETRY_CACHE[key];
+}
+
+
 function CursorGlitter() {
   const { mouse, viewport } = useThree();
   const meshRef = useRef<THREE.Mesh>(null);
@@ -111,70 +121,104 @@ function FloatingComponent({ position, type, index, delay, progressRef, isLogo, 
       {type === 'resistor' && (
         <group>
           {/* Main body: using a capsule for smooth ends */}
-          <mesh rotation={[0, 0, Math.PI / 2]}>
-            <capsuleGeometry args={[0.13, 0.6, geomSubdivisions, geomSubdivisions]} />
+          <mesh 
+            rotation={[0, 0, Math.PI / 2]}
+            geometry={getCachedGeometry(`res_capsule_${geomSubdivisions}`, () => new THREE.CapsuleGeometry(0.13, 0.6, geomSubdivisions, geomSubdivisions))}
+          >
             <meshStandardMaterial color="#eacba0" roughness={0.9} />
           </mesh>
           {!isBackground && (
             <>
               {/* Realistic wider end caps */}
-              <mesh position={[-0.35, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-                 <cylinderGeometry args={[0.16, 0.16, 0.15, subdivisions]} />
+              <mesh 
+                position={[-0.35, 0, 0]} 
+                rotation={[0, 0, Math.PI / 2]}
+                geometry={getCachedGeometry(`res_cap_${subdivisions}`, () => new THREE.CylinderGeometry(0.16, 0.16, 0.15, subdivisions))}
+              >
                  <meshStandardMaterial color="#eacba0" roughness={0.9} />
               </mesh>
-              <mesh position={[0.35, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-                 <cylinderGeometry args={[0.16, 0.16, 0.15, subdivisions]} />
+              <mesh 
+                position={[0.35, 0, 0]} 
+                rotation={[0, 0, Math.PI / 2]}
+                geometry={getCachedGeometry(`res_cap_${subdivisions}`, () => new THREE.CylinderGeometry(0.16, 0.16, 0.15, subdivisions))}
+              >
                  <meshStandardMaterial color="#eacba0" roughness={0.9} />
               </mesh>
               
               {/* Color bands on the central body */}
-              <mesh position={[-0.15, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-                 <cylinderGeometry args={[0.132, 0.132, 0.08, subdivisions]} />
+              <mesh 
+                position={[-0.15, 0, 0]} 
+                rotation={[0, 0, Math.PI / 2]}
+                geometry={getCachedGeometry(`res_band_${subdivisions}`, () => new THREE.CylinderGeometry(0.132, 0.132, 0.08, subdivisions))}
+              >
                  <meshBasicMaterial color="#b91c1c" />
               </mesh>
-              <mesh position={[0.0, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-                 <cylinderGeometry args={[0.132, 0.132, 0.08, subdivisions]} />
+              <mesh 
+                position={[0.0, 0, 0]} 
+                rotation={[0, 0, Math.PI / 2]}
+                geometry={getCachedGeometry(`res_band_${subdivisions}`, () => new THREE.CylinderGeometry(0.132, 0.132, 0.08, subdivisions))}
+              >
                  <meshBasicMaterial color="#ca8a04" />
               </mesh>
-              <mesh position={[0.15, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-                 <cylinderGeometry args={[0.132, 0.132, 0.08, subdivisions]} />
+              <mesh 
+                position={[0.15, 0, 0]} 
+                rotation={[0, 0, Math.PI / 2]}
+                geometry={getCachedGeometry(`res_band_${subdivisions}`, () => new THREE.CylinderGeometry(0.132, 0.132, 0.08, subdivisions))}
+              >
                  <meshBasicMaterial color="#1e3a8a" />
               </mesh>
-              <mesh position={[0.35, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+              <mesh 
+                position={[0.35, 0, 0]} 
+                rotation={[0, 0, Math.PI / 2]}
+                geometry={getCachedGeometry(`res_tolerance_${subdivisions}`, () => new THREE.CylinderGeometry(0.162, 0.162, 0.05, subdivisions))}
+              >
                  {/* Gold tolerance band on the right end cap */}
-                 <cylinderGeometry args={[0.162, 0.162, 0.05, subdivisions]} />
                  <meshBasicMaterial color="#d4af37" />
               </mesh>
 
               {/* leads */}
               <group position={[-0.425, 0, 0]}>
-                <mesh position={[-0.2, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-                   <cylinderGeometry args={[0.02, 0.02, 0.4, 8]} />
+                <mesh 
+                  position={[-0.2, 0, 0]} 
+                  rotation={[0, 0, Math.PI / 2]}
+                  geometry={getCachedGeometry("res_lead_horiz", () => new THREE.CylinderGeometry(0.02, 0.02, 0.4, 8))}
+                >
                    <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
                 </mesh>
-                <mesh position={[-0.4, -0.25, 0]}>
-                   <cylinderGeometry args={[0.02, 0.02, 0.5, 8]} />
+                <mesh 
+                  position={[-0.4, -0.25, 0]}
+                  geometry={getCachedGeometry("res_lead_vert", () => new THREE.CylinderGeometry(0.02, 0.02, 0.5, 8))}
+                >
                    <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
                 </mesh>
                 {/* The bend joint */}
-                <mesh position={[-0.4, 0, 0]}>
-                   <sphereGeometry args={[0.02, 8, 8]} />
+                <mesh 
+                  position={[-0.4, 0, 0]}
+                  geometry={getCachedGeometry("res_joint", () => new THREE.SphereGeometry(0.02, 8, 8))}
+                >
                    <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
                 </mesh>
               </group>
 
               <group position={[0.425, 0, 0]}>
-                <mesh position={[0.2, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-                   <cylinderGeometry args={[0.02, 0.02, 0.4, 8]} />
+                <mesh 
+                  position={[0.2, 0, 0]} 
+                  rotation={[0, 0, Math.PI / 2]}
+                  geometry={getCachedGeometry("res_lead_horiz", () => new THREE.CylinderGeometry(0.02, 0.02, 0.4, 8))}
+                >
                    <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
                 </mesh>
-                <mesh position={[0.4, -0.25, 0]}>
-                   <cylinderGeometry args={[0.02, 0.02, 0.5, 8]} />
+                <mesh 
+                  position={[0.4, -0.25, 0]}
+                  geometry={getCachedGeometry("res_lead_vert", () => new THREE.CylinderGeometry(0.02, 0.02, 0.5, 8))}
+                >
                    <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
                 </mesh>
                 {/* The bend joint */}
-                <mesh position={[0.4, 0, 0]}>
-                   <sphereGeometry args={[0.02, 8, 8]} />
+                <mesh 
+                  position={[0.4, 0, 0]}
+                  geometry={getCachedGeometry("res_joint", () => new THREE.SphereGeometry(0.02, 8, 8))}
+                >
                    <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
                 </mesh>
               </group>
@@ -185,27 +229,37 @@ function FloatingComponent({ position, type, index, delay, progressRef, isLogo, 
       {type === 'led' && (
         <group>
           {/* LED Domed Body */}
-          <mesh position={[0, 0.44, 0]}>
-            <sphereGeometry args={[0.24, geomSubdivisions, geomSubdivisions, 0, Math.PI * 2, 0, Math.PI / 2]} />
+          <mesh 
+            position={[0, 0.44, 0]}
+            geometry={getCachedGeometry(`led_dome_${geomSubdivisions}`, () => new THREE.SphereGeometry(0.24, geomSubdivisions, geomSubdivisions, 0, Math.PI * 2, 0, Math.PI / 2))}
+          >
             <meshStandardMaterial ref={materialRef1} color={ledColor} emissive={ledEmissive} emissiveIntensity={0.1} transparent={!isBackground} opacity={0.9} roughness={0.1} toneMapped={false} />
           </mesh>
-          <mesh position={[0, 0.21, 0]}>
-            <cylinderGeometry args={[0.24, 0.24, 0.46, geomSubdivisions]} />
+          <mesh 
+            position={[0, 0.21, 0]}
+            geometry={getCachedGeometry(`led_body_${geomSubdivisions}`, () => new THREE.CylinderGeometry(0.24, 0.24, 0.46, geomSubdivisions))}
+          >
             <meshStandardMaterial ref={materialRef2} color={ledColor} emissive={ledEmissive} emissiveIntensity={0.05} transparent={!isBackground} opacity={0.8} roughness={0.1} toneMapped={false} />
           </mesh>
           {!isBackground && (
             <>
-              <mesh position={[0, -0.04, 0]}>
-                <cylinderGeometry args={[0.26, 0.26, 0.06, subdivisions]} />
+              <mesh 
+                position={[0, -0.04, 0]}
+                geometry={getCachedGeometry(`led_base_${subdivisions}`, () => new THREE.CylinderGeometry(0.26, 0.26, 0.06, subdivisions))}
+              >
                 <meshStandardMaterial color="#9ca3af" roughness={0.4} />
               </mesh>
               {/* Leg leads represent premium connection contacts */}
-              <mesh position={[-0.15, -0.25, 0]}>
-                <cylinderGeometry args={[0.025, 0.025, 0.5]} />
+              <mesh 
+                position={[-0.15, -0.25, 0]}
+                geometry={getCachedGeometry("led_leg", () => new THREE.CylinderGeometry(0.025, 0.025, 0.5, 8))}
+              >
                 <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
               </mesh>
-              <mesh position={[0.15, -0.25, 0]}>
-                <cylinderGeometry args={[0.025, 0.025, 0.5]} />
+              <mesh 
+                position={[0.15, -0.25, 0]}
+                geometry={getCachedGeometry("led_leg", () => new THREE.CylinderGeometry(0.025, 0.025, 0.5, 8))}
+              >
                 <meshStandardMaterial color="#94a3b8" metalness={0.8} roughness={0.2} />
               </mesh>
             </>
@@ -213,8 +267,10 @@ function FloatingComponent({ position, type, index, delay, progressRef, isLogo, 
 
           {/* High-Fidelity soft volumetric glow halo */}
           {highFidelityMode && !isBackground && (
-            <mesh position={[0, 0.44, 0]}>
-              <sphereGeometry args={[0.48, 12, 12]} />
+            <mesh 
+              position={[0, 0.44, 0]}
+              geometry={getCachedGeometry("led_halo", () => new THREE.SphereGeometry(0.48, 12, 12))}
+            >
               <meshBasicMaterial
                 ref={haloRef}
                 transparent
@@ -229,8 +285,11 @@ function FloatingComponent({ position, type, index, delay, progressRef, isLogo, 
 
           {/* Soft bounce light reflection ring on the breadboard surface */}
           {highFidelityMode && !isBackground && (
-            <mesh position={[0, -0.31, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-              <circleGeometry args={[0.42, 12]} />
+            <mesh 
+              position={[0, -0.31, 0]} 
+              rotation={[-Math.PI / 2, 0, 0]}
+              geometry={getCachedGeometry("led_bounce", () => new THREE.CircleGeometry(0.42, 12))}
+            >
               <meshBasicMaterial
                 ref={bounceRef}
                 transparent
@@ -290,8 +349,7 @@ function BreadboardHoles() {
   }, [positions]);
 
   return (
-    <instancedMesh ref={meshRef} args={[undefined, undefined, positions.length]}>
-      <circleGeometry args={[0.07, 8]} />
+    <instancedMesh ref={meshRef} args={[undefined, undefined, positions.length]} geometry={getCachedGeometry('hole_geom', () => new THREE.CircleGeometry(0.07, 8))}>
       <meshBasicMaterial color="#0f172a" depthWrite={false} />
     </instancedMesh>
   );
@@ -582,10 +640,13 @@ function GridLogoScene({ progressRef }: { progressRef: React.MutableRefObject<{v
       const crazyY = (Math.random() - 0.5) * 15;
       const crazyZ = (Math.random() - 0.5) * 15;
       
+      const leftToRight = Math.max(0, Math.min(1, (endPos[0] + 10) / 20));
+      const waveOffset = leftToRight * 0.2;
+      
       return { 
         type, id: i, delay: Math.random(), 
         swirlRadius, swirlAngle, swirlY, swirlOrbitSpeed, swirlVertSpeed, endPos,
-        isLogo: item.isLogo, crazyX, crazyY, crazyZ, randomRotY
+        isLogo: item.isLogo, crazyX, crazyY, crazyZ, randomRotY, waveOffset
       };
     });
   }, [logoPoints]);
@@ -642,15 +703,18 @@ function GridLogoScene({ progressRef }: { progressRef: React.MutableRefObject<{v
       const mesh = refs.current[i];
       if (!mesh) return;
 
+      const angle = comp.swirlAngle + t * comp.swirlOrbitSpeed;
+      const swirlVert = t * comp.swirlVertSpeed;
+
       // Swirl Positions
-      const sx = Math.cos(comp.swirlAngle + t * comp.swirlOrbitSpeed) * comp.swirlRadius;
-      const sz = Math.sin(comp.swirlAngle + t * comp.swirlOrbitSpeed) * comp.swirlRadius;
-      const sy = comp.swirlY + Math.sin(t * comp.swirlVertSpeed) * 10;
+      const sx = Math.cos(angle) * comp.swirlRadius;
+      const sz = Math.sin(angle) * comp.swirlRadius;
+      const sy = comp.swirlY + Math.sin(swirlVert) * 10;
       
       // Swirl Rotations
       const sRotX = t * comp.swirlOrbitSpeed;
-      const sRotY = comp.swirlAngle + t * comp.swirlOrbitSpeed;
-      const sRotZ = t * comp.swirlVertSpeed;
+      const sRotY = angle;
+      const sRotZ = swirlVert;
 
       // End Rotations
       let eRotX = 0;
@@ -658,10 +722,7 @@ function GridLogoScene({ progressRef }: { progressRef: React.MutableRefObject<{v
       let eRotZ = 0; // Resistors horizontal to show plugged into breadboard
 
       // Unique assembly animation logic
-      const distToCenter = Math.sqrt(comp.endPos[0]*comp.endPos[0] + comp.endPos[2]*comp.endPos[2]);
-      const leftToRight = Math.max(0, Math.min(1, (comp.endPos[0] + 10) / 20)); // 0 to 1 based on X pos
-      const waveOffset = leftToRight * 0.2; // sweeping wave from left to right
-      let delayedProgress = Math.max(0, Math.min(1, (progress - waveOffset) / (1 - waveOffset)));
+      let delayedProgress = Math.max(0, Math.min(1, (progress - comp.waveOffset) / (1 - comp.waveOffset)));
       
       // Bouncy easing for assembling
       let rawEase = delayedProgress === 1 ? 1 : (delayedProgress < 0.5 ? 4 * delayedProgress * delayedProgress * delayedProgress : 1 - Math.pow(-2 * delayedProgress + 2, 3) / 2);
@@ -793,6 +854,7 @@ export default function AntigravityHero({ hideBoard = false }: { hideBoard?: boo
   const highFidelityMode = useAppStore((state) => state.highFidelityMode);
   const [shouldRender, setShouldRender] = useState(false);
   const [canvasOpacity, setCanvasOpacity] = useState(0);
+  const [isHeroActive, setIsHeroActive] = useState(true);
 
   useEffect(() => {
     // Fast canvas initialization delay (50ms) to trigger immediate compilation
@@ -826,6 +888,20 @@ export default function AntigravityHero({ hideBoard = false }: { hideBoard?: boo
      }
   }, [hideBoard]);
 
+  useEffect(() => {
+    if (hideBoard) {
+      setIsHeroActive(true);
+      return;
+    }
+    const trigger = ScrollTrigger.create({
+      trigger: "#simulation-section",
+      start: "bottom top",
+      onEnter: () => setIsHeroActive(false),
+      onLeaveBack: () => setIsHeroActive(true),
+    });
+    return () => trigger.kill();
+  }, [hideBoard]);
+
   return (
     <div ref={wrapperRef} className="fixed inset-0 pointer-events-none z-0">
       {shouldRender ? (
@@ -833,7 +909,7 @@ export default function AntigravityHero({ hideBoard = false }: { hideBoard?: boo
           className="w-full h-full transition-opacity duration-500 ease-out"
           style={{ opacity: canvasOpacity }}
         >
-          <Canvas dpr={highFidelityMode ? [1, 2] : 1}>
+          <Canvas dpr={highFidelityMode ? [1, 1.5] : 1} frameloop={isHeroActive ? "always" : "never"}>
             <WebGLContextDisposer />
             <PerspectiveCamera makeDefault position={[0, 12, 22]} fov={45} />
             <ambientLight intensity={0.6} />

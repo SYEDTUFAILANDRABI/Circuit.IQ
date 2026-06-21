@@ -6,6 +6,16 @@ import * as THREE from 'three';
 import { motion } from 'motion/react';
 import { Cpu, Zap, Sliders, CircleDot } from 'lucide-react';
 
+
+const GEOMETRY_CACHE: Record<string, THREE.BufferGeometry> = {};
+
+function getCachedGeometry(key: string, creator: () => THREE.BufferGeometry): THREE.BufferGeometry {
+  if (!GEOMETRY_CACHE[key]) {
+    GEOMETRY_CACHE[key] = creator();
+  }
+  return GEOMETRY_CACHE[key];
+}
+
 // Single LED instance renderer inside the R3F Canvas
 function LEDGrid({
   rows = 14,
@@ -166,7 +176,8 @@ function LEDGrid({
       {/* 5mm Rounded Dome LEDs (translucent colored diffuser body) */}
       <instancedMesh
         ref={meshRef}
-        args={[new THREE.SphereGeometry(0.08, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), null, ledCount]}
+        geometry={getCachedGeometry('led_grid_dome', () => new THREE.SphereGeometry(0.08, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2))}
+        args={[undefined, undefined, ledCount]}
         onPointerOver={(e) => {
           e.stopPropagation();
           if (e.instanceId !== undefined) {
@@ -201,7 +212,8 @@ function LEDGrid({
       {/* Hyper-glowing LED Cores (translucent fluorescent light emitting core) */}
       <instancedMesh
         ref={coreMeshRef}
-        args={[new THREE.SphereGeometry(0.045, 8, 8), null, ledCount]}
+        geometry={getCachedGeometry('led_grid_core', () => new THREE.SphereGeometry(0.045, 8, 8))}
+        args={[undefined, undefined, ledCount]}
         onPointerOver={(e) => {
           e.stopPropagation();
           if (e.instanceId !== undefined) {
@@ -231,7 +243,8 @@ function LEDGrid({
       {/* 2.5x Size Volumetric Glow Halos (additive blending translucent shells) */}
       <instancedMesh
         ref={haloMeshRef}
-        args={[new THREE.SphereGeometry(0.2, 16, 16), null, ledCount]}
+        geometry={getCachedGeometry('led_grid_halo', () => new THREE.SphereGeometry(0.2, 16, 16))}
+        args={[undefined, undefined, ledCount]}
       >
         <meshBasicMaterial
           transparent
@@ -243,7 +256,7 @@ function LEDGrid({
       </instancedMesh>
 
       {/* Warm Golden LED Collars / Bases */}
-      <instancedMesh ref={baseMeshRef} args={[new THREE.CylinderGeometry(0.09, 0.09, 0.04, 12), null, ledCount]}>
+      <instancedMesh ref={baseMeshRef} geometry={getCachedGeometry('led_grid_base', () => new THREE.CylinderGeometry(0.09, 0.09, 0.04, 12))} args={[undefined, undefined, ledCount]}>
         <meshStandardMaterial
           color="#d4af37"
           metalness={0.9}
@@ -447,8 +460,21 @@ export default function CyberpunkLedMatrix() {
   const [coreColor, setCoreColor] = useState<string>('#EBF8FF');
   const [glowColor, setGlowColor] = useState<string>('#0052FF');
   const [hoveredId, setHoveredId] = useState<number | null>(null);
+  const [isInViewport, setIsInViewport] = useState(false);
   const tooltipRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsInViewport(entry.isIntersecting);
+      },
+      { threshold: 0.01 }
+    );
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   const spacing = 0.32;
   const rows = 14;
@@ -660,7 +686,7 @@ export default function CyberpunkLedMatrix() {
         )}
 
         {/* Three.js Canvas */}
-        <Canvas dpr={1}>
+        <Canvas dpr={1} frameloop={isInViewport ? "always" : "never"}>
           <WebGLContextDisposer />
           <color attach="background" args={['#04080F']} />
           <PerspectiveCamera makeDefault position={[0, 4.0, 5.0]} fov={35} />
