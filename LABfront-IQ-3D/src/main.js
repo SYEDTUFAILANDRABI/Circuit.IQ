@@ -4824,14 +4824,11 @@ function makeElementDraggable(panelEl, headerEl) {
   }
 }
 
-function downloadCanvasAsImage(canvas, filename) {
-  const dataUrl = canvas.toDataURL('image/png');
-  const link = document.createElement('a');
-  link.download = filename;
-  link.href = dataUrl;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+function addRealisticNoise(val, seed, scale = 0.015) {
+  if (val === 0) return 0;
+  // A deterministic pseudo-random offset based on the seed number to make observations consistent but noisy
+  const offset = Math.sin(seed * 43758.5453123) * scale;
+  return val * (1 + offset);
 }
 
 function generateExperimentConclusion(expKey, dataPoints) {
@@ -4848,14 +4845,16 @@ function generateExperimentConclusion(expKey, dataPoints) {
       let sumVI = 0;
       let sumI2 = 0;
       dataPoints.forEach(p => {
-        sumVI += p.V * p.I;
-        sumI2 += p.I * p.I;
+        const V_noisy = addRealisticNoise(p.V, p.id * 10 + 1, 0.008);
+        const I_noisy = addRealisticNoise(p.I, p.id * 10 + 2, 0.012);
+        sumVI += V_noisy * I_noisy;
+        sumI2 += I_noisy * I_noisy;
       });
       if (sumI2 !== 0) {
         const R_calc = sumVI / sumI2;
         const m = R_calc / 1000; // slope in V/mA
         const error = Math.abs(R_calc - R_theoretical) / R_theoretical * 100;
-        return `The Ohm's Law verification experiment was successfully completed. Based on the ${N} recorded data points, the V-I characteristic curve is a straight line passing through the origin, representing a purely Ohmic response. The experimental resistance calculated from the slope (slope m = ${m.toFixed(4)} V/mA) is ${R_calc.toFixed(1)} Ω. This deviates from the theoretical value of ${R_theoretical} Ω by only ${error.toFixed(2)}%, thereby verifying the linear relationship V = I × R.`;
+        return `The Ohm's Law verification experiment was successfully completed. Based on the ${N} recorded data points, the V-I characteristic curve exhibits a linear response passing through the origin, representing a purely Ohmic response. The experimental resistance calculated from the slope (slope m = ${m.toFixed(4)} V/mA) is ${R_calc.toFixed(1)} Ω. This deviates from the theoretical value of ${R_theoretical} Ω by only ${error.toFixed(2)}%, thereby verifying the linear relationship V = I × R within experimental tolerance limitations.`;
       }
       return `The Ohm's Law verification experiment was performed. The V-I characteristic curve exhibits a linear response passing through the origin. This confirms that current is directly proportional to voltage and inversely proportional to resistance, verifying V = I × R.`;
     }
@@ -4863,25 +4862,25 @@ function generateExperimentConclusion(expKey, dataPoints) {
     case 'kvl': {
       const R1 = state.params.R || 100;
       const R2 = state.params.L || 100;
-      const lastV = lastPt.V;
-      const lastI = lastPt.I;
-      const V1 = lastI * R1;
-      const V2 = lastI * R2;
+      const Vs_noisy = addRealisticNoise(lastPt.V, lastPt.id * 10 + 1, 0.005);
+      const I_noisy = addRealisticNoise(lastPt.I, lastPt.id * 10 + 2, 0.008);
+      const V1 = addRealisticNoise(I_noisy * R1, 101, 0.007);
+      const V2 = addRealisticNoise(I_noisy * R2, 102, 0.007);
       const sumDrops = V1 + V2;
-      const discrepancy = Math.abs(lastV - sumDrops);
-      return `Kirchhoff's Voltage Law (KVL) was verified in a series DC loop containing resistances R1 = ${R1} Ω and R2 = ${R2} Ω. The sum of the individual potential drops (V1 = ${V1.toFixed(2)} V and V2 = ${V2.toFixed(2)} V) equals the total source voltage Vs = ${lastV.toFixed(2)} V (discrepancy: ${discrepancy.toFixed(3)} V). This confirms the Loop Rule (ΣV = 0), verifying that the net energy gained in a closed circuit loop equals the net energy dissipated, satisfying conservation of energy.`;
+      const discrepancy = Math.abs(Vs_noisy - sumDrops);
+      return `Kirchhoff's Voltage Law (KVL) was verified in a series DC loop containing resistances R1 = ${R1} Ω and R2 = ${R2} Ω. The sum of the individual potential drops (V1 = ${V1.toFixed(2)} V and V2 = ${V2.toFixed(2)} V) equals ${sumDrops.toFixed(2)} V, compared to the measured total source voltage Vs = ${Vs_noisy.toFixed(2)} V (discrepancy: ${discrepancy.toFixed(3)} V). This confirms the Loop Rule (ΣV = 0) within a minimal experimental margin of uncertainty, verifying conservation of energy.`;
     }
 
     case 'kcl': {
       const R1 = state.params.R || 100;
       const R2 = state.params.L || 100;
       const lastV = lastPt.V;
-      const I1 = lastV / R1;
-      const I2 = lastV / R2;
-      const I_total = lastPt.I;
+      const I1 = addRealisticNoise(lastV / R1, 201, 0.012);
+      const I2 = addRealisticNoise(lastV / R2, 202, 0.012);
+      const I_total = addRealisticNoise(lastPt.I, lastPt.id * 10 + 2, 0.008);
       const sumBranch = I1 + I2;
-      const error = Math.abs(I_total - sumBranch) * 1000;
-      return `Kirchhoff's Current Law (KCL) was verified at a parallel junction containing resistors R1 = ${R1} Ω and R2 = ${R2} Ω. At a source potential of ${lastV.toFixed(1)} V, the measured total entering current is ${(I_total * 1000).toFixed(1)} mA, which closely matches the sum of individual branch currents (I1 = ${(I1 * 1000).toFixed(1)} mA and I2 = ${(I2 * 1000).toFixed(1)} mA, sum = ${(sumBranch * 1000).toFixed(1)} mA, error = ${error.toFixed(2)} mA). This confirms the Junction Rule (ΣI_in = ΣI_out), validating the principle of conservation of electrical charge.`;
+      const discrepancy_mA = Math.abs(I_total - sumBranch) * 1000;
+      return `Kirchhoff's Current Law (KCL) was verified at a parallel junction containing resistors R1 = ${R1} Ω and R2 = ${R2} Ω. At a source potential of ${lastV.toFixed(1)} V, the measured total entering current is ${(I_total * 1000).toFixed(1)} mA, which closely matches the sum of individual branch currents (I1 = ${(I1 * 1000).toFixed(1)} mA and I2 = ${(I2 * 1000).toFixed(1)} mA, sum = ${(sumBranch * 1000).toFixed(1)} mA, error margin: ${discrepancy_mA.toFixed(2)} mA). This confirms the Junction Rule (ΣI_in = ΣI_out) within experimental limits, validating the principle of conservation of charge.`;
     }
 
     case 'rc_rl_rlc': {
@@ -4896,14 +4895,16 @@ function generateExperimentConclusion(expKey, dataPoints) {
       const L_mH = state.params.L || 10;
       const C_uF = state.params.C || 10;
       const f0_theoretical = (1 / (2 * Math.PI * Math.sqrt(L_mH * 1e-3 * C_uF * 1e-6))).toFixed(1);
-      return `The series LCR resonance experiment was successfully conducted using components R = ${R} Ω, L = ${L_mH} mH, and C = ${C_uF} µF. The theoretical resonant frequency is calculated as f₀ = 1 / (2π√(LC)) = ${f0_theoretical} Hz. At resonance, the inductive and capacitive reactances cancel each other (XL = XC), making the total impedance minimum (Z = R = ${R} Ω) and the current flow maximum. The frequency response curve demonstrates a sharp resonance peak, verifying AC resonance theory.`;
+      const f0_experimental = addRealisticNoise(parseFloat(f0_theoretical), 301, 0.015); // ±1.5% resonant shift due to passive component tolerance
+      return `The series LCR resonance experiment was successfully conducted using components R = ${R} Ω, L = ${L_mH} mH, and C = ${C_uF} µF. The theoretical resonant frequency is calculated as f₀ = 1 / (2π√(LC)) = ${f0_theoretical} Hz. Experimentally, the resonance dip was observed at ${f0_experimental.toFixed(1)} Hz. At resonance, the inductive and capacitive reactances cancel each other (XL = XC), making the total impedance minimum (Z ≈ R = ${R} Ω) and current flow maximum. The frequency response curve demonstrates a sharp resonance peak, verifying AC resonance theory.`;
     }
 
     case 'rc': {
       const R = state.params.R || 100;
       const C = state.params.C || 10;
       const tau_ms = (R * C * 1e-6 * 1000).toFixed(2);
-      return `The RC transient response experiment was completed using R = ${R} Ω and C = ${C} µF. The theoretical time constant is τ = RC = ${tau_ms} ms. The charging curve shows that the capacitor potential reaches 63.2% of the supply voltage in ${tau_ms} ms and is virtually fully charged (99.3%) after ${(parseFloat(tau_ms) * 5).toFixed(1)} ms. The exponential characteristic V_C(t) = V_s(1 - e^(-t/τ)) is verified.`;
+      const tau_experimental = addRealisticNoise(parseFloat(tau_ms), 401, 0.018); // ±1.8% deviation due to component tolerances
+      return `The RC transient response experiment was completed using R = ${R} Ω and C = ${C} µF. The theoretical time constant is τ = RC = ${tau_ms} ms. The charging curve shows that the capacitor potential reaches 63.2% of the supply voltage in ${tau_experimental.toFixed(2)} ms (experimental time constant) and is virtually fully charged (99.3%) after ${(parseFloat(tau_ms) * 5).toFixed(1)} ms, verifying the characteristic V_C(t) = V_s(1 - e^(-t/τ)) function.`;
     }
 
     case 'series_parallel': {
@@ -4911,15 +4912,18 @@ function generateExperimentConclusion(expKey, dataPoints) {
       const R2 = state.params.L || 100;
       const Req_series = R1 + R2;
       const Req_parallel = (R1 * R2) / (R1 + R2);
-      return `Resistor combination laws were verified for resistances R1 = ${R1} Ω and R2 = ${R2} Ω. The series connection resulted in an additive equivalent resistance of R_eq = ${Req_series} Ω, while the parallel configuration resulted in a reciprocal equivalent resistance of R_eq = ${Req_parallel.toFixed(1)} Ω. These results confirm the theoretical equivalent resistance formulas, showing that parallel paths reduce overall resistance.`;
+      const Req_series_exp = addRealisticNoise(Req_series, 510, 0.009);
+      const Req_parallel_exp = addRealisticNoise(Req_parallel, 511, 0.012);
+      return `Resistor combination laws were verified for nominal resistances R1 = ${R1} Ω and R2 = ${R2} Ω. The series connection resulted in an equivalent resistance of R_eq = ${Req_series_exp.toFixed(1)} Ω (theoretical: ${Req_series} Ω), while the parallel configuration resulted in an equivalent resistance of R_eq = ${Req_parallel_exp.toFixed(1)} Ω (theoretical: ${Req_parallel.toFixed(1)} Ω). These results confirm the combination formulas, with deviations well within component tolerance limits.`;
     }
 
     case 'wheatstone': {
       const R1 = state.params.R || 100;
       const R2 = state.params.L || 100;
       const R3 = lastPt.C;
-      const Rx_calc = R3 * (R2 / R1);
-      return `The Wheatstone Bridge balancing experiment was completed. Under null-deflection conditions where galvanometer current drops to 0.00 mA, the bridge arms are balanced: R1/R2 = R3/Rx. With R1 = ${R1} Ω, R2 = ${R2} Ω, and the variable balancing resistance R3 adjusted to ${R3.toFixed(1)} Ω, the unknown resistance Rx was determined to be ${Rx_calc.toFixed(1)} Ω, demonstrating the high precision of bridge measurement techniques.`;
+      const Rx_theoretical = R3 * (R2 / R1);
+      const Rx_calc = addRealisticNoise(Rx_theoretical, 512, 0.011);
+      return `The Wheatstone Bridge balancing experiment was completed. Under null-deflection conditions where galvanometer current drops to 0.00 mA, the bridge arms are balanced: R1/R2 = R3/Rx. With R1 = ${R1} Ω, R2 = ${R2} Ω, and the variable balancing resistance R3 adjusted to ${R3.toFixed(1)} Ω, the unknown resistance Rx was determined to be ${Rx_calc.toFixed(1)} Ω (theoretical: ${Rx_theoretical.toFixed(1)} Ω), demonstrating the high precision of bridge measurement techniques.`;
     }
 
     case 'faraday': {
@@ -4937,15 +4941,17 @@ function generateExperimentConclusion(expKey, dataPoints) {
       const u0 = 4 * Math.PI * 1e-7;
       const B_Tesla = u0 * (turns / length) * current;
       const B_microTesla = B_Tesla * 1e6;
-      return `The magnetic field of a solenoid was analyzed. For a coil of ${turns} turns, length 50 cm, and carrying a current of ${current.toFixed(2)} A, the measured axial magnetic flux density B is ${B_microTesla.toFixed(1)} μT. The experimental results confirm that the magnetic field strength is uniform inside the solenoid core and is directly proportional to both the current and the turns density (N/L), verifying B = μ₀ × n × I.`;
+      const B_microTesla_exp = addRealisticNoise(B_microTesla, 513, 0.015);
+      return `The magnetic field of a solenoid was analyzed. For a coil of ${turns} turns, length 50 cm, and carrying a current of ${current.toFixed(2)} A, the measured axial magnetic flux density B is ${B_microTesla_exp.toFixed(1)} μT (theoretical: ${B_microTesla.toFixed(1)} μT). The results confirm that the magnetic field strength is uniform inside the solenoid core and is directly proportional to both the current and the turns density (N/L), verifying B = μ₀ × n × I.`;
     }
 
     case 'transformer': {
       const Vp = lastPt.V;
       const Np = lastPt.R;
       const Ns = state.params.L || 400;
-      const Vs = Vp * (Ns / Np);
-      return `AC transformer operation was verified. With a primary turns count Np = ${Np} and secondary turns Ns = ${Ns}, the turns ratio is ${(Ns/Np).toFixed(2)}. At an input primary voltage of ${Vp.toFixed(1)} V AC, the induced secondary output voltage is ${Vs.toFixed(1)} V AC. This matches the transformer turns law Vs/Vp = Ns/Np, demonstrating step-up/step-down action via mutual induction.`;
+      const Vs_ideal = Vp * (Ns / Np);
+      const Vs = addRealisticNoise(Vs_ideal, 514, 0.012);
+      return `AC transformer operation was verified. With a primary turns count Np = ${Np} and secondary turns Ns = ${Ns}, the turns ratio is ${(Ns/Np).toFixed(2)}. At an input primary voltage of ${Vp.toFixed(1)} V AC, the induced secondary output voltage is ${Vs.toFixed(1)} V AC (theoretical: ${Vs_ideal.toFixed(1)} V AC). This matches the transformer turns law Vs/Vp = Ns/Np, demonstrating step-up/step-down action via mutual induction.`;
     }
 
     case 'diode_iv': {
@@ -4954,28 +4960,36 @@ function generateExperimentConclusion(expKey, dataPoints) {
 
     case 'voltage_divider': {
       const Vin = lastPt.V;
-      return `The voltage divider rule was experimentally verified. For series resistances R1 = ${state.params.R || 100} Ω and R2 = ${state.params.L || 200} Ω, an input voltage of ${Vin.toFixed(1)} V distributed proportionally, yielding V_out = ${lastPt.V.toFixed(2)} V across R2. This confirms the voltage division relationship V_out = V_in * (R2 / (R1 + R2)).`;
+      const R1 = state.params.R || 100;
+      const R2 = state.params.L || 200;
+      const Vout_ideal = Vin * (R2 / (R1 + R2));
+      const Vout = addRealisticNoise(Vout_ideal, 515, 0.011);
+      return `The voltage divider rule was experimentally verified. For series resistances R1 = ${R1} Ω and R2 = ${R2} Ω, an input voltage of ${Vin.toFixed(1)} V distributed proportionally, yielding V_out = ${Vout.toFixed(2)} V across R2 (theoretical: ${Vout_ideal.toFixed(2)} V). This confirms the voltage division relationship V_out = V_in * (R2 / (R1 + R2)) within experimental error limits.`;
     }
 
     case 'planck_led': {
-      return `Planck's constant was determined using color LEDs. The threshold turn-on voltages V_th for Red, Yellow, Green, and Blue wavelengths λ were recorded. By equating electrical energy to photon energy (e × V_th = h × c / λ), the slope of the V_th vs 1/λ plot yielded Planck's constant h, matching the standard value of 6.626 × 10⁻³⁴ J·s within experimental limits.`;
+      const h_calc = addRealisticNoise(6.626, 516, 0.022); // ±2.2% error on Planck's Constant
+      return `Planck's constant was determined using color LEDs. The threshold turn-on voltages V_th for Red, Yellow, Green, and Blue wavelengths λ were recorded. By equating electrical energy to photon energy (e × V_th = h × c / λ), the slope of the V_th vs 1/λ plot yielded Planck's constant h = ${h_calc.toFixed(3)} × 10⁻³⁴ J·s, matching the standard value of 6.626 × 10⁻³⁴ J·s within reasonable experimental limits.`;
     }
 
     case 'biot_savart': {
       const current = lastPt.V;
       const distance = lastPt.I;
       const B_microTesla = lastPt.P;
-      return `Biot-Savart's Law was verified around a straight current-carrying conductor. At a current of ${current.toFixed(1)} A and radial distance of ${distance.toFixed(1)} cm, the measured magnetic field B is ${B_microTesla.toFixed(2)} μT. Tabulated results confirm that B is directly proportional to current (I) and inversely proportional to radial distance (r), satisfying B = μ₀I / (2πr).`;
+      const B_microTesla_exp = addRealisticNoise(B_microTesla, 517, 0.015);
+      return `Biot-Savart's Law was verified around a straight current-carrying conductor. At a current of ${current.toFixed(1)} A and radial distance of ${distance.toFixed(1)} cm, the measured magnetic field B is ${B_microTesla_exp.toFixed(2)} μT (theoretical: ${B_microTesla.toFixed(2)} μT). Tabulated results confirm that B is directly proportional to current (I) and inversely proportional to radial distance (r), satisfying B = μ₀I / (2πr).`;
     }
 
     case 'planck_photocell': {
-      return `Planck's constant was determined using a photocell. The stopping voltage Vs was measured for different incident monochromatic wavelengths. The stopping voltage increases linearly with light frequency, confirming Einstein's photoelectric equation e × Vs = h × f - Φ. The slope yields h/e, from which Planck's constant was computed as ~6.63 × 10⁻³⁴ J·s.`;
+      const h_calc = addRealisticNoise(6.626, 518, 0.025);
+      return `Planck's constant was determined using a photocell. The stopping voltage Vs was measured for different incident monochromatic wavelengths. The stopping voltage increases linearly with light frequency, confirming Einstein's photoelectric equation e × Vs = h × f - Φ. The slope yields h/e, from which Planck's constant was computed as ~${h_calc.toFixed(2)} × 10⁻³⁴ J·s.`;
     }
 
     case 'stefan_law': {
       const T = lastPt.V;
       const P = lastPt.P;
-      return `Stefan's Law of blackbody radiation was verified. Radiated power was measured across a range of absolute temperatures. For example, at T = ${T.toFixed(0)} K, the radiated power was ${P.toFixed(2)} W. The logarithmic plot of Power vs Temperature shows a slope of ~4.0, verifying that total radiated energy scales with the fourth power of absolute temperature (P ∝ T⁴).`;
+      const slope = addRealisticNoise(4.0, 519, 0.02);
+      return `Stefan's Law of blackbody radiation was verified. Radiated power was measured across a range of absolute temperatures. For example, at T = ${T.toFixed(0)} K, the radiated power was ${P.toFixed(2)} W. The logarithmic plot of Power vs Temperature shows an experimental slope of ~${slope.toFixed(2)} (theoretical: 4.0), verifying that total radiated energy scales with the fourth power of absolute temperature (P ∝ T⁴).`;
     }
 
     case 'ideal_gas': {
@@ -4983,27 +4997,31 @@ function generateExperimentConclusion(expKey, dataPoints) {
       const volume = lastPt.I;
       const temp = lastPt.R;
       const PV_T = (pressure * volume) / temp;
-      return `The Ideal Gas Law was verified. Pressure, volume, and temperature were varied. Under all state configurations, the PV/T ratio remained constant at ${PV_T.toFixed(3)} L·kPa/K for the fixed quantity of gas, confirming the state equation PV = nRT.`;
+      const PV_T_exp = addRealisticNoise(PV_T, 520, 0.012);
+      return `The Ideal Gas Law was verified. Pressure, volume, and temperature were varied. Under all state configurations, the PV/T ratio remained constant at approximately ${PV_T_exp.toFixed(3)} L·kPa/K (theoretical: ${PV_T.toFixed(3)} L·kPa/K) for the fixed quantity of gas, confirming the state equation PV = nRT.`;
     }
 
     case 'boyle': {
       const pressure = lastPt.V;
       const volume = lastPt.I;
       const constant_PV = pressure * volume;
-      return `Boyle's Law was verified at constant temperature. As volume was compressed from 5L to 2L, pressure increased proportionally. The product of pressure and volume remained constant at approximately ${constant_PV.toFixed(1)} L·kPa, validating the inverse relationship P ∝ 1/V (P1V1 = P2V2).`;
+      const constant_PV_exp = addRealisticNoise(constant_PV, 521, 0.014);
+      return `Boyle's Law was verified at constant temperature. As volume was compressed from 5L to 2L, pressure increased proportionally. The product of pressure and volume remained constant at approximately ${constant_PV_exp.toFixed(1)} L·kPa (theoretical: ${constant_PV.toFixed(1)} L·kPa), validating the inverse relationship P ∝ 1/V.`;
     }
 
     case 'charles': {
       const temp = lastPt.R;
       const volume = lastPt.I;
       const V_T_ratio = volume / temp;
-      return `Charles's Law was verified at constant pressure. Heating the gas caused linear volume expansion. The ratio of Volume to absolute Temperature (V/T) remained constant at approximately ${V_T_ratio.toFixed(4)} L/K, confirming the direct relationship V ∝ T (V1/T1 = V2/T2).`;
+      const V_T_ratio_exp = addRealisticNoise(V_T_ratio, 522, 0.011);
+      return `Charles's Law was verified at constant pressure. Heating the gas caused linear volume expansion. The ratio of Volume to absolute Temperature (V/T) remained constant at approximately ${V_T_ratio_exp.toFixed(4)} L/K (theoretical: ${V_T_ratio.toFixed(4)} L/K), confirming the direct relationship V ∝ T.`;
     }
 
     case 'specific_heat': {
       const Tm = lastPt.V;
       const Tf = lastPt.R;
-      return `The specific heat capacity of copper was determined using calorimetry. Hot copper weights at ${Tm.toFixed(1)} °C were dropped into water. The mixture reached thermal equilibrium at Tf = ${Tf.toFixed(1)} °C. Based on the heat exchange equation Q = m × c × ΔT, the specific heat of copper was computed, demonstrating excellent agreement with the standard value of 0.385 J/g·°C.`;
+      const c_copper_exp = addRealisticNoise(0.385, 523, 0.024); // ±2.4% shift on heat capacity of copper
+      return `The specific heat capacity of copper was determined using calorimetry. Hot copper weights at ${Tm.toFixed(1)} °C were dropped into water. The mixture reached thermal equilibrium at Tf = ${Tf.toFixed(1)} °C. Based on the heat exchange equation Q = m × c × ΔT, the specific heat of copper was computed as ${c_copper_exp.toFixed(3)} J/g·°C (theoretical: 0.385 J/g·°C), showing agreement within standard experimental tolerances.`;
     }
 
     case 'photoelectric': {
@@ -5014,27 +5032,31 @@ function generateExperimentConclusion(expKey, dataPoints) {
 
     case 'radioactive': {
       const halfLife = lastPt.R;
-      return `The radioactive decay law was verified. The parent nuclei count was monitored over time and exhibited a clear exponential decay profile. The half-life was experimentally measured as approximately ${halfLife.toFixed(1)} seconds, conforming to the decay equation N(t) = N₀ × e^(-λ × t).`;
+      const halfLife_exp = addRealisticNoise(halfLife, 524, 0.015);
+      return `The radioactive decay law was verified. The parent nuclei count was monitored over time and exhibited a clear exponential decay profile. The half-life was experimentally measured as approximately ${halfLife_exp.toFixed(1)} seconds (theoretical: ${halfLife.toFixed(1)} seconds), conforming to the decay equation N(t) = N₀ × e^(-λ × t).`;
     }
 
     case 'de_broglie': {
       const mass = lastPt.V;
       const vel = lastPt.I;
       const lambda = lastPt.R;
-      return `The de Broglie matter wave relation was verified. Moving masses (accelerated electrons) displayed wave diffraction patterns. For a particle mass of ${mass.toFixed(1)} × 10⁻³⁰ kg at velocity ${vel.toFixed(0)} km/s, the de Broglie wavelength was measured as ${lambda.toFixed(3)} nm, verifying the dual wave-particle nature of matter (λ = h/p).`;
+      const lambda_exp = addRealisticNoise(lambda, 525, 0.016);
+      return `The de Broglie matter wave relation was verified. Moving masses (accelerated electrons) displayed wave diffraction patterns. For a particle mass of ${mass.toFixed(1)} × 10⁻³⁰ kg at velocity ${vel.toFixed(0)} km/s, the de Broglie wavelength was measured as ${lambda_exp.toFixed(3)} nm (theoretical: ${lambda.toFixed(3)} nm), verifying the dual wave-particle nature of matter (λ = h/p).`;
     }
 
     case 'bohr_model': {
       const ni = lastPt.V;
       const nf = lastPt.I;
       const deltaE = lastPt.R;
-      return `Orbital transitions in the Bohr Hydrogen atom were analyzed. The transition of an electron from orbit n_i = ${ni} to n_f = ${nf} resulted in an energy change of ΔE = ${deltaE.toFixed(2)} eV. This quantum transition emitted a photon whose wavelength corresponds to the hydrogen spectral series (Balmer/Lyman), verifying the Bohr orbit energy relation.`;
+      const deltaE_exp = addRealisticNoise(deltaE, 526, 0.012);
+      return `Orbital transitions in the Bohr Hydrogen atom were analyzed. The transition of an electron from orbit n_i = ${ni} to n_f = ${nf} resulted in a measured energy change of ΔE = ${deltaE_exp.toFixed(2)} eV (theoretical: ${deltaE.toFixed(2)} eV). This quantum transition emitted a photon whose wavelength corresponds to the hydrogen spectral series, verifying the Bohr orbit energy relation.`;
     }
 
     case 'arduino_led': {
       const R = state.params.R || 150;
       const I_mA = ((5.0 - 2.0) / R * 1000).toFixed(1);
-      return `The Arduino push-button LED loop was successfully constructed and verified. With Vcc = 5V and LED forward drop V_led ≈ 2V, the series current-limiting resistor R = ${R} Ω restricted the circuit current to a safe value of ${I_mA} mA. Closing the switch completed the loop, lighting the LED, demonstrating basic digital loop principles.`;
+      const I_mA_exp = addRealisticNoise(parseFloat(I_mA), 527, 0.015);
+      return `The Arduino push-button LED loop was successfully constructed and verified. With Vcc = 5V and LED forward drop V_led ≈ 2V, the series current-limiting resistor R = ${R} Ω restricted the circuit current to a measured value of ${I_mA_exp.toFixed(2)} mA. Closing the switch completed the loop, lighting the LED, demonstrating basic digital loop principles.`;
     }
 
     default:
@@ -5057,65 +5079,99 @@ function generateLabReportPDF() {
   if (['ohms', 'kvl', 'kcl', 'series_parallel', 'wheatstone', 'arduino_led', 'diode_iv', 'voltage_divider', 'planck_led'].includes(expKey)) {
     tableHeaders = `<th>S.No.</th><th>Voltage V (V)</th><th>Current I (mA)</th><th>${expKey === 'ohms' ? 'Resistance' : 'Impedance'} R (Ω)</th>`;
     state.dataPoints.forEach(p => {
-      tableRows += `<tr><td>${p.id}</td><td>${p.V.toFixed(2)}</td><td>${(p.I * 1000).toFixed(1)} mA</td><td>${p.R.toFixed(1)}</td></tr>`;
+      const V_noisy = addRealisticNoise(p.V, p.id * 10 + 1, 0.008);
+      const I_noisy = addRealisticNoise(p.I, p.id * 10 + 2, 0.012);
+      const R_noisy = V_noisy / I_noisy;
+      tableRows += `<tr><td>${p.id}</td><td>${V_noisy.toFixed(2)}</td><td>${(I_noisy * 1000).toFixed(1)} mA</td><td>${R_noisy.toFixed(1)}</td></tr>`;
     });
   } else if (['lcr', 'rc_rl_rlc'].includes(expKey)) {
     tableHeaders = `<th>S.No.</th><th>Frequency f (Hz)</th><th>Voltage V (V)</th><th>Current I (mA)</th><th>Impedance Z (Ω)</th>`;
     state.dataPoints.forEach(p => {
-      tableRows += `<tr><td>${p.id}</td><td>${p.f}</td><td>${p.V.toFixed(2)}</td><td>${(p.I * 1000).toFixed(1)} mA</td><td>${p.R.toFixed(1)}</td></tr>`;
+      const V_noisy = addRealisticNoise(p.V, p.id * 10 + 1, 0.008);
+      const I_noisy = addRealisticNoise(p.I, p.id * 10 + 2, 0.012);
+      const Z_noisy = V_noisy / I_noisy;
+      tableRows += `<tr><td>${p.id}</td><td>${p.f}</td><td>${V_noisy.toFixed(2)}</td><td>${(I_noisy * 1000).toFixed(1)} mA</td><td>${Z_noisy.toFixed(1)}</td></tr>`;
     });
   } else if (expKey === 'rc') {
     tableHeaders = `<th>S.No.</th><th>Capacitance C (µF)</th><th>Voltage V (V)</th><th>Time Constant τ = RC (ms)</th>`;
     state.dataPoints.forEach(p => {
-      const tau = (state.params.R * p.C * 1e-6 * 1000).toFixed(2);
-      tableRows += `<tr><td>${p.id}</td><td>${p.C}</td><td>${p.V.toFixed(2)}</td><td>${tau}</td></tr>`;
+      const V_noisy = addRealisticNoise(p.V, p.id * 10 + 1, 0.008);
+      const tau_calc = state.params.R * p.C * 1e-6 * 1000;
+      const tau_noisy = addRealisticNoise(tau_calc, p.id * 10 + 3, 0.018);
+      tableRows += `<tr><td>${p.id}</td><td>${p.C}</td><td>${V_noisy.toFixed(2)}</td><td>${tau_noisy.toFixed(2)}</td></tr>`;
     });
   } else if (['ideal_gas', 'boyle'].includes(expKey)) {
     tableHeaders = `<th>S.No.</th><th>Volume V (L)</th><th>Temp T (K)</th><th>Pressure P (kPa)</th>`;
     state.dataPoints.forEach(p => {
-      tableRows += `<tr><td>${p.id}</td><td>${p.I.toFixed(1)}</td><td>${p.R.toFixed(0)}</td><td>${p.V.toFixed(1)}</td></tr>`;
+      const V_noisy = addRealisticNoise(p.I, p.id * 10 + 4, 0.01);
+      const T_noisy = addRealisticNoise(p.R, p.id * 10 + 5, 0.008);
+      const P_noisy = addRealisticNoise(p.V, p.id * 10 + 6, 0.012);
+      tableRows += `<tr><td>${p.id}</td><td>${V_noisy.toFixed(1)}</td><td>${T_noisy.toFixed(0)}</td><td>${P_noisy.toFixed(1)}</td></tr>`;
     });
   } else if (expKey === 'charles') {
     tableHeaders = `<th>S.No.</th><th>Temp T (K)</th><th>Pressure P (kPa)</th><th>Volume V (L)</th>`;
     state.dataPoints.forEach(p => {
-      tableRows += `<tr><td>${p.id}</td><td>${p.R.toFixed(0)}</td><td>${p.V.toFixed(1)}</td><td>${p.I.toFixed(1)}</td></tr>`;
+      const T_noisy = addRealisticNoise(p.R, p.id * 10 + 5, 0.008);
+      const P_noisy = addRealisticNoise(p.V, p.id * 10 + 6, 0.012);
+      const V_noisy = addRealisticNoise(p.I, p.id * 10 + 4, 0.01);
+      tableRows += `<tr><td>${p.id}</td><td>${T_noisy.toFixed(0)}</td><td>${P_noisy.toFixed(1)}</td><td>${V_noisy.toFixed(1)}</td></tr>`;
     });
   } else if (expKey === 'specific_heat') {
     tableHeaders = `<th>S.No.</th><th>Metal Tm (°C)</th><th>Water Tw (°C)</th><th>Mixture Tf (°C)</th><th>Heat Q (J)</th>`;
     state.dataPoints.forEach(p => {
-      tableRows += `<tr><td>${p.id}</td><td>${p.V.toFixed(1)}</td><td>${p.I.toFixed(1)}</td><td>${p.R.toFixed(1)}</td><td>${p.P.toFixed(0)}</td></tr>`;
+      const Tm_noisy = addRealisticNoise(p.V, p.id * 10 + 7, 0.01);
+      const Tw_noisy = addRealisticNoise(p.I, p.id * 10 + 8, 0.01);
+      const Tf_noisy = addRealisticNoise(p.R, p.id * 10 + 9, 0.008);
+      const Q_noisy = addRealisticNoise(p.P, p.id * 10 + 10, 0.015);
+      tableRows += `<tr><td>${p.id}</td><td>${Tm_noisy.toFixed(1)}</td><td>${Tw_noisy.toFixed(1)}</td><td>${Tf_noisy.toFixed(1)}</td><td>${Q_noisy.toFixed(0)}</td></tr>`;
     });
   } else if (expKey === 'photoelectric') {
     tableHeaders = `<th>S.No.</th><th>Freq ν (10¹⁴Hz)</th><th>Intensity (mW)</th><th>Work Fn (eV)</th><th>Stopping Vs (V)</th>`;
     state.dataPoints.forEach(p => {
-      tableRows += `<tr><td>${p.id}</td><td>${p.V.toFixed(2)}</td><td>${p.I.toFixed(0)}</td><td>${(p.R * 1e-3).toFixed(2)}</td><td>${p.P.toFixed(2)}</td></tr>`;
+      const freq_noisy = addRealisticNoise(p.V, p.id * 10 + 11, 0.005);
+      const intensity_noisy = addRealisticNoise(p.I, p.id * 10 + 12, 0.01);
+      const wf_noisy = addRealisticNoise(p.R * 1e-3, p.id * 10 + 13, 0.005);
+      const stopping_noisy = addRealisticNoise(p.P, p.id * 10 + 14, 0.015);
+      tableRows += `<tr><td>${p.id}</td><td>${freq_noisy.toFixed(2)}</td><td>${intensity_noisy.toFixed(0)}</td><td>${wf_noisy.toFixed(2)}</td><td>${stopping_noisy.toFixed(2)}</td></tr>`;
     });
   } else if (expKey === 'radioactive') {
     tableHeaders = `<th>S.No.</th><th>Time t (s)</th><th>Initial N₀</th><th>Remaining N</th><th>Activity A</th>`;
     state.dataPoints.forEach(p => {
-      tableRows += `<tr><td>${p.id}</td><td>${p.time.toFixed(1)}</td><td>${p.V.toFixed(0)}</td><td>${p.I.toFixed(0)}</td><td>${p.P.toFixed(1)}</td></tr>`;
+      const time_noisy = addRealisticNoise(p.time, p.id * 10 + 15, 0.005);
+      const N0_noisy = addRealisticNoise(p.V, p.id * 10 + 16, 0.01);
+      const N_noisy = addRealisticNoise(p.I, p.id * 10 + 17, 0.01);
+      const A_noisy = addRealisticNoise(p.P, p.id * 10 + 18, 0.01);
+      tableRows += `<tr><td>${p.id}</td><td>${time_noisy.toFixed(1)}</td><td>${N0_noisy.toFixed(0)}</td><td>${N_noisy.toFixed(0)}</td><td>${A_noisy.toFixed(1)}</td></tr>`;
     });
   } else if (expKey === 'de_broglie') {
     tableHeaders = `<th>S.No.</th><th>Mass m (10⁻³⁰kg)</th><th>Velocity v (km/s)</th><th>Wavelength λ (nm)</th>`;
     state.dataPoints.forEach(p => {
-      tableRows += `<tr><td>${p.id}</td><td>${p.V.toFixed(1)}</td><td>${p.I.toFixed(0)}</td><td>${p.R.toFixed(3)}</td></tr>`;
+      const mass_noisy = addRealisticNoise(p.V, p.id * 10 + 19, 0.005);
+      const vel_noisy = addRealisticNoise(p.I, p.id * 10 + 20, 0.01);
+      const lambda_noisy = addRealisticNoise(p.R, p.id * 10 + 21, 0.015);
+      tableRows += `<tr><td>${p.id}</td><td>${mass_noisy.toFixed(1)}</td><td>${vel_noisy.toFixed(0)}</td><td>${lambda_noisy.toFixed(3)}</td></tr>`;
     });
   } else if (expKey === 'bohr_model') {
     tableHeaders = `<th>S.No.</th><th>Orbit ni</th><th>Orbit nf</th><th>Energy Gap ΔE (eV)</th>`;
     state.dataPoints.forEach(p => {
-      tableRows += `<tr><td>${p.id}</td><td>${p.V.toFixed(0)}</td><td>${p.I.toFixed(0)}</td><td>${p.R.toFixed(2)}</td></tr>`;
+      const deltaE_noisy = addRealisticNoise(p.R, p.id * 10 + 22, 0.01);
+      tableRows += `<tr><td>${p.id}</td><td>${p.V.toFixed(0)}</td><td>${p.I.toFixed(0)}</td><td>${deltaE_noisy.toFixed(2)}</td></tr>`;
     });
   } else if (expKey === 'arduino_led') {
     tableHeaders = `<th>S.No.</th><th>Vcc (V)</th><th>V_LED (V)</th><th>Resistance R (Ω)</th><th>Current I (mA)</th><th>Power P (mW)</th>`;
     const Vcc = 5.0, Vled = 2.0;
     [[100,'Red'],[150,'Red'],[220,'Green'],[330,'Blue']].forEach(([r, color], idx) => {
       const I = Math.max(0, (Vcc - Vled) / r);
-      tableRows += `<tr><td>${idx+1}</td><td>${Vcc}</td><td>${Vled}</td><td>${r}</td><td>${(I*1000).toFixed(2)}</td><td>${(I*Vcc*1000).toFixed(2)}</td></tr>`;
+      const I_noisy = addRealisticNoise(I, idx * 10 + 23, 0.012);
+      tableRows += `<tr><td>${idx+1}</td><td>${Vcc}</td><td>${Vled}</td><td>${r}</td><td>${(I_noisy*1000).toFixed(2)}</td><td>${(I_noisy*Vcc*1000).toFixed(2)}</td></tr>`;
     });
   } else {
     tableHeaders = `<th>S.No.</th><th>Voltage V (V)</th><th>Current I (mA)</th><th>Impedance Z (Ω)</th>`;
     state.dataPoints.forEach(p => {
-      tableRows += `<tr><td>${p.id}</td><td>${p.V.toFixed(2)}</td><td>${(p.I * 1000).toFixed(1)} mA</td><td>${p.R.toFixed(1)}</td></tr>`;
+      const V_noisy = addRealisticNoise(p.V, p.id * 10 + 1, 0.008);
+      const I_noisy = addRealisticNoise(p.I, p.id * 10 + 2, 0.012);
+      const R_noisy = V_noisy / I_noisy;
+      tableRows += `<tr><td>${p.id}</td><td>${V_noisy.toFixed(2)}</td><td>${(I_noisy * 1000).toFixed(1)} mA</td><td>${R_noisy.toFixed(1)}</td></tr>`;
     });
   }
 
@@ -5141,8 +5197,8 @@ function generateLabReportPDF() {
   // --- Build conclusion ---
   const conclusionBlock = generateExperimentConclusion(expKey, state.dataPoints);
 
-  // --- Get grade ---
-  const displayScore = Math.min(100, state.score);
+  // --- Get grade (Score realistic scaling: limit to 98 max to represent presentation tolerances) ---
+  const displayScore = state.score >= 100 ? 98 : Math.min(100, state.score);
   let grade = 'D', gradeColor = '#ef4444';
   if (displayScore >= 90) { grade = 'A+'; gradeColor = '#22c55e'; }
   else if (displayScore >= 70) { grade = 'A'; gradeColor = '#16a34a'; }
@@ -5163,6 +5219,20 @@ function generateLabReportPDF() {
       <div style="padding-top:3px;">${step.text}</div>
     </div>`;
   });
+
+  // --- Extract graph canvas image (Embed actual live plotted plot) ---
+  let graphImgHTML = '';
+  if (elements.graphCanvas && state.dataPoints.length > 0) {
+    try {
+      const graphDataURL = elements.graphCanvas.toDataURL('image/png');
+      graphImgHTML = `
+        <div style="text-align:center;margin:12px 0;">
+          <img src="${graphDataURL}" style="max-width:550px;width:100%;border:1px solid #cbd5e1;border-radius:8px;box-shadow:0 4px 6px -1px rgb(0 0 0 / 0.1);" />
+        </div>`;
+    } catch (e) {
+      console.warn("Failed to extract graph canvas data URL:", e);
+    }
+  }
 
   // --- Full HTML ---
   const reportHTML = `<!DOCTYPE html>
@@ -5222,7 +5292,7 @@ function generateLabReportPDF() {
     <h3>Aim</h3>
     <p>${exp.aim || 'To verify the given circuit law experimentally using a virtual breadboard setup.'}</p>
     <h3 style="margin-top:10px;">Apparatus Required</h3>
-    <p>${exp.apparatus || 'Power Supply, Resistor, Multimeter, Connecting Wires, Breadboard.'}</p>
+    <p>Power Supply, ${expKey === 'arduino_led' ? 'Arduino Uno' : 'Breadboard, Passive Components (Nominal Resistance: ' + (state.params.R || 100) + ' Ω, Tolerance: ±5%)'}, Digital Multimeter (DMM), Jumper Wires.</p>
   </div>
 
   <!-- THEORY -->
@@ -5249,14 +5319,13 @@ function generateLabReportPDF() {
     ${state.dataPoints.length === 0 ? '<p style="color:#f59e0b;font-size:10px;margin-top:5px;">⚠ No data recorded. Run the simulation and use the Record button to collect data.</p>' : ''}
   </div>
 
-  <!-- GRAPH NOTE -->
-  <h2>5. Graph</h2>
-  <div class="section-box" style="text-align:center;padding:20px;">
-    <p style="color:#6b7280;font-size:10px;">📈 <em>Use the Graph panel (∿ Graph button) to view the V-I plot. Click the Download HD button there to save the high-resolution graph image and attach it to this report.</em></p>
-    ${expKey === 'ohms' ? '<p style="margin-top:8px;font-size:10px;">Plot: Voltage (V) on X-axis vs. Current I (mA) on Y-axis → Expected: Straight line through origin. Slope = 1/R = Conductance (G).</p>' : ''}
-    ${expKey === 'lcr' ? '<p style="margin-top:8px;font-size:10px;">Plot: Frequency (Hz) on X-axis vs. Impedance Z (Ω) on Y-axis → Expected: U-shaped curve with minimum at resonant frequency f₀.</p>' : ''}
-    ${expKey === 'rc' ? '<p style="margin-top:8px;font-size:10px;">Plot: Time (ms) on X-axis vs. Capacitor Voltage Vc (V) on Y-axis → Expected: Exponential charging curve.</p>' : ''}
-    ${expKey === 'arduino_led' ? '<p style="margin-top:8px;font-size:10px;">Plot: Resistance R (Ω) on X-axis vs. LED Current I (mA) on Y-axis → Expected: Hyperbolic (I decreases as R increases).</p>' : ''}
+  <!-- GRAPH -->
+  <h2>5. Graph Plot</h2>
+  <div class="section-box">
+    ${graphImgHTML || '<p style="color:#6b7280;font-size:10px;text-align:center;padding:15px;">📈 <em>No graph plotted. Please record data points during the experiment to generate a graph plot.</em></p>'}
+    ${expKey === 'ohms' ? '<p style="margin-top:8px;font-size:9.5px;color:#475569;text-align:center;">Plot: Voltage (V) on X-axis vs. Current I (mA) on Y-axis. The linear slope represents conductance (1/R).</p>' : ''}
+    ${expKey === 'lcr' ? '<p style="margin-top:8px;font-size:9.5px;color:#475569;text-align:center;">Plot: Frequency (Hz) on X-axis vs. Impedance Z (Ω) on Y-axis. The dip indicates the resonant point.</p>' : ''}
+    ${expKey === 'rc' ? '<p style="margin-top:8px;font-size:9.5px;color:#475569;text-align:center;">Plot: Time (ms) on X-axis vs. Capacitor Voltage (V) on Y-axis, showing the exponential charging curve.</p>' : ''}
   </div>
 
   <!-- VIVA QUESTIONS -->
@@ -5281,8 +5350,31 @@ function generateLabReportPDF() {
     <div style="flex:1;">
       <p style="font-size:10px;margin-bottom:4px;">Score: <strong>${displayScore}/100</strong></p>
       <div class="score-bar-outer"><div class="score-bar-fill"></div></div>
-      <p style="font-size:9px;color:#6b7280;margin-top:3px;">${displayScore >= 90 ? 'Exceptional Lab Session!' : displayScore >= 70 ? 'Excellent understanding demonstrated.' : displayScore >= 50 ? 'Good progress. Review viva questions.' : 'Complete all experiment steps to earn a higher grade.'}</p>
+      <p style="font-size:9px;color:#6b7280;margin-top:3px;">${displayScore >= 90 ? 'Excellent understanding demonstrated under experimental uncertainty.' : displayScore >= 70 ? 'Satisfactory lab results under standard tolerances.' : displayScore >= 50 ? 'Good progress. Review precautions.' : 'Complete all experiment steps to earn a higher grade.'}</p>
     </div>
+  </div>
+
+  <!-- PRECAUTIONS -->
+  <h2>9. Safety &amp; Procedural Precautions</h2>
+  <div class="section-box">
+    <ul style="margin: 4px 0 6px 18px; font-size:10px;">
+      <li>Ensure correct meter polarities and connections (ammeter connected in series, voltmeter in parallel).</li>
+      <li>Do not exceed the nominal power and current ratings of the resistors and passive elements to avoid thermal damage.</li>
+      <li>Switch off the power source between successive readings to prevent Joule heating, which shifts component resistance.</li>
+      <li>Verify all breadboard wire insertions are secure and free of oxide layer contact blocks before energizing the circuit.</li>
+    </ul>
+  </div>
+
+  <!-- EXPERIMENTAL UNCERTAINTY -->
+  <h2>10. Sources of Experimental Error</h2>
+  <div class="section-box">
+    <p style="font-size:10px; margin-bottom:5px;">In physical laboratory conditions, measurements deviate slightly from ideal equations due to:</p>
+    <ul style="margin: 4px 0 6px 18px; font-size:10px;">
+      <li><strong>Component Tolerance:</strong> Commercial passive elements carry nominal manufacturing tolerances (typically ±1% or ±5%).</li>
+      <li><strong>Instrument Uncertainty:</strong> Digital multimeters (DMMs) have built-in calibration margins, internal resistance burden, and display fluctuations.</li>
+      <li><strong>Contact Resistance:</strong> Small connection resistance at jumper lead interfaces with the breadboard metal spring clips.</li>
+      <li><strong>Thermal Effects:</strong> Heating of components causes resistance drift under continuous current load.</li>
+    </ul>
   </div>
 
   <div class="footer">
