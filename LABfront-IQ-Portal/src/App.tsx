@@ -8,6 +8,7 @@ import { useAppStore } from './store/useAppStore';
 import Navbar from './components/Navbar';
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from './lib/utils';
+import InteractiveCircuitLines from './components/InteractiveCircuitLines';
 
 // Dynamic imports for optimized chunk sizes and rapid initial loads
 const AntigravityHero = lazy(() => import('./components/AntigravityHero'));
@@ -15,7 +16,6 @@ const LandingPage = lazy(() => import('./pages/LandingPage'));
 const ContactPage = lazy(() => import('./pages/ContactPage'));
 const LabStudio = lazy(() => import('./pages/LabStudio'));
 const AttendanceSystem = lazy(() => import('./components/AttendanceSystem'));
-const InteractiveCircuitLines = lazy(() => import('./components/InteractiveCircuitLines'));
 const PhysicsBotPanel = lazy(() => import('./components/PhysicsBotPanel'));
 
 // Clean modern skeleton loader for page level Suspense fallback
@@ -39,6 +39,9 @@ export default function App() {
   const activeTab = useAppStore((state) => state.activeTab);
   const setLabOpen = useAppStore((state) => state.setLabOpen);
   const setActiveTab = useAppStore((state) => state.setActiveTab);
+
+  const isLandingTab = activeTab === 'home' || activeTab === 'experiments' || activeTab === 'physicsbot';
+  const motionKey = isLandingTab ? 'landing' : activeTab;
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -69,7 +72,7 @@ export default function App() {
         <AnimatePresence mode="wait">
           {!isLabOpen ? (
             <motion.div
-              key={activeTab}
+              key={motionKey}
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}

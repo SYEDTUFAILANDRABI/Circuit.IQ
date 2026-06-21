@@ -848,7 +848,7 @@ function WebGLContextDisposer() {
   return null;
 }
 
-export default function AntigravityHero({ hideBoard = false }: { hideBoard?: boolean }) {
+export default function AntigravityHero({ hideBoard = false, active = true }: { hideBoard?: boolean; active?: boolean }) {
   const progressRef = useRef({ value: 0 });
   const wrapperRef = useRef<HTMLDivElement>(null);
   const highFidelityMode = useAppStore((state) => state.highFidelityMode);
@@ -875,8 +875,8 @@ export default function AntigravityHero({ hideBoard = false }: { hideBoard?: boo
   }, [shouldRender]);
 
   useEffect(() => {
-     if (wrapperRef.current && !hideBoard) {
-        gsap.to(wrapperRef.current, {
+     if (wrapperRef.current && !hideBoard && active) {
+        const anim = gsap.to(wrapperRef.current, {
            opacity: 0,
            scrollTrigger: {
               trigger: "#simulation-section",
@@ -885,22 +885,37 @@ export default function AntigravityHero({ hideBoard = false }: { hideBoard?: boo
               scrub: true,
            }
         });
+        return () => {
+           if (anim.scrollTrigger) anim.scrollTrigger.kill();
+           anim.kill();
+        };
      }
-  }, [hideBoard]);
+  }, [hideBoard, active]);
 
   useEffect(() => {
-    if (hideBoard) {
-      setIsHeroActive(true);
+    if (!active) {
+      setIsHeroActive(false);
       return;
     }
-    const trigger = ScrollTrigger.create({
-      trigger: "#simulation-section",
-      start: "bottom top",
-      onEnter: () => setIsHeroActive(false),
-      onLeaveBack: () => setIsHeroActive(true),
+    
+    // Ensure frame loop is active immediately when returning to Home
+    setIsHeroActive(true);
+
+    if (hideBoard) {
+      return;
+    }
+
+    const ctx = gsap.context(() => {
+      ScrollTrigger.create({
+        trigger: "#simulation-section",
+        start: "bottom top",
+        onEnter: () => setIsHeroActive(false),
+        onLeaveBack: () => setIsHeroActive(true),
+      });
     });
-    return () => trigger.kill();
-  }, [hideBoard]);
+
+    return () => ctx.revert();
+  }, [hideBoard, active]);
 
   return (
     <div ref={wrapperRef} className="fixed inset-0 pointer-events-none z-0">
