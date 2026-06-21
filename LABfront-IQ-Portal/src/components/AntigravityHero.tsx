@@ -566,7 +566,7 @@ function PhysicsBackgroundItems({ hideBoard = false }: { hideBoard?: boolean }) 
   );
 }
 
-function GridLogoScene({ progressRef }: { progressRef: React.MutableRefObject<{value: number}> }) {
+function GridLogoScene({ progressRef, active }: { progressRef: React.MutableRefObject<{value: number}>, active: boolean }) {
   const breadboardRef = useRef<THREE.Group>(null);
   const containerRef = useRef<THREE.Group>(null);
 
@@ -654,46 +654,54 @@ function GridLogoScene({ progressRef }: { progressRef: React.MutableRefObject<{v
   const refs = useRef<THREE.Group[]>([]);
 
   useEffect(() => {
-    // Animate the progress value from 0 (swirling) to 1 (breadboard)
-    gsap.to(progressRef.current, {
-      value: 1,
-      scrollTrigger: {
-        trigger: "#simulation-section",
-        start: "top bottom",
-        end: "center center",
-        scrub: 0.8,
+    if (!active) return;
+
+    const ctx = gsap.context(() => {
+      // Animate the progress value from 0 (swirling) to 1 (breadboard)
+      gsap.to(progressRef.current, {
+        value: 1,
+        scrollTrigger: {
+          trigger: "#simulation-section",
+          start: "top bottom",
+          end: "center center",
+          scrub: 0.8,
+        }
+      });
+
+      // Bring the breadboard up from the void
+      if (breadboardRef.current) {
+        gsap.fromTo(breadboardRef.current.position, 
+          { y: -40, z: -20 },
+          {
+            y: 0,
+            z: 0,
+            scrollTrigger: {
+              trigger: "#simulation-section",
+              start: "top bottom",
+              end: "center center",
+              scrub: 0.8,
+            }
+          }
+        );
+        gsap.fromTo(breadboardRef.current.rotation,
+          { x: 0.2 },
+          {
+            x: 0,
+            scrollTrigger: {
+              trigger: "#simulation-section",
+              start: "top bottom",
+              end: "center center",
+              scrub: 0.8,
+            }
+          }
+        );
       }
     });
 
-    // Bring the breadboard up from the void
-    if (breadboardRef.current) {
-      gsap.fromTo(breadboardRef.current.position, 
-        { y: -40, z: -20 },
-        {
-          y: 0,
-          z: 0,
-          scrollTrigger: {
-            trigger: "#simulation-section",
-            start: "top bottom",
-            end: "center center",
-            scrub: 0.8,
-          }
-        }
-      );
-      gsap.fromTo(breadboardRef.current.rotation,
-        { x: 0.2 },
-        {
-          x: 0,
-          scrollTrigger: {
-            trigger: "#simulation-section",
-            start: "top bottom",
-            end: "center center",
-            scrub: 0.8,
-          }
-        }
-      );
-    }
-  }, []);
+    return () => {
+      ctx.revert();
+    };
+  }, [active]);
 
   useFrame((state) => {
     const t = state.clock.getElapsedTime();
@@ -941,7 +949,7 @@ export default function AntigravityHero({ hideBoard = false, active = true }: { 
                 <Stars radius={100} depth={50} count={highFidelityMode ? 1500 : 500} factor={3} saturation={1} fade speed={1.5} />
               </>
             ) : (
-              <GridLogoScene progressRef={progressRef} />
+              <GridLogoScene progressRef={progressRef} active={active} />
             )}
 
             <Rig progressRef={progressRef} />

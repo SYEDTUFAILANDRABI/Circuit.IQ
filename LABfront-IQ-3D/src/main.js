@@ -5292,10 +5292,26 @@ function generateLabReportPDF() {
 </body>
 </html>`;
 
-  // Open in new window and trigger print-to-PDF
+  // Direct file download using Blob (works robustly even when pop-up windows are blocked)
+  try {
+    const blob = new Blob([reportHTML], { type: 'text/html;charset=utf-8' });
+    const filename = `Circuit_IQ_Report_${expKey}_${new Date().toISOString().slice(0, 10)}.html`;
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("Direct report download failed:", err);
+  }
+
+  // Open in new window and trigger print-to-PDF as a fallback/additional feature
   const printWindow = window.open('', '_blank', 'width=900,height=700');
   if (!printWindow) {
-    alert('Please allow pop-ups for this page to download the Lab Report as PDF.');
+    console.warn('Pop-up blocker active, but report HTML file was successfully downloaded.');
     return;
   }
   printWindow.document.write(reportHTML);
@@ -14328,6 +14344,7 @@ async function checkAndPromptRestore(expKey) {
         elements.saveText.innerText = "DB: READY";
         elements.saveDot.style.background = "var(--accent)";
       }
+      autoBuildExperiment();
       return;
     }
     
@@ -14378,12 +14395,14 @@ async function checkAndPromptRestore(expKey) {
           elements.saveText.innerText = "DB: READY";
           elements.saveDot.style.background = "var(--accent)";
         }
+        autoBuildExperiment();
       }
     } else {
       if (elements.saveDot && elements.saveText) {
         elements.saveText.innerText = "DB: READY";
         elements.saveDot.style.background = "var(--accent)";
       }
+      autoBuildExperiment();
     }
   } catch (e) {
     console.error("[DB Error] Failed check and prompt restore:", e);
@@ -14391,6 +14410,7 @@ async function checkAndPromptRestore(expKey) {
       elements.saveText.innerText = "DB: OFFLINE";
       elements.saveDot.style.background = "#f43f5e";
     }
+    autoBuildExperiment();
   }
 }
 
@@ -14496,6 +14516,7 @@ async function clearSavedProgress(expKey) {
     drawGraph();
     elements.conclusionText.innerHTML = "";
     updateAIMentor();
+    autoBuildExperiment();
   } catch (e) {
     console.error("[DB Error] Failed to clear progress:", e);
   }

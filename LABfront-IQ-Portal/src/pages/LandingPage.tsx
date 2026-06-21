@@ -771,6 +771,18 @@ export default function LandingPage({ view = 'home' }: { view?: 'home' | 'experi
     };
   }, [view]);
 
+  useEffect(() => {
+    // Whenever view changes, let's trigger a ScrollTrigger refresh after a short delay
+    // to allow layout to settle and prevent frozen scroll bounds.
+    const timer = setTimeout(() => {
+      ScrollTrigger.refresh();
+    }, 150);
+    return () => {
+      clearTimeout(timer);
+      ScrollTrigger.refresh();
+    };
+  }, [view]);
+
   return (
     <div className="relative bg-transparent">
       {/* 3D Hero background Canvas (always mounted) */}
