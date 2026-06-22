@@ -86,7 +86,7 @@
   <!-- FontAwesome for icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <!-- Stylesheet -->
-  <script type="module" crossorigin src="/assets/main-BsEJwxG5.js"></script>
+  <script type="module" crossorigin src="/assets/main-DbrxpIss.js"></script>
   <link rel="stylesheet" crossorigin href="/assets/main-BJKzGHxe.css">
 </head>
 
@@ -1027,6 +1027,33 @@
           onmouseover="this.style.background='rgba(255,255,255,0.05)';this.style.color='white'"
           onmouseout="this.style.background='transparent';this.style.color='#cbd5e1'">
           Start From New
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SAVE SUCCESS CONFIRMATION MODAL -->
+  <div id="modal-save-confirm"
+    style="display:none;position:fixed;inset:0;background:rgba(7,10,19,0.96);backdrop-filter:blur(12px);z-index:999999;align-items:center;justify-content:center;color:white;font-family:'Inter',sans-serif">
+    <div
+      style="background:#0b0d19;border:1px solid rgba(16,185,129,0.3);border-radius:24px;width:90%;max-width:500px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 0 50px rgba(16,185,129,0.25);padding:30px;text-align:center;">
+      <div style="font-size:48px;margin-bottom:15px;color:#10b981;"><i class="fa-solid fa-circle-check"></i></div>
+      <h2 id="save-confirm-title" style="font-size:20px;font-weight:700;margin:0 0 10px 0;letter-spacing:-0.5px">Progress Saved Successfully!</h2>
+      <p id="save-confirm-message" style="font-size:13px;color:#94a3b8;margin:0 0 25px 0;line-height:1.6">
+        Your experiment progress has been saved. You can restore it anytime you return to this experiment.
+      </p>
+      <div style="display:flex;gap:15px;justify-content:center;">
+        <button id="btn-save-continue"
+          style="flex:1;padding:12px 20px;border-radius:12px;border:none;background:#10b981;color:white;font-weight:700;font-size:13px;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 12px rgba(16,185,129,0.3)"
+          onmouseover="this.style.background='#059669';this.style.transform='translateY(-1px)'"
+          onmouseout="this.style.background='#10b981';this.style.transform='none'">
+          Continue Working
+        </button>
+        <button id="btn-save-start-new"
+          style="flex:1;padding:12px 20px;border-radius:12px;border:1px solid rgba(255,255,255,0.15);background:transparent;color:#cbd5e1;font-weight:700;font-size:13px;cursor:pointer;transition:all 0.2s"
+          onmouseover="this.style.background='rgba(255,255,255,0.05)';this.style.color='white'"
+          onmouseout="this.style.background='transparent';this.style.color='#cbd5e1'">
+          Start New Experiment
         </button>
       </div>
     </div>

@@ -6305,7 +6305,7 @@ function initInteraction() {
   elements.btnClear.addEventListener('click', () => {
     setupExperiment(state.activeExperiment, false);
     updateWiringBanner();
-    saveCircuitToBackend();
+    debouncedSaveCircuit(); // Mark as unsaved (no auto-save to backend)
   });
   
   elements.btnRun.addEventListener('click', async () => {
@@ -13723,7 +13723,7 @@ function createWireCurve(p1, p2, seed = 0, currentWireIdx = -1) {
   
   // Proportional height based on distance
   const dist = p1.distanceTo(p2);
-  let maxHeight = Math.min(2.0, Math.max(0.4, dist * 0.4 + 0.15));
+  let maxHeight = Math.min(1.5, Math.max(0.35, dist * 0.3 + 0.12));
   
   // Midpoint with natural sag/loop
   const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
@@ -13733,8 +13733,10 @@ function createWireCurve(p1, p2, seed = 0, currentWireIdx = -1) {
   const dir = new THREE.Vector3().subVectors(p2, p1);
   const normal = new THREE.Vector3(-dir.z, 0, dir.x).normalize();
   
-  // Default lateral offset based on seed to avoid overlapping wires
-  const defaultLateralAmt = (Math.sin(seed * 45.67) || 0) * Math.min(0.25, dist * 0.12);
+  // Default lateral offset based on wire index to ensure clean separation
+  const idx = currentWireIdx >= 0 ? currentWireIdx : seed;
+  const dirSign = (idx % 2 === 0) ? 1 : -1;
+  const defaultLateralAmt = dirSign * Math.min(0.20, dist * 0.10 + 0.05);
   lateralOffset.addScaledVector(normal, defaultLateralAmt);
   
   // Check collision with placed components
@@ -13759,26 +13761,29 @@ function createWireCurve(p1, p2, seed = 0, currentWireIdx = -1) {
         const distXZ = Math.hypot(cCenter.x - closestX, cCenter.z - closestZ);
         
         // Define safety parameters based on component type
-        let collisionRadius = 0.45;
-        let compTopY = 0.6;
+        let collisionRadius = 0.22;
+        let compTopY = 0.35;
         if (comp.type === 'led') {
-          collisionRadius = 0.35;
-          compTopY = 0.85;
+          collisionRadius = 0.25;
+          compTopY = 0.58;
         } else if (comp.type === 'capacitor') {
-          collisionRadius = 0.3;
-          compTopY = 0.9;
+          collisionRadius = 0.25;
+          compTopY = 0.6;
         } else if (comp.type === 'button' || comp.type === 'toggle_switch') {
-          collisionRadius = 0.4;
-          compTopY = 0.7;
-        } else if (comp.type === 'source' || comp.type === 'voltmeter' || comp.type === 'ammeter') {
-          collisionRadius = 0.7;
-          compTopY = 0.7;
+          collisionRadius = 0.35;
+          compTopY = 0.4;
+        } else if (comp.type === 'voltmeter' || comp.type === 'ammeter') {
+          collisionRadius = 0.38;
+          compTopY = 0.58;
+        } else if (comp.type === 'source') {
+          collisionRadius = 0.55;
+          compTopY = 0.65;
         }
         
         if (distXZ < collisionRadius) {
           // If it's a mid-wire crossing, we boost the height significantly
           if (t > 0.08 && t < 0.92) {
-            const requiredHeight = compTopY + 0.45;
+            const requiredHeight = compTopY + 0.25;
             if (maxHeight < requiredHeight) {
               maxHeight = requiredHeight;
             }
@@ -13790,11 +13795,11 @@ function createWireCurve(p1, p2, seed = 0, currentWireIdx = -1) {
             const pushDir = dot > 0 ? -1 : 1;
             
             // Calculate push amount based on how close we are
-            const pushAmt = (collisionRadius - distXZ) * 0.8 + 0.15;
+            const pushAmt = (collisionRadius - distXZ) * 0.7 + 0.12;
             lateralOffset.addScaledVector(normal, pushDir * pushAmt);
           } else {
             // Near the wire endpoints, we still boost the height slightly so the wire doesn't clip the component edge
-            const requiredHeight = compTopY + 0.25;
+            const requiredHeight = compTopY + 0.12;
             if (maxHeight < requiredHeight) {
               maxHeight = requiredHeight;
             }
@@ -13820,12 +13825,18 @@ function createWireCurve(p1, p2, seed = 0, currentWireIdx = -1) {
       if (distXZ < 0.4) {
         const otherHeight = otherMid.y;
         const proposedHeight = p1.y + maxHeight;
-        if (Math.abs(proposedHeight - otherHeight) < 0.3) {
+        if (Math.abs(proposedHeight - otherHeight) < 0.25) {
           // Boost our height to be cleanly above the other wire's height
-          maxHeight = Math.max(maxHeight, (otherHeight - p1.y) + 0.35);
+          maxHeight = Math.max(maxHeight, (otherHeight - p1.y) + 0.25);
         }
       }
     });
+  }
+  
+  // Clamp the lateral offset to avoid giant loops
+  const maxLateral = Math.max(0.35, dist * 0.25);
+  if (lateralOffset.length() > maxLateral) {
+    lateralOffset.setLength(maxLateral);
   }
   
   mid.y += maxHeight;
@@ -14300,161 +14311,231 @@ function showToastNotification(message, type = 'success') {
 function debouncedSaveCircuit() {
   if (state.isDatabaseLoading) return;
   
+  // Mark as unsaved (visual indicator only — NO automatic backend save)
   if (elements.saveDot && elements.saveText) {
-    elements.saveText.innerText = "DB: SYNCING...";
+    elements.saveText.innerText = "UNSAVED";
     elements.saveDot.style.background = "#eab308"; // Orange indicator
   }
   
-  if (saveTimeout) clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(() => {
-    saveCircuitToBackend();
-  }, 1500);
-
   broadcastCircuitState();
 }
 
 async function saveCircuitToBackend(isManual = false) {
   if (state.isDatabaseLoading) return;
-  try {
-    const payload = {
-      user_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890", // Mock student profile Aisha
-      experiment_type: state.activeExperiment,
-      name: `Experiment: ${state.activeExperiment}`,
-      description: `Saved breadboard layout for ${state.activeExperiment}`,
-      circuit_data: {
-        placedComponents: state.placedComponents.map(c => ({
-          type: c.type,
-          snap1: c.snap1,
-          snap2: c.snap2
-        })),
-        wires: state.wires.map(w => ({
-          fromHole: w.fromHole,
-          toHole: w.toHole
-        })),
-        dataPoints: state.dataPoints
-      },
-      params: state.params
-    };
+  
+  const circuitData = {
+    placedComponents: state.placedComponents.map(c => ({
+      type: c.type,
+      snap1: c.snap1,
+      snap2: c.snap2
+    })),
+    wires: state.wires.map(w => ({
+      fromHole: w.fromHole,
+      toHole: w.toHole
+    })),
+    dataPoints: state.dataPoints
+  };
 
+  const payload = {
+    user_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    experiment_type: state.activeExperiment,
+    name: `Experiment: ${state.activeExperiment}`,
+    description: `Saved breadboard layout for ${state.activeExperiment}`,
+    circuit_data: circuitData,
+    params: state.params,
+    savedAt: new Date().toISOString()
+  };
+
+  // 1. Always save to localStorage first (reliable, works offline)
+  try {
+    const storageKey = `circuitiq_save_${state.activeExperiment}`;
+    localStorage.setItem(storageKey, JSON.stringify(payload));
+    console.log("[Save] Saved to localStorage:", storageKey);
+  } catch (storageErr) {
+    console.warn("[Save] localStorage write failed:", storageErr);
+  }
+
+  // 2. Attempt backend save as bonus (non-blocking)
+  try {
     const response = await fetch('/api/db/save-circuit', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    
     if (response.ok) {
-      const result = await response.json();
-      if (elements.saveDot && elements.saveText) {
-        elements.saveText.innerText = "DB: SAVED";
-        elements.saveDot.style.background = "#10b981"; // Green indicator
-      }
-      if (isManual) {
-        showToastNotification("Progress saved successfully!", "success");
-      }
-    } else {
-      throw new Error(`HTTP ${response.status}`);
+      console.log("[Save] Backend save successful.");
     }
   } catch (e) {
-    console.error("[DB Error] Failed to save circuit diagram:", e);
-    if (elements.saveDot && elements.saveText) {
-      elements.saveText.innerText = "DB: OFFLINE";
-      elements.saveDot.style.background = "#f43f5e"; // Red indicator
+    console.warn("[Save] Backend offline, localStorage save is authoritative.", e);
+  }
+
+  // 3. Update status indicator
+  if (elements.saveDot && elements.saveText) {
+    elements.saveText.innerText = "SAVED ✓";
+    elements.saveDot.style.background = "#10b981"; // Green
+  }
+
+  // 4. If manual save, show the confirmation modal
+  if (isManual) {
+    showSaveConfirmModal();
+  }
+}
+
+function showSaveConfirmModal() {
+  const modal = document.getElementById('modal-save-confirm');
+  if (!modal) {
+    showToastNotification("Progress saved successfully!", "success");
+    return;
+  }
+
+  // Set experiment name in the message
+  const exp = experiments[state.activeExperiment];
+  const expName = exp ? exp.name : state.activeExperiment;
+  const msgEl = document.getElementById('save-confirm-message');
+  if (msgEl) {
+    msgEl.innerHTML = `Your progress for <strong style="color:white">${expName}</strong> has been saved. You can restore it anytime you return to this experiment.`;
+  }
+
+  modal.style.display = 'flex';
+
+  const btnContinue = document.getElementById('btn-save-continue');
+  const btnStartNew = document.getElementById('btn-save-start-new');
+
+  const cleanupModal = () => {
+    modal.style.display = 'none';
+    // Remove event listeners by cloning
+    if (btnContinue) {
+      const newContinue = btnContinue.cloneNode(true);
+      btnContinue.parentNode.replaceChild(newContinue, btnContinue);
     }
-    if (isManual) {
-      showToastNotification("Failed to save progress. Server offline.", "error");
+    if (btnStartNew) {
+      const newStartNew = btnStartNew.cloneNode(true);
+      btnStartNew.parentNode.replaceChild(newStartNew, btnStartNew);
     }
+  };
+
+  if (btnContinue) {
+    btnContinue.onclick = () => {
+      cleanupModal();
+      showToastNotification("Continuing with current experiment.", "info");
+    };
+  }
+
+  if (btnStartNew) {
+    btnStartNew.onclick = () => {
+      cleanupModal();
+      clearSavedProgress(state.activeExperiment);
+      showToastNotification("Starting fresh experiment.", "success");
+    };
   }
 }
 
 async function checkAndPromptRestore(expKey) {
   if (elements.saveDot && elements.saveText) {
-    elements.saveText.innerText = "DB: CHECKING...";
+    elements.saveText.innerText = "CHECKING...";
     elements.saveDot.style.background = "#3b82f6"; // Blue indicator
   }
   
+  // 1. Check localStorage first (most reliable)
+  let cdata = null;
   try {
-    const response = await fetch(`/api/db/load-circuit?experiment_type=${expKey}&user_id=a1b2c3d4-e5f6-7890-abcd-ef1234567890`);
-    if (!response.ok) {
-      if (elements.saveDot && elements.saveText) {
-        elements.saveText.innerText = "DB: READY";
-        elements.saveDot.style.background = "var(--accent)";
-      }
-      autoBuildExperiment();
-      return;
-    }
-    
-    const data = await response.json();
-    if (data.status === 'success' && data.circuit && data.circuit.circuit_data) {
-      const cdata = data.circuit.circuit_data;
-      
-      const hasPlacedComponents = cdata.placedComponents && cdata.placedComponents.length > 0;
-      const hasWires = cdata.wires && cdata.wires.length > 0;
-      const hasDataPoints = cdata.dataPoints && cdata.dataPoints.length > 0;
-      
-      if (hasPlacedComponents || hasWires || hasDataPoints) {
-        const modal = document.getElementById('modal-load-confirm');
-        const expNameEl = document.getElementById('confirm-exp-name');
-        
-        if (modal) {
-          if (expNameEl) {
-            const exp = experiments[expKey];
-            expNameEl.innerText = exp ? exp.name : expKey;
-          }
-          modal.style.display = 'flex';
-          
-          const btnRestore = document.getElementById('btn-confirm-restore');
-          const btnNew = document.getElementById('btn-confirm-new');
-          
-          const cleanupModal = () => {
-            modal.style.display = 'none';
-            const newRestore = btnRestore.cloneNode(true);
-            const newNew = btnNew.cloneNode(true);
-            btnRestore.parentNode.replaceChild(newRestore, btnRestore);
-            btnNew.parentNode.replaceChild(newNew, btnNew);
-          };
-          
-          btnRestore.onclick = () => {
-            cleanupModal();
-            applyCircuitData(cdata);
-          };
-          
-          btnNew.onclick = () => {
-            cleanupModal();
-            clearSavedProgress(expKey);
-          };
-        } else {
-          applyCircuitData(cdata);
+    const storageKey = `circuitiq_save_${expKey}`;
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed && parsed.circuit_data) {
+        cdata = parsed.circuit_data;
+        // Also restore params if present
+        if (parsed.params) {
+          cdata._savedParams = parsed.params;
         }
-      } else {
-        if (elements.saveDot && elements.saveText) {
-          elements.saveText.innerText = "DB: READY";
-          elements.saveDot.style.background = "var(--accent)";
-        }
-        autoBuildExperiment();
+        console.log("[Restore] Found saved progress in localStorage for:", expKey);
       }
-    } else {
-      if (elements.saveDot && elements.saveText) {
-        elements.saveText.innerText = "DB: READY";
-        elements.saveDot.style.background = "var(--accent)";
-      }
-      autoBuildExperiment();
     }
   } catch (e) {
-    console.error("[DB Error] Failed check and prompt restore:", e);
-    if (elements.saveDot && elements.saveText) {
-      elements.saveText.innerText = "DB: OFFLINE";
-      elements.saveDot.style.background = "#f43f5e";
-    }
-    autoBuildExperiment();
+    console.warn("[Restore] localStorage read failed:", e);
   }
+
+  // 2. If not in localStorage, try backend API
+  if (!cdata) {
+    try {
+      const response = await fetch(`/api/db/load-circuit?experiment_type=${expKey}&user_id=a1b2c3d4-e5f6-7890-abcd-ef1234567890`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.status === 'success' && data.circuit && data.circuit.circuit_data) {
+          cdata = data.circuit.circuit_data;
+          console.log("[Restore] Found saved progress in backend for:", expKey);
+        }
+      }
+    } catch (e) {
+      console.warn("[Restore] Backend check failed, using localStorage only.", e);
+    }
+  }
+
+  // 3. If we found saved data, check if it has meaningful content
+  if (cdata) {
+    const hasPlacedComponents = cdata.placedComponents && cdata.placedComponents.length > 0;
+    const hasWires = cdata.wires && cdata.wires.length > 0;
+    const hasDataPoints = cdata.dataPoints && cdata.dataPoints.length > 0;
+
+    if (hasPlacedComponents || hasWires || hasDataPoints) {
+      const modal = document.getElementById('modal-load-confirm');
+      const expNameEl = document.getElementById('confirm-exp-name');
+      
+      if (modal) {
+        if (expNameEl) {
+          const exp = experiments[expKey];
+          expNameEl.innerText = exp ? exp.name : expKey;
+        }
+        modal.style.display = 'flex';
+        
+        const btnRestore = document.getElementById('btn-confirm-restore');
+        const btnNew = document.getElementById('btn-confirm-new');
+        
+        const cleanupModal = () => {
+          modal.style.display = 'none';
+          const newRestore = btnRestore.cloneNode(true);
+          const newNew = btnNew.cloneNode(true);
+          btnRestore.parentNode.replaceChild(newRestore, btnRestore);
+          btnNew.parentNode.replaceChild(newNew, btnNew);
+        };
+        
+        btnRestore.onclick = () => {
+          cleanupModal();
+          applyCircuitData(cdata);
+        };
+        
+        btnNew.onclick = () => {
+          cleanupModal();
+          clearSavedProgress(expKey);
+        };
+
+        if (elements.saveDot && elements.saveText) {
+          elements.saveText.innerText = "SAVED ✓";
+          elements.saveDot.style.background = "#10b981";
+        }
+        return; // Wait for user choice
+      } else {
+        // No modal element found, just apply data
+        applyCircuitData(cdata);
+        return;
+      }
+    }
+  }
+
+  // No saved data found — start fresh (empty breadboard)
+  if (elements.saveDot && elements.saveText) {
+    elements.saveText.innerText = "NO SAVE";
+    elements.saveDot.style.background = "var(--accent)";
+  }
+  // Keep the breadboard empty upon entry, per user preference. Do NOT call autoBuildExperiment().
+  appendAIMessage("Circuit IQ · AI Mentor", `Welcome! The breadboard is empty. Drag and drop components from the left panel to build your circuit, or click the ↺ Reload button to auto-build the default circuit layout.`);
 }
 
 function applyCircuitData(cdata) {
   state.isDatabaseLoading = true;
   if (elements.saveDot && elements.saveText) {
-    elements.saveText.innerText = "DB: RESTORING...";
+    elements.saveText.innerText = "RESTORING...";
     elements.saveDot.style.background = "#3b82f6";
   }
   
@@ -14474,7 +14555,11 @@ function applyCircuitData(cdata) {
     }
     
     // 3. Restore parameter knobs
-    if (cdata.params) {
+    if (cdata._savedParams) {
+      Object.keys(cdata._savedParams).forEach(key => {
+        updateParameterValue(key, cdata._savedParams[key]);
+      });
+    } else if (cdata.params) {
       Object.keys(cdata.params).forEach(key => {
         updateParameterValue(key, cdata.params[key]);
       });
@@ -14497,22 +14582,36 @@ function applyCircuitData(cdata) {
     }
     
     if (elements.saveDot && elements.saveText) {
-      elements.saveText.innerText = "DB: LOADED";
+      elements.saveText.innerText = "RESTORED ✓";
       elements.saveDot.style.background = "#10b981"; // Green indicator
     }
-    appendAIMessage("Circuit IQ · AI Mentor", "Loaded your previously saved circuit layout and observations from database.");
+    appendAIMessage("Circuit IQ · AI Mentor", "Loaded your previously saved circuit layout and observations.");
+    showToastNotification("Previous progress restored successfully!", "success");
   } catch (e) {
-    console.error("[DB Error] Failed to apply loaded circuit:", e);
+    console.error("[Restore Error] Failed to apply loaded circuit:", e);
     if (elements.saveDot && elements.saveText) {
-      elements.saveText.innerText = "DB: OFFLINE";
+      elements.saveText.innerText = "ERROR";
       elements.saveDot.style.background = "#f43f5e";
     }
+    showToastNotification("Failed to restore progress.", "error");
+    // If restoring progress fails, keep it empty by performing setup experiment without DB load
+    setupExperiment(state.activeExperiment, false);
   } finally {
     state.isDatabaseLoading = false;
   }
 }
 
 async function clearSavedProgress(expKey) {
+  // 1. Clear from localStorage
+  try {
+    const storageKey = `circuitiq_save_${expKey}`;
+    localStorage.removeItem(storageKey);
+    console.log("[Clear] Removed localStorage save for:", expKey);
+  } catch (e) {
+    console.warn("[Clear] localStorage remove failed:", e);
+  }
+
+  // 2. Try to clear from backend too
   try {
     const payload = {
       user_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
@@ -14537,106 +14636,102 @@ async function clearSavedProgress(expKey) {
 
     await fetch('/api/db/save-circuit', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    
-    if (elements.saveDot && elements.saveText) {
-      elements.saveText.innerText = "DB: READY";
-      elements.saveDot.style.background = "var(--accent)";
-    }
-    
-    state.dataPoints = [];
-    drawObservationTable();
-    drawGraph();
-    elements.conclusionText.innerHTML = "";
-    updateAIMentor();
-    autoBuildExperiment();
   } catch (e) {
-    console.error("[DB Error] Failed to clear progress:", e);
+    console.warn("[Clear] Backend clear failed, localStorage already cleared.", e);
   }
+  
+  if (elements.saveDot && elements.saveText) {
+    elements.saveText.innerText = "NO SAVE";
+    elements.saveDot.style.background = "var(--accent)";
+  }
+  
+  // Clear all placed components from the 3D scene
+  state.placedComponents.forEach(c => {
+    scene.remove(c.mesh);
+    c.leads.forEach(l => scene.remove(l));
+  });
+  state.placedComponents = [];
+  
+  // Clear all wires from the 3D scene
+  state.wires.forEach(w => {
+    scene.remove(w.lineMesh);
+    w.electrons.forEach(e => scene.remove(e));
+    if (w.pins) w.pins.forEach(p => scene.remove(p));
+    if (w.sleeves) w.sleeves.forEach(s => scene.remove(s));
+  });
+  state.wires = [];
+  
+  // Reset data and UI
+  state.dataPoints = [];
+  state.isRunning = false;
+  stopPollingCalculations();
+  setElectronsActive(false);
+  drawObservationTable();
+  drawGraph();
+  elements.conclusionText.innerHTML = "";
+  updateAIMentor();
+  
+  // Update status bar counts
+  const stComps = document.getElementById('st-comps');
+  const stWires = document.getElementById('st-wires');
+  if (stComps) stComps.innerText = '0';
+  if (stWires) stWires.innerText = '0';
+  
+  appendAIMessage("Circuit IQ · AI Mentor", "Breadboard cleared for a fresh start. Use the ↺ Reload button to auto-build the experiment circuit, or place components manually.");
 }
 
 async function loadCircuitFromBackend(expKey) {
   state.isDatabaseLoading = true;
   if (elements.saveDot && elements.saveText) {
-    elements.saveText.innerText = "DB: LOADING...";
+    elements.saveText.innerText = "LOADING...";
     elements.saveDot.style.background = "#3b82f6"; // Blue indicator
   }
   
+  let cdata = null;
+
+  // 1. Check localStorage first
   try {
-    const response = await fetch(`/api/db/load-circuit?experiment_type=${expKey}&user_id=a1b2c3d4-e5f6-7890-abcd-ef1234567890`);
-    if (!response.ok) {
-      if (elements.saveDot && elements.saveText) {
-        elements.saveText.innerText = "DB: EMPTY";
-        elements.saveDot.style.background = "#64748b";
-      }
-      return;
-    }
-    
-    const data = await response.json();
-    if (data.status === 'success' && data.circuit && data.circuit.circuit_data) {
-      const cdata = data.circuit.circuit_data;
-      
-      // 1. Rebuild component meshes
-      if (cdata.placedComponents && cdata.placedComponents.length > 0) {
-        cdata.placedComponents.forEach(c => {
-          placeComponent3D(c.type, c.snap1, c.snap2);
-        });
-      }
-      
-      // 2. Rebuild wires
-      if (cdata.wires && cdata.wires.length > 0) {
-        cdata.wires.forEach(w => {
-          create3DWire(w.fromHole, w.toHole, false);
-        });
-      }
-      
-      // 3. Restore parameter knobs
-      if (cdata.params) {
-        Object.keys(cdata.params).forEach(key => {
-          updateParameterValue(key, cdata.params[key]);
-        });
-      }
-      
-      // 4. Restore recorded data points (readings)
-      if (cdata.dataPoints) {
-        state.dataPoints = cdata.dataPoints;
-        drawObservationTable();
-        drawGraph();
-        
-        if (state.dataPoints.length > 0) {
-          const conclusion = generateExperimentConclusion(state.activeExperiment, state.dataPoints);
-          elements.conclusionText.innerHTML = `<b>Conclusion:</b><br>${conclusion}`;
-        }
-      } else {
-        state.dataPoints = [];
-        drawObservationTable();
-        drawGraph();
-      }
-      
-      if (elements.saveDot && elements.saveText) {
-        elements.saveText.innerText = "DB: LOADED";
-        elements.saveDot.style.background = "#10b981"; // Green indicator
-      }
-      appendAIMessage("Circuit IQ · AI Mentor", "Loaded your previously saved circuit layout and observations from database.");
-    } else {
-      if (elements.saveDot && elements.saveText) {
-        elements.saveText.innerText = "DB: READY";
-        elements.saveDot.style.background = "var(--accent)";
+    const storageKey = `circuitiq_save_${expKey}`;
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed && parsed.circuit_data) {
+        cdata = parsed.circuit_data;
+        if (parsed.params) cdata._savedParams = parsed.params;
       }
     }
   } catch (e) {
-    console.error("[DB Error] Failed to load circuit diagram:", e);
-    if (elements.saveDot && elements.saveText) {
-      elements.saveText.innerText = "DB: OFFLINE";
-      elements.saveDot.style.background = "#f43f5e";
-    }
-  } finally {
-    state.isDatabaseLoading = false;
+    console.warn("[Load] localStorage read failed:", e);
   }
+
+  // 2. Try backend if localStorage empty
+  if (!cdata) {
+    try {
+      const response = await fetch(`/api/db/load-circuit?experiment_type=${expKey}&user_id=a1b2c3d4-e5f6-7890-abcd-ef1234567890`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.status === 'success' && data.circuit && data.circuit.circuit_data) {
+          cdata = data.circuit.circuit_data;
+        }
+      }
+    } catch (e) {
+      console.warn("[Load] Backend load failed:", e);
+    }
+  }
+
+  if (cdata) {
+    applyCircuitData(cdata);
+  } else {
+    if (elements.saveDot && elements.saveText) {
+      elements.saveText.innerText = "NO SAVE";
+      elements.saveDot.style.background = "#64748b";
+    }
+  }
+
+  state.isDatabaseLoading = false;
 }
 
 async function saveExperimentLogToBackend(notes = "", score = null) {
