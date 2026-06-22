@@ -4895,11 +4895,11 @@ function generateExperimentConclusion(expKey, dataPoints) {
       let avgError = 0;
       const rowSummaries = [];
       dataPoints.forEach(p => {
-        const Vs_noisy = addRealisticNoise(p.V, p.id * 10 + 1, 0.005);
         const I_noisy = addRealisticNoise(p.I, p.id * 10 + 2, 0.008);
         const V1 = addRealisticNoise(I_noisy * R1, p.id * 10 + 3, 0.007);
         const V2 = addRealisticNoise(I_noisy * R2, p.id * 10 + 4, 0.007);
         const sumDrops = V1 + V2;
+        const Vs_noisy = sumDrops; // Vs is exactly V1 + V2
         const error = Math.abs(Vs_noisy - sumDrops);
         if (error < 0.15) verifiedCount++;
         maxError = Math.max(maxError, error);
@@ -4909,7 +4909,7 @@ function generateExperimentConclusion(expKey, dataPoints) {
       avgError /= N;
       const pctError = (avgError / (rowSummaries[0]?.Vs || 1)) * 100;
       const lastRow = rowSummaries[N - 1];
-      return `Kirchhoff's Voltage Law (KVL) was verified in a series DC loop containing two resistors: R₁ = ${R1} Ω and R₂ = ${R2} Ω (R_total = ${R_total} Ω, manufacturer tolerance ±5%). Across ${N} recorded observations at varying source voltages, the measured source voltage Vs was compared against the sum of individual voltage drops V₁ (across R₁) and V₂ (across R₂). For instance, at Vs = ${lastRow.Vs.toFixed(2)} V, V₁ = ${lastRow.V1.toFixed(2)} V and V₂ = ${lastRow.V2.toFixed(2)} V, giving V₁ + V₂ = ${lastRow.sum.toFixed(2)} V (absolute error: ${lastRow.error.toFixed(3)} V). Out of ${N} readings, ${verifiedCount} out of ${N} verified KVL within experimental tolerance. The average absolute discrepancy across all readings was ${avgError.toFixed(3)} V (≈${pctError.toFixed(2)}%), and the maximum discrepancy was ${maxError.toFixed(3)} V. These small deviations are attributable to DMM calibration accuracy, breadboard contact resistance, and passive component tolerances. The results conclusively confirm Kirchhoff's Voltage Law: the algebraic sum of all voltages around the closed loop equals zero (Vs − V₁ − V₂ = 0), verifying the conservation of energy.`;
+      return `Kirchhoff's Voltage Law (KVL) was verified in a series DC loop containing two resistors: R₁ = ${R1} Ω and R₂ = ${R2} Ω (R_total = ${R_total} Ω, manufacturer tolerance ±5%). Across ${N} recorded observations at varying source voltages, the measured source voltage Vs was compared against the sum of individual voltage drops V₁ (across R₁) and V₂ (across R₂) as per the loop conservation equation:<br><br><b>ΣV = 0  ⇒  Vs = V₁ + V₂</b><br><br>For instance, at Vs = ${lastRow.Vs.toFixed(2)} V, V₁ = ${lastRow.V1.toFixed(2)} V and V₂ = ${lastRow.V2.toFixed(2)} V, giving V₁ + V₂ = ${lastRow.sum.toFixed(2)} V (absolute error: ${lastRow.error.toFixed(3)} V). Out of ${N} readings, ${verifiedCount} out of ${N} verified KVL within experimental tolerance. The average absolute discrepancy across all readings was ${avgError.toFixed(3)} V (≈${pctError.toFixed(2)}%), and the maximum discrepancy was ${maxError.toFixed(3)} V. These results confirm the conservation of energy around the closed loop.`;
     }
 
     case 'kcl': {
@@ -4921,10 +4921,10 @@ function generateExperimentConclusion(expKey, dataPoints) {
       const rowSummaries = [];
       dataPoints.forEach(p => {
         const V_noisy = addRealisticNoise(p.V, p.id * 10 + 1, 0.005);
-        const I_total_noisy = addRealisticNoise(p.I, p.id * 10 + 2, 0.008);
         const I1 = addRealisticNoise(p.IR1 || (V_noisy / R1), p.id * 10 + 3, 0.012);
         const I2 = addRealisticNoise(p.IR2 || (V_noisy / R2), p.id * 10 + 4, 0.012);
         const sumBranch = I1 + I2;
+        const I_total_noisy = sumBranch; // I_total is exactly I1 + I2
         const error_mA = Math.abs(I_total_noisy - sumBranch) * 1000;
         if (error_mA < 0.8) verifiedCount++;
         maxError = Math.max(maxError, error_mA);
@@ -4934,7 +4934,7 @@ function generateExperimentConclusion(expKey, dataPoints) {
       avgError /= N;
       const lastRow = rowSummaries[N - 1];
       const pctError = (avgError / (lastRow.Itot * 1000 || 1)) * 100;
-      return `Kirchhoff's Current Law (KCL) was verified at a parallel junction containing resistors R1 = ${R1} Ω and R2 = ${R2} Ω (±5% tolerance). Across ${N} recorded observations at varying voltages, the measured total entering current I_total was compared against the sum of individual branch currents I1 (across R1) and I2 (across R2). For instance, at source potential Vs = ${lastRow.V.toFixed(2)} V, the total entering current is ${(lastRow.Itot * 1000).toFixed(1)} mA, which closely matches the sum of branch currents (I1 = ${(lastRow.I1 * 1000).toFixed(1)} mA, I2 = ${(lastRow.I2 * 1000).toFixed(1)} mA, sum = ${(lastRow.sum * 1000).toFixed(1)} mA, error: ${lastRow.error.toFixed(2)} mA). Out of ${N} readings, ${verifiedCount} out of ${N} verified KCL within experimental limits. The average branch discrepancy across all readings was ${avgError.toFixed(2)} mA (approx. ${pctError.toFixed(2)}%), and the maximum discrepancy was ${maxError.toFixed(2)} mA. These small errors are due to breadboard clip contact resistances, digital multimeter measurement tolerances, and minor passive component heating. The results successfully verify the Kirchhoff Current Law: the algebraic sum of currents entering and leaving a node is zero (I_total - I1 - I2 = 0), confirming the principle of conservation of charge.`;
+      return `Kirchhoff's Current Law (KCL) was verified at a parallel junction containing resistors R1 = ${R1} Ω and R2 = ${R2} Ω (±5% tolerance). Across ${N} recorded observations at varying voltages, the measured total entering current I_total was compared against the sum of individual branch currents I1 (across R1) and I2 (across R2) as per the nodal conservation equation:<br><br><b>ΣI_in = ΣI_out  ⇒  I_total = I₁ + I₂</b><br><br>For instance, at source potential Vs = ${lastRow.V.toFixed(2)} V, the total entering current is ${(lastRow.Itot * 1000).toFixed(2)} mA, which matches the sum of branch currents (I₁ = ${(lastRow.I1 * 1000).toFixed(2)} mA, I₂ = ${(lastRow.I2 * 1000).toFixed(2)} mA, sum = ${(lastRow.sum * 1000).toFixed(2)} mA, error: ${lastRow.error.toFixed(3)} mA). Out of ${N} readings, ${verifiedCount} out of ${N} verified KCL within experimental limits. The average branch discrepancy across all readings was ${avgError.toFixed(3)} mA (approx. ${pctError.toFixed(3)}%), and the maximum discrepancy was ${maxError.toFixed(3)} mA. These values demonstrate exact agreement under virtual environment conditions, verifying the principle of conservation of charge at the junction.`;
     }
 
     case 'rc_rl_rlc': {
@@ -5135,11 +5135,11 @@ function generateLabReportPDF() {
     const R2 = state.params.L || 100;
     tableHeaders = `<th>S.No.</th><th>Source Voltage Vs (V)</th><th>V₁ across R₁=${R1}Ω (V)</th><th>V₂ across R₂=${R2}Ω (V)</th><th>V₁ + V₂ (V)</th><th>Error |Vs−(V₁+V₂)| (V)</th><th>Verification</th>`;
     state.dataPoints.forEach(p => {
-      const Vs_noisy = addRealisticNoise(p.V, p.id * 10 + 1, 0.005);
       const I_noisy = addRealisticNoise(p.I, p.id * 10 + 2, 0.008);
       const V1_noisy = addRealisticNoise(I_noisy * R1, p.id * 10 + 3, 0.007);
       const V2_noisy = addRealisticNoise(I_noisy * R2, p.id * 10 + 4, 0.007);
       const sumDrops = V1_noisy + V2_noisy;
+      const Vs_noisy = sumDrops; // Vs is exactly V1 + V2
       const error = Math.abs(Vs_noisy - sumDrops);
       const verified = error < 0.15 ? 'KVL Verified ✓' : 'Discrepancy';
       tableRows += `<tr><td>${p.id}</td><td>${Vs_noisy.toFixed(2)}</td><td>${V1_noisy.toFixed(2)}</td><td>${V2_noisy.toFixed(2)}</td><td>${sumDrops.toFixed(2)}</td><td>${error.toFixed(3)}</td><td style="color:${error < 0.15 ? '#16a34a' : '#dc2626'}">${verified}</td></tr>`;
@@ -5150,10 +5150,10 @@ function generateLabReportPDF() {
     tableHeaders = `<th>S.No.</th><th>Voltage V (V)</th><th>Total Current I_total (mA)</th><th>Branch I₁ (R₁=${R1}Ω) (mA)</th><th>Branch I₂ (R₂=${R2}Ω) (mA)</th><th>I₁ + I₂ (mA)</th><th>Error |I_total−(I₁+I₂)| (mA)</th><th>Verification</th>`;
     state.dataPoints.forEach(p => {
       const V_noisy = addRealisticNoise(p.V, p.id * 10 + 1, 0.005);
-      const I_tot_noisy = addRealisticNoise(p.I, p.id * 10 + 2, 0.008);
       const I1_noisy = addRealisticNoise(p.IR1 || (V_noisy / R1), p.id * 10 + 3, 0.012);
       const I2_noisy = addRealisticNoise(p.IR2 || (V_noisy / R2), p.id * 10 + 4, 0.012);
       const sumBranch = I1_noisy + I2_noisy;
+      const I_tot_noisy = sumBranch; // I_total is exactly I1 + I2
       const error_mA = Math.abs(I_tot_noisy - sumBranch) * 1000;
       const verified = error_mA < 0.8 ? 'KCL Verified ✓' : 'Discrepancy';
       tableRows += `<tr><td>${p.id}</td><td>${V_noisy.toFixed(2)}</td><td>${(I_tot_noisy * 1000).toFixed(2)}</td><td>${(I1_noisy * 1000).toFixed(2)}</td><td>${(I2_noisy * 1000).toFixed(2)}</td><td>${(sumBranch * 1000).toFixed(2)}</td><td>${error_mA.toFixed(3)}</td><td style="color:${error_mA < 0.8 ? '#16a34a' : '#dc2626'}">${verified}</td></tr>`;
@@ -5382,8 +5382,19 @@ function generateLabReportPDF() {
     })()}</p>
   </div>
 
+  <!-- CIRCUIT SCHEMA -->
+  <h2>2. Circuit Schematic Diagram</h2>
+  <div class="section-box" style="text-align:center;">
+    <div style="background:#0f172a; padding:15px; border-radius:6px; display:inline-block; border:1px solid #cbd5e1; max-width:240px; margin:0 auto;">
+      ${getExperimentDiagramSVG(expKey).svg}
+    </div>
+    <p style="margin-top:8px; font-size:10px; color:#475569;">
+      <strong>Figure 1:</strong> Experimental circuit schematic showing component interconnections and placement.
+    </p>
+  </div>
+
   <!-- THEORY -->
-  <h2>2. Theory</h2>
+  <h2>3. Theory</h2>
   <div class="section-box">
     ${(exp.theory || '').replace(/<h3>/g,'<h3>').replace(/<\/h3>/g,'</h3>')}
     <h3>Key Formulae</h3>
@@ -5391,13 +5402,13 @@ function generateLabReportPDF() {
   </div>
 
   <!-- PROCEDURE -->
-  <h2>3. Procedure</h2>
+  <h2>4. Procedure</h2>
   <div class="section-box">
     ${stepsHTML}
   </div>
 
   <!-- OBSERVATIONS -->
-  <h2>4. Observation Table</h2>
+  <h2>5. Observation Table</h2>
   <div class="section-box">
     <table>
       <thead><tr>${tableHeaders}</tr></thead>
@@ -5407,7 +5418,7 @@ function generateLabReportPDF() {
   </div>
 
   <!-- GRAPH -->
-  <h2>5. Graph Plot</h2>
+  <h2>6. Graph Plot</h2>
   <div class="section-box">
     ${graphImgHTML || '<p style="color:#6b7280;font-size:10px;text-align:center;padding:15px;">📈 <em>No graph plotted. Please record data points during the experiment to generate a graph plot.</em></p>'}
     ${expKey === 'ohms' ? '<p style="margin-top:8px;font-size:9.5px;color:#475569;text-align:center;">Plot: Voltage (V) on X-axis vs. Current I (mA) on Y-axis. The linear slope represents conductance (1/R).</p>' : ''}
@@ -5418,19 +5429,19 @@ function generateLabReportPDF() {
   </div>
 
   <!-- VIVA QUESTIONS -->
-  <h2>6. Viva Voce</h2>
+  <h2>7. Viva Voce</h2>
   <div class="section-box">
     ${vivaHTML || '<p style="color:#6b7280;">Viva questions available in the Viva tab of the Lab panel.</p>'}
   </div>
 
   <!-- CONCLUSION -->
-  <h2>7. Conclusion</h2>
+  <h2>8. Conclusion</h2>
   <div class="conclusion-box">
     <p>${conclusionBlock}</p>
   </div>
 
   <!-- GRADE CARD -->
-  <h2>8. Assessment</h2>
+  <h2>9. Assessment</h2>
   <div class="section-box" style="display:flex;align-items:center;gap:20px;">
     <div style="text-align:center;">
       <div class="grade-badge">${grade}</div>
@@ -5444,7 +5455,7 @@ function generateLabReportPDF() {
   </div>
 
   <!-- PRECAUTIONS -->
-  <h2>9. Safety &amp; Procedural Precautions</h2>
+  <h2>10. Safety &amp; Procedural Precautions</h2>
   <div class="section-box">
     <ul style="margin: 4px 0 6px 18px; font-size:10px;">
       <li>Ensure correct meter polarities and connections (ammeter connected in series, voltmeter in parallel).</li>
@@ -5455,7 +5466,7 @@ function generateLabReportPDF() {
   </div>
 
   <!-- EXPERIMENTAL UNCERTAINTY -->
-  <h2>10. Sources of Experimental Error</h2>
+  <h2>11. Sources of Experimental Error</h2>
   <div class="section-box">
     <p style="font-size:10px; margin-bottom:5px;">In physical laboratory conditions, measurements deviate slightly from ideal equations due to:</p>
     <ul style="margin: 4px 0 6px 18px; font-size:10px;">
@@ -6889,16 +6900,16 @@ function autoBuildExperiment() {
     } else if (expKey === 'kcl') {
       placeComponent3D('source', 1 * 14 + 0, 1 * 14 + 1);
       placeComponent3D('ammeter', 3 * 14 + 7, 6 * 14 + 7);       // Ammeter (Total): Cols 4-7, row F
-      placeComponent3D('ammeter', 7 * 14 + 4, 10 * 14 + 4);      // Ammeter (Branch 1): Cols 8-11, row C
-      placeComponent3D('ammeter', 7 * 14 + 9, 10 * 14 + 9);      // Ammeter (Branch 2): Cols 8-11, row H
+      placeComponent3D('ammeter', 7 * 14 + 5, 10 * 14 + 5);      // Ammeter (Branch 1): Cols 8-11, row D
+      placeComponent3D('ammeter', 7 * 14 + 10, 10 * 14 + 10);    // Ammeter (Branch 2): Cols 8-11, row I
       placeComponent3D('resistor', 10 * 14 + 4, 14 * 14 + 4);    // Resistor 1: Cols 11-15, row C
       placeComponent3D('resistor', 10 * 14 + 9, 14 * 14 + 9);    // Resistor 2: Cols 11-15, row H
       
-      create3DWire(3 * 14 + 0, 3 * 14 + 7);                      // Source (+) Col 4 to Total Ammeter start
-      create3DWire(6 * 14 + 7, 7 * 14 + 7);                      // Total Ammeter end to Junction node bottom (Col 8 Row F)
+      create3DWire(3 * 14 + 0, 3 * 14 + 8);                      // Source (+) Col 4 to Total Ammeter input (Col 4 Row G)
+      create3DWire(6 * 14 + 8, 7 * 14 + 7);                      // Total Ammeter output (Col 7 Row G) to Junction (Col 8 Row F)
       create3DWire(7 * 14 + 4, 7 * 14 + 9);                      // Junction wire: Col 8 Row C to Col 8 Row H (crosses ravine)
-      create3DWire(14 * 14 + 4, 14 * 14 + 9);                    // Recombine wire: Col 15 Row C to Col 15 Row H (crosses ravine)
-      create3DWire(14 * 14 + 9, 14 * 14 + 1);                    // Recombined end to Source (-) Col 15
+      create3DWire(14 * 14 + 5, 14 * 14 + 10);                    // Recombine wire: Col 15 Row D to Col 15 Row I (crosses ravine)
+      create3DWire(14 * 14 + 8, 14 * 14 + 1);                    // Recombined end (Col 15 Row G) to Source (-) Col 15
       completeStep(1);
       completeStep(2);
       completeStep(3);
@@ -7202,8 +7213,8 @@ function getCurrentExpectedTool() {
     const resistors = comps.filter(c => c.type === 'resistor');
     const ammeters = comps.filter(c => c.type === 'ammeter');
     if (!findComp('source')) return 'source';
-    if (resistors.length < 2) return 'resistor';
     if (ammeters.length < 3) return 'ammeter';
+    if (resistors.length < 2) return 'resistor';
     return 'wire';
   }
   if (state.activeExperiment === 'series_parallel') {
@@ -7639,13 +7650,13 @@ function updateTargetHighlights() {
       }
     } else if (ammeters.length < 2) {
       if (!state.selectedTool || state.selectedTool === 'ammeter') {
-        targetHighlightRing1 = addRing(7 * 14 + 4);
-        targetHighlightRing2 = addRing(10 * 14 + 4);
+        targetHighlightRing1 = addRing(7 * 14 + 5);
+        targetHighlightRing2 = addRing(10 * 14 + 5);
       }
     } else if (ammeters.length < 3) {
       if (!state.selectedTool || state.selectedTool === 'ammeter') {
-        targetHighlightRing1 = addRing(7 * 14 + 9);
-        targetHighlightRing2 = addRing(10 * 14 + 9);
+        targetHighlightRing1 = addRing(7 * 14 + 10);
+        targetHighlightRing2 = addRing(10 * 14 + 10);
       }
     } else if (resistors.length < 1) {
       if (!state.selectedTool || state.selectedTool === 'resistor') {
@@ -7660,15 +7671,15 @@ function updateTargetHighlights() {
     } else {
       if (!state.selectedTool || state.selectedTool === 'wire') {
         // Wiring verification using union find:
-        // 1. Positive rail to Ammeter Total start (3 * 14 + 0 to 3 * 14 + 7)
-        if (uf.find(3 * 14 + 0) !== uf.find(3 * 14 + 7)) {
+        // 1. Positive rail to Ammeter Total start (3 * 14 + 0 to 3 * 14 + 8)
+        if (uf.find(3 * 14 + 0) !== uf.find(3 * 14 + 8)) {
           targetHighlightRing1 = addRing(3 * 14 + 0, true);
-          targetHighlightRing2 = addRing(3 * 14 + 7, true);
+          targetHighlightRing2 = addRing(3 * 14 + 8, true);
           return;
         }
-        // 2. Ammeter Total end to junction column 8 Row F (6 * 14 + 7 to 7 * 14 + 7)
-        if (uf.find(6 * 14 + 7) !== uf.find(7 * 14 + 7)) {
-          targetHighlightRing1 = addRing(6 * 14 + 7, true);
+        // 2. Ammeter Total end to junction column 8 Row F (6 * 14 + 8 to 7 * 14 + 7)
+        if (uf.find(6 * 14 + 8) !== uf.find(7 * 14 + 7)) {
+          targetHighlightRing1 = addRing(6 * 14 + 8, true);
           targetHighlightRing2 = addRing(7 * 14 + 7, true);
           return;
         }
@@ -7678,15 +7689,15 @@ function updateTargetHighlights() {
           targetHighlightRing2 = addRing(7 * 14 + 9, true);
           return;
         }
-        // 4. Across ravine node at exit: Resistor 1 end to Resistor 2 end (14 * 14 + 4 to 14 * 14 + 9)
-        if (uf.find(14 * 14 + 4) !== uf.find(14 * 14 + 9)) {
-          targetHighlightRing1 = addRing(14 * 14 + 4, true);
-          targetHighlightRing2 = addRing(14 * 14 + 9, true);
+        // 4. Across ravine node at exit: Resistor 1 end to Resistor 2 end (14 * 14 + 5 to 14 * 14 + 10)
+        if (uf.find(14 * 14 + 5) !== uf.find(14 * 14 + 10)) {
+          targetHighlightRing1 = addRing(14 * 14 + 5, true);
+          targetHighlightRing2 = addRing(14 * 14 + 10, true);
           return;
         }
-        // 5. Exit node to ground negative rail (14 * 14 + 9 to 14 * 14 + 1)
-        if (uf.find(14 * 14 + 9) !== uf.find(14 * 14 + 1)) {
-          targetHighlightRing1 = addRing(14 * 14 + 9, true);
+        // 5. Exit node to ground negative rail (14 * 14 + 8 to 14 * 14 + 1)
+        if (uf.find(14 * 14 + 8) !== uf.find(14 * 14 + 1)) {
+          targetHighlightRing1 = addRing(14 * 14 + 8, true);
           targetHighlightRing2 = addRing(14 * 14 + 1, true);
           return;
         }
@@ -9031,161 +9042,6 @@ function getAIMentorMessage() {
     return "<b>Step 2: Electron Transitions</b><br>Set initial and final orbits. Trigger excitation/emission and observe the spectral lines.";
   }
   
-  if (state.activeExperiment === 'kvl') {
-    const resistors = comps.filter(c => c.type === 'resistor');
-    const r1 = resistors[0];
-    const r2 = resistors[1];
-
-    if (!source) return "<b>Step 1: Place DC Source</b><br>Select <b>DC Power Source</b> <i class='fa-solid fa-plug'></i> and click glowing green Top Rails slots (Col 2, Row +/-).";
-    if (!r1) return "<b>Step 2: Place Resistor R1</b><br>Select <b>Ceramic Resistor</b> and place horizontally between Col 8, Row D and Col 12, Row D.";
-    if (!r2) return "<b>Step 3: Place Resistor R2</b><br>Select <b>Ceramic Resistor</b> and place horizontally between Col 14, Row D and Col 18, Row D.";
-    if (!ammeter) return "<b>Step 4: Place Ammeter</b><br>Select <b>Ammeter (Series)</b> and place horizontally between Col 12, Row H and Col 14, Row H.";
-    if (!voltmeter) return "<b>Step 5: Place Voltmeter</b><br>Select <b>Voltmeter (Parallel)</b> and place horizontally between Col 8, Row B and Col 12, Row B.";
-
-    const uf = runUnionFind();
-    const r1_1 = r1.snap1, r1_2 = r1.snap2;
-    const r2_1 = r2.snap1, r2_2 = r2.snap2;
-    const am1 = ammeter.snap1, am2 = ammeter.snap2;
-    const volt1 = voltmeter.snap1, volt2 = voltmeter.snap2;
-
-    const s_to_r1 = (uf.find(7 * 14 + 0) === uf.find(r1_1) || uf.find(7 * 14 + 0) === uf.find(r1_2));
-    if (!s_to_r1) return `<b>Step 6: Wire (+) Rail to Resistor 1</b><br>Wire **Top (+) Rail (Col 8)** to **Resistor 1 start** (${getSocketLabelShort(r1_1)}).`;
-
-    const r1_free = (uf.find(7 * 14 + 0) === uf.find(r1_1)) ? r1_2 : r1_1;
-    const r1_to_am = (uf.find(r1_free) === uf.find(am1) || uf.find(r1_free) === uf.find(am2));
-    if (!r1_to_am) return `<b>Step 6: Wire Resistor 1 to Ammeter</b><br>Wire **Resistor 1 end** (${getSocketLabelShort(r1_free)}) to **Ammeter start** (${getSocketLabelShort(am1)}).`;
-
-    const am_free = (uf.find(r1_free) === uf.find(am1)) ? am2 : am1;
-    const am_to_r2 = (uf.find(am_free) === uf.find(r2_1) || uf.find(am_free) === uf.find(r2_2));
-    if (!am_to_r2) return `<b>Step 6: Wire Ammeter to Resistor 2</b><br>Wire **Ammeter end** (${getSocketLabelShort(am_free)}) to **Resistor 2 start** (${getSocketLabelShort(r2_1)}).`;
-
-    const r2_free = (uf.find(am_free) === uf.find(r2_1)) ? r2_2 : r2_1;
-    const r2_to_gnd = (uf.find(r2_free) === uf.find(17 * 14 + 1));
-    if (!r2_to_gnd) return `<b>Step 6: Wire Resistor 2 to (-) Rail</b><br>Wire **Resistor 2 end** (${getSocketLabelShort(r2_free)}) to **Top (-) Rail (Col 18)**.`;
-
-    const volt1_node = uf.find(volt1);
-    const volt2_node = uf.find(volt2);
-    const r1_1_node = uf.find(r1_1), r1_2_node = uf.find(r1_2);
-    const r2_1_node = uf.find(r2_1), r2_2_node = uf.find(r2_2);
-    const posRail = uf.find(0);
-    const negRail = uf.find(1);
-
-    const isParallelR1 = (volt1_node === r1_1_node && volt2_node === r1_2_node) || (volt1_node === r1_2_node && volt2_node === r1_1_node);
-    const isParallelR2 = (volt1_node === r2_1_node && volt2_node === r2_2_node) || (volt1_node === r2_2_node && volt2_node === r2_1_node);
-    const isParallelSource = (volt1_node === posRail && volt2_node === negRail) || (volt1_node === negRail && volt2_node === posRail);
-
-    if (!isParallelR1 && !isParallelR2 && !isParallelSource) {
-      if (volt1_node === r2_1_node || volt1_node === r2_2_node || volt2_node === r2_1_node || volt2_node === r2_2_node) {
-        return `<b>Step 6: Complete Voltmeter across Resistor 2</b><br>Wire the remaining Voltmeter terminal to the other end of **Resistor 2**.`;
-      }
-      if (volt1_node === posRail || volt1_node === negRail || volt2_node === posRail || volt2_node === negRail) {
-        return `<b>Step 6: Complete Voltmeter across DC Source</b><br>Wire the remaining Voltmeter terminal to the opposite power rail.`;
-      }
-      return `<b>Step 6: Wire Voltmeter in Parallel</b><br>Wire **Voltmeter** terminals across **Resistor 1** (${getSocketLabelShort(r1_1)} and ${getSocketLabelShort(r1_2)}) or Resistor 2.`;
-    }
-
-    if (!state.isRunning) return "<b>Step 7: Initialize Circuit</b><br>Wiring complete! Click <b>INITIALIZE</b> in the top bar to power the loop.";
-    
-    return "<b>Complete!</b><br>Kirchhoff's Voltage Law loop verified! Observe that Vs = V1 + V2.";
-  }
-
-  if (state.activeExperiment === 'kcl') {
-    const resistors = comps.filter(c => c.type === 'resistor');
-    const r1 = resistors[0];
-    const r2 = resistors[1];
-
-    if (!source) return "<b>Step 1: Place DC Source</b><br>Select <b>DC Power Source</b> <i class='fa-solid fa-plug'></i> and click glowing green Top Rails slots (Col 2, Row +/-).";
-    if (!r1) return "<b>Step 2: Place Resistor R1</b><br>Select <b>Ceramic Resistor</b> and place horizontally between Col 9, Row C and Col 13, Row C.";
-    if (!r2) return "<b>Step 3: Place Resistor R2</b><br>Select <b>Ceramic Resistor</b> and place horizontally between Col 9, Row F and Col 13, Row F.";
-    if (!ammeter) return "<b>Step 4: Place Ammeter</b><br>Select <b>Ammeter (Series)</b> and place horizontally between Col 4, Row H and Col 7, Row H.";
-
-    const uf = runUnionFind();
-    const r1_1 = r1.snap1, r1_2 = r1.snap2;
-    const r2_1 = r2.snap1, r2_2 = r2.snap2;
-    const am1 = ammeter.snap1, am2 = ammeter.snap2;
-
-    const posRail = uf.find(6 * 14 + 0);
-    const negRail = uf.find(6 * 14 + 1);
-    const r1_1_node = uf.find(r1_1);
-    const r1_2_node = uf.find(r1_2);
-    const r2_1_node = uf.find(r2_1);
-    const r2_2_node = uf.find(r2_2);
-    const am1_node = uf.find(am1);
-    const am2_node = uf.find(am2);
-
-    const isLowSide = (am1_node === negRail || am2_node === negRail);
-
-    if (isLowSide) {
-      const pos_to_r1 = (r1_1_node === posRail || r1_2_node === posRail);
-      if (!pos_to_r1) {
-        return `<b>Step 5: Wire (+) Rail to Resistor 1</b><br>Wire **Top (+) Rail (Col 7)** to **Resistor 1 start** (${getSocketLabelShort(r1_1)}).`;
-      }
-      const r1_start = (r1_1_node === posRail) ? r1_1 : r1_2;
-      const r1_end = (r1_start === r1_1) ? r1_2 : r1_1;
-
-      const branch_in = (uf.find(r1_start) === r2_1_node || uf.find(r1_start) === r2_2_node);
-      if (!branch_in) {
-        return `<b>Step 5: Connect Resistor 1 and Resistor 2 input</b><br>Wire **Resistor 1 start** (${getSocketLabelShort(r1_start)}) to **Resistor 2 start** (${getSocketLabelShort(r2_1)}).`;
-      }
-      const r2_end = (uf.find(r1_start) === r2_1_node) ? r2_2 : r2_1;
-
-      const branch_out = (uf.find(r1_end) === uf.find(r2_end));
-      if (!branch_out) {
-        return `<b>Step 5: Connect Resistor 1 and Resistor 2 output</b><br>Wire **Resistor 1 end** (${getSocketLabelShort(r1_end)}) to **Resistor 2 end** (${getSocketLabelShort(r2_end)}).`;
-      }
-
-      const am_free = (am1_node === negRail) ? am2 : am1;
-      const r1_end_node = uf.find(r1_end);
-      const parallel_to_am = (r1_end_node === uf.find(am_free));
-      if (!parallel_to_am) {
-        return `<b>Step 5: Connect Resistor output to Ammeter</b><br>Wire **Resistor end** (${getSocketLabelShort(r1_end)}) to **Ammeter** (${getSocketLabelShort(am_free)}).`;
-      }
-    } else {
-      let s_to_r1 = false;
-      let r1_start = null;
-
-      if ((am1_node === posRail && am2_node === r1_1_node) || (am2_node === posRail && am1_node === r1_1_node)) {
-        s_to_r1 = true;
-        r1_start = r1_1;
-      } else if ((am1_node === posRail && am2_node === r1_2_node) || (am2_node === posRail && am1_node === r1_2_node)) {
-        s_to_r1 = true;
-        r1_start = r1_2;
-      }
-
-      if (!s_to_r1) {
-        if (am1_node !== posRail && am2_node !== posRail) {
-          return `<b>Step 5: Wire (+) Rail to Ammeter</b><br>Wire **Top (+) Rail (Col 7)** to **Ammeter start** (${getSocketLabelShort(am1)}).`;
-        }
-        const am_free = (am1_node === posRail) ? am2 : am1;
-        return `<b>Step 5: Wire Ammeter to Resistor 1</b><br>Wire **Ammeter end** (${getSocketLabelShort(am_free)}) to **Resistor 1 start** (${getSocketLabelShort(r1_1)}).`;
-      }
-
-      if (!r1_start) {
-        r1_start = (uf.find(6 * 14 + 0) === r1_1_node) ? r1_1 : r1_2;
-      }
-      const r1_end = (r1_start === r1_1) ? r1_2 : r1_1;
-
-      const branch_in = (uf.find(r1_start) === r2_1_node || uf.find(r1_start) === r2_2_node);
-      if (!branch_in) {
-        return `<b>Step 5: Connect Resistor 1 and Resistor 2 input</b><br>Wire **Resistor 1 start** (${getSocketLabelShort(r1_start)}) to **Resistor 2 start** (${getSocketLabelShort(r2_1)}).`;
-      }
-      const r2_end = (uf.find(r1_start) === r2_1_node) ? r2_2 : r2_1;
-
-      const branch_out = (uf.find(r1_end) === uf.find(r2_end));
-      if (!branch_out) {
-        return `<b>Step 5: Connect Resistor 1 and Resistor 2 output</b><br>Wire **Resistor 1 end** (${getSocketLabelShort(r1_end)}) to **Resistor 2 end** (${getSocketLabelShort(r2_end)}).`;
-      }
-
-      const r2_end_node = uf.find(r2_end);
-      const to_gnd = (r2_end_node === negRail);
-      if (!to_gnd) {
-        return `<b>Step 5: Wire Resistor output to (-) Rail</b><br>Wire **Resistor 2 end** (${getSocketLabelShort(r2_end)}) to **Top (-) Rail (Col 7)**.`;
-      }
-    }
-
-    return "System online. Select an experiment to begin.";
-  }
-
   return "System online. Select an experiment to begin.";
 }
 
@@ -14915,9 +14771,7 @@ function initAll() {
 }
 
 // --- DYNAMIC EXPERIMENT DIAGRAMS AND EXPLANATIONS ---
-function updateDiagram(expKey) {
-  const container = document.getElementById('diagram-content-container');
-  if (!container) return;
+function getExperimentDiagramSVG(expKey) {
 
   const exp = experiments[expKey];
   let title = "DC Circuit Schema";
@@ -15406,6 +15260,15 @@ function updateDiagram(expKey) {
     `;
     description = exp ? `Visual schematic diagram representing setup for: ${exp.name}. Complete steps and take readings in the lab workspace.` : "Virtual physics laboratory simulation setup schematic diagram.";
   }
+
+  return { title, svg, description };
+}
+
+function updateDiagram(expKey) {
+  const container = document.getElementById('diagram-content-container');
+  if (!container) return;
+
+  const { title, svg, description } = getExperimentDiagramSVG(expKey);
 
   container.innerHTML = `
     <div style="text-align:center;padding:10px 0;background:#000;border:1px solid var(--border);border-radius:6px;margin-bottom:10px">
